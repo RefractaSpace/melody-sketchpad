@@ -28,8 +28,8 @@ function resultText() {
   return L.join('\n');
 }
 $('copy').onclick = async () => {
-  const t = resultText(), out = $('out'); out.value = t;
-  try { await navigator.clipboard.writeText(t); status('복사했어요. 대화에 붙여 주세요.'); out.style.display = 'none'; }
+  const t = scoreText(lib.list[lib.current]?.name), out = $('out'); out.value = t;
+  try { await navigator.clipboard.writeText(t); status('악보를 복사했어요. 대화에 붙이거나 "악보 붙여넣기"로 다시 불러올 수 있어요.'); out.style.display = 'none'; }
   catch (e) { out.style.display = 'block'; out.focus(); out.select(); status('자동 복사가 막혀 있어요. 아래 글을 길게 눌러 복사해 주세요.'); }
 };
 
@@ -42,7 +42,7 @@ function mtrack(events, name) {
   d.push(0, 0xff, 0x2f, 0);
   return [0x4d, 0x54, 0x72, 0x6b, (d.length >>> 24) & 255, (d.length >>> 16) & 255, (d.length >>> 8) & 255, d.length & 255, ...d];
 }
-const PROG = {piano:0, epiano:4, supersaw:81, pluck:84, chip:80, bell:14, sample:0};
+const PROG = {piano:0, epiano:4, strings:48, supersaw:81, pluck:84, chip:80, bell:14, sample:0};
 // 내보낼 범위: SONG 모드이고 플레이리스트에 조각이 있으면 곡 전체, 아니면 지금 패턴
 function flatten() {
   const song = S.playMode === 'song' && S.playlist.clips.length, parts = song ? S.playlist.clips.map(c => ({P:patById(c.pat), off:c.bar * 4 * PPQ})) : [{P:curPat(), off:0}];
@@ -179,43 +179,46 @@ function parseMidi(buf) {
   }
   return {notes, drums, div, bpm:60000000 / tempo, progs, names};
 }
-const PROG_TO_INST = pr => pr == null ? 'piano' : pr < 4 ? 'piano' : pr < 8 ? 'epiano' : pr < 16 ? 'bell' : pr >= 80 && pr <= 87 ? 'supersaw' : 'piano';
+const PROG_TO_INST = pr => pr == null ? 'piano' : pr < 4 ? 'piano' : pr < 8 ? 'epiano' : pr < 16 ? 'bell' : pr >= 40 && pr <= 55 ? 'strings' : pr >= 88 && pr <= 95 ? 'strings' : pr >= 80 && pr <= 87 ? 'supersaw' : 'piano';
+// MIDI 파일 → 곡 (채널마다 악기, 10번 채널은 드럼 채널, 이 앱이 저장한 "코드" 트랙은 코드 칸으로)
+function midiToSong(ab) {
+  const r = parseMidi(ab); if (!r.notes.length && !r.drums.length) throw new Error('이 MIDI에는 음이 없어요');
+  const cv = t => Math.round(t * PPQ / r.div);
+  const maxT = Math.max(...r.notes.map(n => cv(n.t1)), ...r.drums.map(x => cv(x.t) + 1), 1);
+  let bars = Math.ceil(maxT / (4 * PPQ)); const cut = bars > MAX_BARS; bars = clamp(bars, 1, MAX_BARS);
+  const lim = bars * 4 * PPQ; let moved = 0;
+  const chordCh = Object.keys(r.names).map(Number).find(ch => r.names[ch] === '코드');
+  const chans = [...new Set(r.notes.map(n => n.ch))].filter(ch => ch !== chordCh).sort((a, b) => a - b).slice(0, 12);
+  const P = newPattern('Pattern 1', bars), channels = [];
+  for (const ch of chans) {
+    const c = newChannel('synth', PROG_TO_INST(r.progs[ch]), (r.names[ch] || ('채널 ' + (ch + 1))).slice(0, 24)); channels.push(c);
+    P.notes[c.id] = r.notes.filter(n => n.ch === ch).map(n => { let p = n.p; while (p < LOW) { p += 12; moved++; } while (p > HIGH) { p -= 12; moved++; } const s0 = cv(n.t0); return {p, s:s0, l:Math.max(3, Math.min(cv(n.t1) - s0, lim - s0)), v:Math.max(0.05, n.v / 127)}; }).filter(n => n.s < lim);
+  }
+  const DM = {35:'kick', 36:'kick', 37:'snare', 38:'snare', 40:'snare', 42:'hat', 44:'hat', 46:'hat', 39:'clap'};
+  for (const d of DRUMS) {
+    const hits = r.drums.filter(x => DM[x.n] === d); if (!hits.length) continue;
+    const c = newChannel('drum', d); channels.push(c);
+    const by = {}; for (const x of hits) { const s0 = Math.round(cv(x.t) / 12) * 12; if (s0 < lim) by[s0] = Math.max(by[s0] || 0, x.v / 127); }
+    P.notes[c.id] = Object.entries(by).map(([s0, v]) => ({p:DRUM_PITCH, s:+s0, l:12, v}));
+  }
+  const groups = {}; for (const n of r.notes.filter(n => n.ch === chordCh)) (groups[cv(n.t0)] = groups[cv(n.t0)] || []).push(n.p);
+  for (const [t, ps] of Object.entries(groups)) {
+    const pcs = [...new Set(ps.map(x => x % 12))], beat = Math.round(t / PPQ); if (beat >= bars * 4) continue;
+    let found = null;
+    for (const r0 of pcs) for (const [q, iv] of Object.entries(QUAL)) { const want = iv.map(i => (r0 + i) % 12); if (!found && want.length === pcs.length && want.every(x => pcs.includes(x))) found = {r:r0, q}; }
+    P.chords[beat] = found || {r:Math.min(...ps) % 12, q:''};
+  }
+  if (!channels.length) channels.push(newChannel('synth', 'piano', '피아노'));
+  const song = normalize({v:4, channels, patterns:[P], pat:0, ch:0, mix:{}, playMode:'pat', playlist:{tracks:PL_TRACKS, clips:[{id:newId(), pat:P.id, t:0, bar:0}]}, bpm:clamp(Math.round(r.bpm), 60, 300)});
+  const nNotes = Object.values(P.notes).reduce((a, x) => a + x.length, 0);
+  return {song, info:`채널 ${song.channels.length}개, 음 ${nNotes}개, ${song.bpm} BPM, ${bars}마디 패턴` + (cut ? ` (${MAX_BARS}마디까지만)` : '') + (moved ? ' · 롤 밖의 음은 옥타브를 옮겼어요' : '')};
+}
 $('midiIn').onchange = async () => {
   const f = $('midiIn').files[0]; $('midiIn').value = ''; if (!f) return;
   try {
-    const r = parseMidi(await f.arrayBuffer()); if (!r.notes.length && !r.drums.length) { status('이 MIDI에는 음이 없어요.'); return; }
-    const cv = t => Math.round(t * PPQ / r.div);
-    const maxT = Math.max(...r.notes.map(n => cv(n.t1)), ...r.drums.map(x => cv(x.t) + 1), 1);
-    let bars = Math.ceil(maxT / (4 * PPQ)); const cut = bars > MAX_BARS; bars = clamp(bars, 1, MAX_BARS);
-    pushUndo(); sel.clear();
-    const lim = bars * 4 * PPQ; let moved = 0;
-    // 이 앱이 저장한 "코드" 트랙은 코드 칸으로 되돌림 (같은 순간에 시작한 음들 → 코드 이름)
-    const chordCh = Object.keys(r.names).map(Number).find(ch => r.names[ch] === '코드');
-    const chans = [...new Set(r.notes.map(n => n.ch))].filter(ch => ch !== chordCh).sort((a, b) => a - b).slice(0, 12);
-    const P = newPattern('Pattern 1', bars), channels = [];
-    for (const ch of chans) {
-      const c = newChannel('synth', PROG_TO_INST(r.progs[ch]), (r.names[ch] || ('채널 ' + (ch + 1))).slice(0, 24)); channels.push(c);
-      P.notes[c.id] = r.notes.filter(n => n.ch === ch).map(n => { let p = n.p; while (p < LOW) { p += 12; moved++; } while (p > HIGH) { p -= 12; moved++; } const s0 = cv(n.t0); return {p, s:s0, l:Math.max(3, Math.min(cv(n.t1) - s0, lim - s0)), v:Math.max(0.05, n.v / 127)}; }).filter(n => n.s < lim);
-    }
-    const DM = {35:'kick', 36:'kick', 37:'snare', 38:'snare', 40:'snare', 42:'hat', 44:'hat', 46:'hat', 39:'clap'};
-    for (const d of DRUMS) {
-      const hits = r.drums.filter(x => DM[x.n] === d); if (!hits.length) continue;
-      const c = newChannel('drum', d); channels.push(c);
-      const by = {}; for (const x of hits) { const s0 = Math.round(cv(x.t) / 12) * 12; if (s0 < lim) by[s0] = Math.max(by[s0] || 0, x.v / 127); }
-      P.notes[c.id] = Object.entries(by).map(([s0, v]) => ({p:DRUM_PITCH, s:+s0, l:12, v}));
-    }
-    const groups = {}; for (const n of r.notes.filter(n => n.ch === chordCh)) (groups[cv(n.t0)] = groups[cv(n.t0)] || []).push(n.p);
-    for (const [t, ps] of Object.entries(groups)) {
-      const pcs = [...new Set(ps.map(x => x % 12))], beat = Math.round(t / PPQ); if (beat >= bars * 4) continue;
-      let found = null;
-      for (const r0 of pcs) for (const [q, iv] of Object.entries(QUAL)) { const want = iv.map(i => (r0 + i) % 12); if (!found && want.length === pcs.length && want.every(x => pcs.includes(x))) found = {r:r0, q}; }
-      P.chords[beat] = found || {r:Math.min(...ps) % 12, q:''};
-    }
-    if (!channels.length) channels.push(newChannel('synth', 'piano', '피아노'));
-    S = normalize({...S, v:4, channels, patterns:[P], pat:0, ch:0, mix:{master:S.mix.master}, playlist:{tracks:PL_TRACKS, clips:[{id:newId(), pat:P.id, t:0, bar:0}]}, bpm:clamp(Math.round(r.bpm), 60, 300)});
-    save(); refreshAll(); if (E) applyMix(E, S.mix);
-    const nNotes = Object.values(P.notes).reduce((a, x) => a + x.length, 0);
-    status(`${f.name}을 불러왔어요: 채널 ${S.channels.length}개, 음 ${nNotes}개, ${S.bpm} BPM, ${bars}마디 패턴` + (cut ? ` (${MAX_BARS}마디까지만)` : '') + (moved ? ' · 롤 밖의 음은 옥타브를 옮겼어요' : ''));
+    const {song, info} = midiToSong(await f.arrayBuffer());
+    pushUndo(); sel.clear(); song.mix.master = S.mix.master; S = song; save(); refreshAll(); if (E) applyMix(E, S.mix);
+    status(`${f.name}을 불러왔어요: ${info}`);
   } catch (e) { status('MIDI를 읽지 못했어요: ' + (e.message || '알 수 없는 형식')); }
 };
 $('midiLoad').onclick = () => $('midiIn').click();

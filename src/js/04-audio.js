@@ -125,6 +125,12 @@ function noiseBurst(E,t,d,type,f,q,v,dest){const s=E.ac.createBufferSource();s.b
 
 function voice(E,inst,m,t,d,vel=1,dest,tone,slot){const ac=E.ac,f=hz(m),end=t+d;dest=dest||getCh(E,trackKey(curTrack())).inp;const T=tone||toneDefault(),br=T.br,rel=Math.max(0.03,T.rel),atk=T.atk;
   if(inst==='sample'){if(playSample(E,slot||'melody',m,t,d,vel*0.9,dest)||playSample(E,'melody',m,t,d,vel*0.9,dest))return;inst='piano'}
+  if(inst==='strings'){   // 스트링 패드: 톱니파 4개를 조금씩 어긋나게 + 부드러운 필터 + 느린 비브라토 + 천천히 켜지고 꺼짐
+    const g=ac.createGain(),lp=ac.createBiquadFilter(),hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=160;lp.type='lowpass';lp.frequency.value=Math.min(12000,(1500+f*1.1)*br);lp.Q.value=0.3;
+    hp.connect(lp);lp.connect(g);g.connect(dest);const a=Math.max(0.22,atk),r=Math.max(0.7,rel*3),hold=Math.max(end,t+a),st=hold+r*2.5;
+    const lfo=ac.createOscillator(),ld=ac.createGain();lfo.frequency.value=4.8;ld.gain.setValueAtTime(0,t);ld.gain.linearRampToValueAtTime(7,t+a+0.4);lfo.connect(ld);lfo.start(t);lfo.stop(st);
+    [-11,-4,4,11].forEach((c,i)=>{const p=ac.createStereoPanner();p.pan.value=[-.55,-.2,.2,.55][i];p.connect(hp);const o=osc(ac,'sawtooth',f,c,t+i*0.004,st,p);ld.connect(o.detune)});
+    const lv=0.05*(0.55+0.45*vel);g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(lv,t+a);g.gain.setValueAtTime(lv,hold);g.gain.setTargetAtTime(0.0001,hold,r/3);return}
   if(inst==='piano'&&pianoSample(E,m,t,d,vel,dest,T))return;
   if(inst==='piano'){const g=ac.createGain(),lp=ac.createBiquadFilter();lp.type='lowpass';const b=(1400+2600*vel+f*1.5)*br;
     lp.frequency.setValueAtTime(Math.min(18000,b*2.2),t);lp.frequency.setTargetAtTime(Math.max(400,b*0.5),t+0.02,0.35);lp.connect(g);g.connect(dest);

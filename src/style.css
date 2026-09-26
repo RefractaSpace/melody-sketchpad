@@ -310,3 +310,13 @@ canvas:focus-visible{outline:2px dashed var(--ink);outline-offset:-2px}
 }
 @media (max-width:420px){ .wbtn span{display:none} .wbtn kbd{display:inline} }
 @media (max-width:760px){ #win-rack{order:1} #win-roll{order:2} #win-playlist{order:3} #win-mixer{order:4} #win-browser{order:5} }
+
+/* 악보 붙여넣기 · 파일 변환기 */
+dialog.wide{width:min(920px,94vw)}
+#scoreText{display:block;width:100%;box-sizing:border-box;min-height:min(46vh,420px);resize:vertical;padding:10px;border:1px solid var(--line2);border-radius:6px;background:var(--bg);color:var(--ink);font:12px/1.55 "IBM Plex Mono",monospace;tab-size:2;white-space:pre;overflow:auto}
+#scoreText:focus{outline:2px solid var(--ink);outline-offset:1px}
+.smsg{margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);font-size:12px;max-height:160px;overflow:auto}
+.smsg:empty{display:none}
+.smsg ul{margin:6px 0 0;padding-left:18px;color:var(--mute)}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
+.cgrid .tbtn{height:40px}

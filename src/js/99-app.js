@@ -89,6 +89,7 @@ $('moreBtn').onclick = () => { const o = $('more').classList.toggle('open'); $('
 // ---- 전체 단축키 ----
 const FKEYS = {F5:'playlist', F6:'rack', F7:'roll', F8:'browser', F9:'mixer'};
 document.addEventListener('keydown', e => {
+  if (document.querySelector('dialog[open]')) return;   // 창(대화상자)이 열려 있으면 단축키 쉬기
   if (FKEYS[e.key]) { e.preventDefault(); toggleWin(FKEYS[e.key]); return; }
   if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
   const k = e.key, mod = e.ctrlKey || e.metaKey, inRoll = !e.target.closest || !e.target.closest('#win-rack,#win-playlist,#win-browser,#win-mixer,dialog');

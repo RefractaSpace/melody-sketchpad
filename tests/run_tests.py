@@ -166,6 +166,28 @@ async def main():
         await pg.locator('#fileIn').set_input_files(jp); await pg.wait_for_timeout(500)
         check('프로젝트 파일 저장 → 불러오기 (버전 4)', pj.get('version') == 4 and await J("S.channels.length") == len(pj['song']['channels']))
 
+        # 악보 텍스트 형식: 왕복 · 오류 줄 번호 · 붙여넣기 · 변환기
+        rt = await J("""(()=>{const t=scoreText('왕복'),r=parseScore(t),k=s=>JSON.stringify([s.bpm,s.root,s.mode,s.channels.map(c=>c.kind+c.inst),s.patterns.map(p=>[p.bars,p.chords,s.channels.map(c=>(p.notes[c.id]||[]).map(n=>[n.p,n.s,n.l,Math.round(n.v*(c.kind==='drum'?10:100))]).sort())]),s.playlist.clips.map(c=>[c.t,c.bar])]);
+          return {same:k(S)===k(r.song),warn:r.warnings}})()""")
+        check('악보 텍스트: 곡 → 악보 → 곡 왕복이 같음', rt['same'] and not rt['warn'], str(rt['warn'][:2]))
+        er = await J("(()=>{try{parseScore('BPM: 120\\n[채널]\\n피아노 = 피아노\\n[패턴] A | 1마디\\n피아노: 1.1.1 H5 2');return 'no error'}catch(e){return e.message}})()")
+        wr = await J("(()=>{const r=parseScore('[채널]\\n피아노 = 피아노\\n[패턴] A | 1마디\\n피아노: 1.1.1 H5 2 | 1.2.1 C5 2');return [r.warnings.join(' / '), notesOf(r.song.patterns[0],r.song.channels[0]).length]})()")
+        er2 = await J("(()=>{try{parseScore('[채널]\\n피아노 = 바이올린\\n[패턴] A | 1마디');return 'no error'}catch(e){return e.message}})()")
+        check('악보 텍스트: 틀린 곳을 줄 번호로 알려 줌', '4번째 줄' in wr[0] and wr[1] == 1 and '2번째 줄' in er2 and '바이올린' in er2, f'{wr[0][:40]} / {er2[:40]}')
+        demo = "# 멜로디 스케치패드 악보 v1\n제목: 테스트 곡\nBPM: 128\n조: A 단조\n재생: SONG\n[채널]\n리드 = 슈퍼소    볼륨 80\n킥 = 드럼 킥\n[패턴] 벌스 | 2마디\n코드: 1.1 Am | 2.1 F\n리드: 1.1.1 A4 2 v90 | 1.1.3 C5 2 | 1.2.1 E5 4\n  2.1.1 F5 8 v70\n킥: X...X...X...5... X...X...X...X...\n[플레이리스트]\n트랙 1: 벌스 @1, 벌스 @3\n"
+        await pg.click('#scoreIn'); await pg.fill('#scoreText', demo); await pg.wait_for_timeout(450)
+        ok_msg = '✓' in await pg.inner_text('#scoreMsg'); await pg.click('#scoreLoad'); await pg.wait_for_timeout(300)
+        got = await J("[lib.list[lib.current].name,S.bpm,S.root,S.mode,S.playMode,S.channels.map(c=>c.name),notesOf(S.patterns[0],S.channels[0]).length,notesOf(S.patterns[0],S.channels[1]).map(n=>n.v),chordName(S.patterns[0].chords[4]),S.playlist.clips.length,Math.round(S.mix[chKey(S.channels[0])].v*100)]")
+        check('악보 붙여넣기 → 새 프로젝트', ok_msg and got[:6] == ['테스트 곡', 128, 9, 'minor', 'song', ['리드', '킥']] and got[6] == 4 and 0.5 in got[7] and got[8] == 'F' and got[9] == 2 and got[10] == 80, str(got))
+        tp = os.path.join(tmp, 'demo.txt'); open(tp, 'w').write(demo)
+        await pg.click('#convBtn'); await pg.locator('#convIn').set_input_files(tp); await pg.wait_for_timeout(300)
+        async with pg.expect_download() as dl: await pg.click('#convMid')
+        d = await dl.value; cm = os.path.join(tmp, 'conv.mid'); await d.save_as(cm); mm = mido.MidiFile(cm)
+        await pg.locator('#convIn').set_input_files(cm); await pg.wait_for_timeout(300)
+        async with pg.expect_download() as dl: await pg.click('#convTxt')
+        d = await dl.value; ct = os.path.join(tmp, 'back.txt'); await d.save_as(ct); back = open(ct).read()
+        await pg.click('#convClose')
+        check('파일 변환기: 악보 → MIDI → 악보 (지금 곡은 그대로)', round(mm.length, 1) == 7.5 and 'BPM: 128' in back and 'A4 2 v90' in back and await J("lib.list[lib.current].name") == '테스트 곡', f'MIDI {mm.length:.1f}초')
         v3 = {'v': 3, 'bpm': 128, 'root': 0, 'mode': 'major', 'bars': 2, 'tracks': [{'id': 'a', 'name': '리드', 'inst': 'pluck', 'notes': [{'p': 60, 's': 0, 'l': 24}]}], 'chords': [{'r': 0, 'q': ''}, None, None, None, {'r': 7, 'q': ''}], 'drums': {'kick': [1, 0, 0, 0, 0.5]}}
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v3)}));openProject(id)}})()")
         conv = await J("[S.channels.map(c=>c.name), S.patterns.length, S.playlist.clips.length, chordName(S.patterns[0].chords[4]), notesOf(S.patterns[0],S.channels[1]).map(n=>n.v)]")
