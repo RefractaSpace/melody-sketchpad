@@ -6,9 +6,9 @@ async function idbDel(k) { try { const db = await idb(); await new Promise(res =
 async function idbAll() { try { const db = await idb(); return await new Promise(res => { const out = {}, rq = db.transaction('s', 'readonly').objectStore('s').openCursor(); rq.onsuccess = () => { const c = rq.result; if (c) { out[c.key] = c.value; c.continue(); } else res(out); }; rq.onerror = () => res(out); }); } catch (e) { return {}; } }
 const decoder = () => ctx || new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100);
 async function decode(ab) { const ac = decoder(); return await new Promise((res, rej) => { const p = ac.decodeAudioData(ab.slice(0), res, rej); if (p && p.then) p.then(res, rej); }); }
-// slot: 'trk:<id>'(멜로디 트랙) 또는 'kick'·'snare'·'hat'·'clap'
+// slot: 'ch:<id>' (채널마다). 예전 칸 이름 'melody'·'trk:…'·'kick'… 도 찾아 씀
 function sampleCtl(slot, label) {
-  const w = document.createElement('div'); w.className = 'smp'; const s = SAMPLES[slot], isTrack = slot.startsWith('trk:');
+  const w = document.createElement('div'); w.className = 'smp'; const s = SAMPLES[slot], ch = chById(slot.slice(3)), isTrack = !!(ch && ch.kind === 'synth');
   const nm = document.createElement('span'); nm.className = 'sn'; nm.textContent = s ? s.name : (isTrack && SAMPLES.melody ? '공용 샘플: ' + SAMPLES.melody.name : '기본 소리');
   const up = document.createElement('button'); up.className = 'tbtn xs'; up.textContent = s ? '바꾸기' : '내 샘플'; up.setAttribute('aria-label', label + ' 샘플 넣기');
   const fi = document.createElement('input'); fi.type = 'file'; fi.accept = 'audio/*'; fi.hidden = true;
@@ -18,7 +18,7 @@ function sampleCtl(slot, label) {
     try {
       const ab = await f.arrayBuffer(), buf = await decode(ab), root = s ? s.root : 60;
       SAMPLES[slot] = {buf, root, name:f.name}; await idbPut(slot, {ab, root, name:f.name});
-      if (isTrack) { const t = S.tracks.find(x => trackKey(x) === slot); if (t) { t.inst = 'sample'; refreshTracks(); save(); } }
+      if (isTrack) { ch.inst = 'sample'; save(); buildRack(); refreshTitles(); }
       buildMixer(); status(`${label}에 "${f.name}"을 넣었어요.`);
     } catch (e) { status('이 파일은 소리로 읽을 수 없어요. wav나 mp3로 넣어 주세요.'); }
   };

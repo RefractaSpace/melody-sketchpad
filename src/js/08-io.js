@@ -3,23 +3,28 @@
 // ---- 결과 복사 (대화에 붙여 넣는 글) ----
 function posText(t) { const bar = Math.floor(t / (4 * PPQ)) + 1, beat = Math.floor((t % (4 * PPQ)) / PPQ) + 1, r = t % PPQ; if (r % 12 === 0) return `${bar}.${beat}.${r / 12 + 1}`; if (r % 16 === 0) return `${bar}.${beat}.t${r / 16 + 1}`; return `${bar}.${beat}+${r}/48`; }
 function lenText(l) { if (l % 12 === 0) return String(l / 12); if (l % 16 === 0) return 't' + (l / 16); return l + '/48'; }
+function stepString(arr, bars) {
+  const out = []; for (let b = 0; b < bars; b++) { let t = ''; for (let i = 0; i < 16; i++) { const n = arr.find(x => x.s === (b * 16 + i) * 12); t += !n ? '.' : n.v >= 0.75 ? 'X' : n.v >= 0.4 ? 'x' : 'o'; } out.push(t); }
+  return out.join(' ');
+}
 function resultText() {
   const key = names()[S.root] + (S.mode === 'minor' ? ' 단조' : ' 장조');
-  const L = [`[멜로디 스케치] BPM ${S.bpm} · ${key} · ${S.bars}마디 · 트랙 ${S.tracks.length}개`];
-  const cs = []; S.chords.forEach((c, i) => { if (c) cs.push(`${Math.floor(i / 4) + 1}.${i % 4 + 1} ${c.x ? '멈춤' : chordName(c)}`); });
-  L.push('코드 (마디.박, 다음 코드까지 이어짐): ' + (cs.length ? cs.join(' | ') : '없음'));
-  L.push('음 표기: 위치 = 마디.박.16분칸 (t = 셋잇단 칸) · 길이 = 16분 개수 (t = 셋잇단 개수) · v = 세기 (없으면 80)');
-  S.tracks.forEach((t, ti) => {
-    L.push(`트랙 ${ti + 1} "${t.name}" (${INSTS[t.inst]}):`);
-    const ns = [...t.notes].sort((a, b) => a.s - b.s || b.p - a.p); let line = [];
-    ns.forEach((n, i) => { line.push(`${posText(n.s)} ${nn(n.p)} ${lenText(n.l)}` + (Math.round(n.v * 100) !== 80 ? ` v${Math.round(n.v * 100)}` : '')); if (line.length === 8 || i === ns.length - 1) { L.push('  ' + line.join(' | ')); line = []; } });
-    if (!ns.length) L.push('  (음 없음)');
-  });
-  for (const d of DRUMS) {
-    const a = S.drums[d]; if (!a.some(v => v)) continue;
-    const bars = []; for (let b = 0; b < S.bars; b++) bars.push(a.slice(b * 16, b * 16 + 16).map(v => !v ? '.' : v >= 0.75 ? 'X' : v >= 0.4 ? 'x' : 'o').join(''));
-    L.push(`${DRUM_NAME[d]} (X 셈 · x 보통 · o 약함): ` + bars.join(' '));
+  const L = [`[멜로디 스케치] BPM ${S.bpm} · ${key} · 패턴 ${S.patterns.length}개 · 곡 ${songBars()}마디`];
+  L.push('음 표기: 위치 = 마디.박.16분칸 (t = 셋잇단 칸) · 길이 = 16분 개수 (t = 셋잇단 개수) · v = 세기 (없으면 80) · 드럼: X 셈 · x 보통 · o 약함');
+  L.push('채널: ' + S.channels.map((c, i) => `${i + 1}. ${c.name} (${c.kind === 'drum' ? '드럼 ' + DRUM_NAME[c.inst] : INSTS[c.inst]})`).join(' | '));
+  for (const P of S.patterns) {
+    L.push(`\n■ ${P.name} (${P.bars}마디)`);
+    const cs = []; P.chords.forEach((c, i) => { if (c) cs.push(`${Math.floor(i / 4) + 1}.${i % 4 + 1} ${c.x ? '멈춤' : chordName(c)}`); });
+    if (cs.length) L.push('  코드: ' + cs.join(' | '));
+    for (const c of S.channels) {
+      const arr = (P.notes[c.id] || []).slice().sort((a, b) => a.s - b.s || b.p - a.p); if (!arr.length) continue;
+      if (c.kind === 'drum' && arr.every(n => n.s % 12 === 0)) { L.push(`  ${c.name}: ` + stepString(arr, P.bars)); continue; }
+      L.push(`  ${c.name}:`); let line = [];
+      arr.forEach((n, i) => { line.push(`${posText(n.s)} ${nn(n.p)} ${lenText(n.l)}` + (Math.round(n.v * 100) !== 80 ? ` v${Math.round(n.v * 100)}` : '')); if (line.length === 8 || i === arr.length - 1) { L.push('    ' + line.join(' | ')); line = []; } });
+    }
   }
+  const clips = [...S.playlist.clips].sort((a, b) => a.bar - b.bar || a.t - b.t);
+  L.push('\n■ 플레이리스트 (곡 구성): ' + (clips.length ? clips.map(c => `${c.bar + 1}마디 ${patById(c.pat).name}`).join(' → ') : '비어 있음'));
   return L.join('\n');
 }
 $('copy').onclick = async () => {
@@ -38,18 +43,29 @@ function mtrack(events, name) {
   return [0x4d, 0x54, 0x72, 0x6b, (d.length >>> 24) & 255, (d.length >>> 16) & 255, (d.length >>> 8) & 255, d.length & 255, ...d];
 }
 const PROG = {piano:0, epiano:4, supersaw:81, pluck:84, chip:80, bell:14, sample:0};
+// 내보낼 범위: SONG 모드이고 플레이리스트에 조각이 있으면 곡 전체, 아니면 지금 패턴
+function flatten() {
+  const song = S.playMode === 'song' && S.playlist.clips.length, parts = song ? S.playlist.clips.map(c => ({P:patById(c.pat), off:c.bar * 4 * PPQ})) : [{P:curPat(), off:0}];
+  const notes = {}, chords = [];
+  for (const {P, off} of parts) {
+    for (const c of S.channels) for (const n of P.notes[c.id] || []) (notes[c.id] = notes[c.id] || []).push({...n, s:n.s + off});
+    for (const seg of chordSegments(P)) chords.push({...seg, s:seg.s + off});
+  }
+  return {song:!!song, notes, chords, len:song ? songTicks() : totalTicks()};
+}
 function midiBytes() {
-  const us = Math.round(60000000 / S.bpm), tr = [mtrack([{t:0, o:0, b:[0xff, 0x51, 3, (us >> 16) & 255, (us >> 8) & 255, us & 255]}, {t:0, o:0, b:[0xff, 0x58, 4, 4, 2, 24, 8]}], '멜로디 스케치패드')];
-  S.tracks.forEach((t, i) => {
-    const ch = [0, 2, 3, 4, 5, 6, 7, 8][i]; const ev = [{t:0, o:0, b:[0xc0 | ch, PROG[t.inst] || 0]}];
-    for (const n of t.notes) { ev.push({t:n.s, o:1, b:[0x90 | ch, n.p, Math.max(1, Math.round(n.v * 127))]}); ev.push({t:n.s + n.l, o:0, b:[0x80 | ch, n.p, 0]}); }
-    tr.push(mtrack(ev, t.name));
+  const F = flatten(), us = Math.round(60000000 / S.bpm), tr = [mtrack([{t:0, o:0, b:[0xff, 0x51, 3, (us >> 16) & 255, (us >> 8) & 255, us & 255]}, {t:0, o:0, b:[0xff, 0x58, 4, 4, 2, 24, 8]}], '멜로디 스케치패드')];
+  const synth = S.channels.filter(c => c.kind === 'synth'), free = [0, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15];
+  synth.forEach((c, i) => {
+    const ch = free[i % free.length], ev = [{t:0, o:0, b:[0xc0 | ch, PROG[c.inst] || 0]}];
+    for (const n of F.notes[c.id] || []) { ev.push({t:n.s, o:1, b:[0x90 | ch, n.p, Math.max(1, Math.round(n.v * 127))]}); ev.push({t:n.s + n.l, o:0, b:[0x80 | ch, n.p, 0]}); }
+    tr.push(mtrack(ev, c.name));
   });
   const cev = [{t:0, o:0, b:[0xc1, 89]}];
-  for (const seg of chordSegments()) chordVoices(seg.c).forEach(m => { cev.push({t:seg.s, o:1, b:[0x91, m, 70]}); cev.push({t:seg.s + seg.l, o:0, b:[0x81, m, 0]}); });
+  for (const seg of F.chords) chordVoices(seg.c).forEach(m => { cev.push({t:seg.s, o:1, b:[0x91, m, 70]}); cev.push({t:seg.s + seg.l, o:0, b:[0x81, m, 0]}); });
   tr.push(mtrack(cev, '코드'));
   const dev = [], map = {kick:36, snare:38, hat:42, clap:39};
-  for (const d of DRUMS) S.drums[d].forEach((v, i) => { if (v) { dev.push({t:i * 12, o:1, b:[0x99, map[d], Math.max(1, Math.round(v * 127))]}); dev.push({t:i * 12 + 6, o:0, b:[0x89, map[d], 0]}); } });
+  for (const c of S.channels) if (c.kind === 'drum') for (const n of F.notes[c.id] || []) { dev.push({t:n.s, o:1, b:[0x99, map[c.inst], Math.max(1, Math.round(n.v * 127))]}); dev.push({t:n.s + 6, o:0, b:[0x89, map[c.inst], 0]}); }
   tr.push(mtrack(dev, '드럼'));
   return new Uint8Array([0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 1, 0, tr.length, 0, PPQ, ...tr.flat()]);
 }
@@ -87,15 +103,15 @@ function wavBytes(buf) {
   return new Uint8Array(out.buffer);
 }
 async function renderWav() {
-  const sr = 44100, secs = totalTicks() * tickSec() + 3, oc = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, Math.ceil(sr * secs), sr);
-  const OE = makeEngine(oc, false); applyMix(OE, S.mix); scheduleRange(OE, 0, totalTicks(), 0.05, false);
+  const sr = 44100, secs = playSpan() * tickSec() + 3, oc = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, Math.ceil(sr * secs), sr);
+  const OE = makeEngine(oc, false); applyMix(OE, S.mix); scheduleRange(OE, 0, playSpan(), 0.05, false);
   return wavBytes(await oc.startRendering());
 }
-const songEmpty = () => !S.tracks.some(t => t.notes.length) && !S.chords.some(Boolean) && !DRUMS.some(d => S.drums[d].some(Boolean));
+const songEmpty = () => !S.patterns.some(P => Object.values(P.notes).some(a => a.length) || P.chords.some(Boolean));
 $('wav').onclick = async () => {
   if (songEmpty()) { status('저장할 소리가 없어요. 먼저 음을 찍어 주세요.'); return; }
   const b = $('wav'); b.disabled = true; status('오디오를 만드는 중이에요…');
-  try { const w = await renderWav(), fn = fileName(); if (inClaude) await offer(fn + '-audio.zip', new Blob([zip(fn + '.wav', w)])); else localDownload(fn + '.wav', new Blob([w], {type:'audio/wav'})); }
+  try { status(S.playMode === 'song' ? '곡 전체(SONG)를 오디오로 만드는 중이에요…' : '지금 패턴(PAT)을 오디오로 만드는 중이에요…'); const w = await renderWav(), fn = fileName(); if (inClaude) await offer(fn + '-audio.zip', new Blob([zip(fn + '.wav', w)])); else localDownload(fn + '.wav', new Blob([w], {type:'audio/wav'})); }
   catch (e) { status('오디오를 만들지 못했어요. 브라우저가 이 기능을 지원하지 않을 수 있어요.'); }
   finally { b.disabled = false; }
 };
@@ -138,27 +154,31 @@ $('midiIn').onchange = async () => {
     const lim = bars * 4 * PPQ; let moved = 0;
     // 이 앱이 저장한 "코드" 트랙은 코드 칸으로 되돌림 (같은 순간에 시작한 음들 → 코드 이름)
     const chordCh = Object.keys(r.names).map(Number).find(ch => r.names[ch] === '코드');
-    const chordNotes = chordCh == null ? [] : r.notes.filter(n => n.ch === chordCh);
-    const chans = [...new Set(r.notes.map(n => n.ch))].filter(ch => ch !== chordCh).sort((a, b) => a - b).slice(0, 8);
-    S = normalize({...S, bars, chords:Array(bars * 4).fill(null), drums:{}, v:3, tracks:chans.map(ch => ({
-      id:newId(), name:(r.names[ch] || ('채널 ' + (ch + 1))).slice(0, 30), inst:PROG_TO_INST(r.progs[ch]), tone:toneDefault(),
-      notes:r.notes.filter(n => n.ch === ch).map(n => { let p = n.p; while (p < LOW) { p += 12; moved++; } while (p > HIGH) { p -= 12; moved++; } const s0 = cv(n.t0); return {p, s:s0, l:Math.max(3, Math.min(cv(n.t1) - s0, lim - s0)), v:Math.max(0.05, n.v / 127)}; }).filter(n => n.s < lim)
-    })), cur:0});
-    if (!S.tracks.length) S.tracks = [newTrack('멜로디 1', 'piano')];
-    S.bpm = clamp(Math.round(r.bpm), 60, 300);
-    const groups = {}; for (const n of chordNotes) (groups[cv(n.t0)] = groups[cv(n.t0)] || []).push(n.p);
+    const chans = [...new Set(r.notes.map(n => n.ch))].filter(ch => ch !== chordCh).sort((a, b) => a - b).slice(0, 12);
+    const P = newPattern('Pattern 1', bars), channels = [];
+    for (const ch of chans) {
+      const c = newChannel('synth', PROG_TO_INST(r.progs[ch]), (r.names[ch] || ('채널 ' + (ch + 1))).slice(0, 24)); channels.push(c);
+      P.notes[c.id] = r.notes.filter(n => n.ch === ch).map(n => { let p = n.p; while (p < LOW) { p += 12; moved++; } while (p > HIGH) { p -= 12; moved++; } const s0 = cv(n.t0); return {p, s:s0, l:Math.max(3, Math.min(cv(n.t1) - s0, lim - s0)), v:Math.max(0.05, n.v / 127)}; }).filter(n => n.s < lim);
+    }
+    const DM = {35:'kick', 36:'kick', 37:'snare', 38:'snare', 40:'snare', 42:'hat', 44:'hat', 46:'hat', 39:'clap'};
+    for (const d of DRUMS) {
+      const hits = r.drums.filter(x => DM[x.n] === d); if (!hits.length) continue;
+      const c = newChannel('drum', d); channels.push(c);
+      const by = {}; for (const x of hits) { const s0 = Math.round(cv(x.t) / 12) * 12; if (s0 < lim) by[s0] = Math.max(by[s0] || 0, x.v / 127); }
+      P.notes[c.id] = Object.entries(by).map(([s0, v]) => ({p:DRUM_PITCH, s:+s0, l:12, v}));
+    }
+    const groups = {}; for (const n of r.notes.filter(n => n.ch === chordCh)) (groups[cv(n.t0)] = groups[cv(n.t0)] || []).push(n.p);
     for (const [t, ps] of Object.entries(groups)) {
       const pcs = [...new Set(ps.map(x => x % 12))], beat = Math.round(t / PPQ); if (beat >= bars * 4) continue;
       let found = null;
-      for (const r0 of pcs) for (const [q, iv] of Object.entries(QUAL)) { const want = iv.map(i => (r0 + i) % 12); if (want.length === pcs.length && want.every(x => pcs.includes(x))) { found = {r:r0, q}; break; } }
-      if (!found) found = {r:Math.min(...ps) % 12, q:''};
-      S.chords[beat] = found;
+      for (const r0 of pcs) for (const [q, iv] of Object.entries(QUAL)) { const want = iv.map(i => (r0 + i) % 12); if (!found && want.length === pcs.length && want.every(x => pcs.includes(x))) found = {r:r0, q}; }
+      P.chords[beat] = found || {r:Math.min(...ps) % 12, q:''};
     }
-    const DM = {35:'kick', 36:'kick', 37:'snare', 38:'snare', 40:'snare', 42:'hat', 44:'hat', 46:'hat', 39:'clap'};
-    for (const x of r.drums) { const k = DM[x.n]; if (!k) continue; const i = Math.round(cv(x.t) / 12); if (i < bars * 16) S.drums[k][i] = Math.max(S.drums[k][i], x.v / 127); }
-    fillMix(S); syncControls(); save(); drawAll(); selChanged(); buildMixer(); if (E) applyMix(E, S.mix);
-    const nNotes = S.tracks.reduce((a, t) => a + t.notes.length, 0);
-    status(`${f.name}을 불러왔어요: 트랙 ${S.tracks.length}개, 음 ${nNotes}개, ${S.bpm} BPM, ${bars}마디` + (cut ? ` (${MAX_BARS}마디까지만)` : '') + (moved ? ' · 롤 밖의 음은 옥타브를 옮겼어요' : ''));
+    if (!channels.length) channels.push(newChannel('synth', 'piano', '피아노'));
+    S = normalize({...S, v:4, channels, patterns:[P], pat:0, ch:0, mix:{master:S.mix.master}, playlist:{tracks:PL_TRACKS, clips:[{id:newId(), pat:P.id, t:0, bar:0}]}, bpm:clamp(Math.round(r.bpm), 60, 300)});
+    save(); refreshAll(); if (E) applyMix(E, S.mix);
+    const nNotes = Object.values(P.notes).reduce((a, x) => a + x.length, 0);
+    status(`${f.name}을 불러왔어요: 채널 ${S.channels.length}개, 음 ${nNotes}개, ${S.bpm} BPM, ${bars}마디 패턴` + (cut ? ` (${MAX_BARS}마디까지만)` : '') + (moved ? ' · 롤 밖의 음은 옥타브를 옮겼어요' : ''));
   } catch (e) { status('MIDI를 읽지 못했어요: ' + (e.message || '알 수 없는 형식')); }
 };
 $('midiLoad').onclick = () => $('midiIn').click();
@@ -169,7 +189,7 @@ function b64ab(b) { const bin = atob(b), u = new Uint8Array(bin.length); for (le
 $('saveProj').onclick = async () => {
   const all = await idbAll(), samples = {};
   for (const [k, v] of Object.entries(all)) if (v && v.ab) samples[k] = {name:v.name, root:v.root, b64:ab64(v.ab)};
-  const j = JSON.stringify({app:'melody-sketchpad', version:3, name:lib.list[lib.current]?.name, song:S, samples}), fn = fileName() + '.json';
+  const j = JSON.stringify({app:'melody-sketchpad', version:4, name:lib.list[lib.current]?.name, song:S, samples}), fn = fileName() + '.json';
   if (inClaude) offer(fn, j); else localDownload(fn, new Blob([j], {type:'application/json'}));
   const n = Object.keys(samples).length; if (n) setTimeout(() => status(`프로젝트를 저장했어요 (내 샘플 ${n}개 포함).`), 300);
 };
@@ -178,7 +198,7 @@ $('fileIn').onchange = async () => {
   const f = $('fileIn').files[0]; $('fileIn').value = ''; if (!f) return;
   try {
     const raw = JSON.parse(await f.text()), song = raw && raw.app === 'melody-sketchpad' ? raw.song : raw;
-    if (!song || !(song.notes || song.tracks)) throw 0;
+    if (!song || !(song.notes || song.tracks || song.channels)) throw 0;
     const id = newId(); lib.list[id] = {name:(raw.name || f.name.replace(/\.json$/i, '')).slice(0, 40), updated:Date.now()};
     lsSet(PK(id), JSON.stringify(normalize(song))); openProject(id);
     let n = 0;
@@ -191,8 +211,8 @@ $('fileIn').onchange = async () => {
 function openProject(id) {
   clearTimeout(saveT); if (playing) stop();
   lib.current = id; saveLib(); let d = null; try { d = JSON.parse(lsGet(PK(id)) || 'null'); } catch (e) {}
-  S = normalize(d || blank()); undoStack = []; sel.clear(); $('selBar').hidden = true; startTick = 0;
-  syncControls(); drawAll(); selChanged(); buildMixer(); if (E) applyMix(E, S.mix); $('projName').value = lib.list[id].name; updatePos(0);
+  S = normalize(d || blank()); undoStack = []; sel.clear(); $('selBar').hidden = true; startTick = 0; songStart = 0;
+  refreshAll(); if (E) applyMix(E, S.mix); $('projName').value = lib.list[id].name; updatePos(0);
 }
 function newProject(copy) {
   const id = newId(), base = copy ? JSON.parse(JSON.stringify(S)) : {...blank(), bpm:S.bpm, root:S.root, mode:S.mode};

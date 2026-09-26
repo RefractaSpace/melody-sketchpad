@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>멜로디 스케치패드 — 브라우저에서 바로 쓰는 피아노 롤</title>
-<meta name="description" content="칸을 눌러 멜로디·코드·드럼을 찍고 바로 들어 보는 흑백 피아노 롤. 녹음 피아노, EDM 믹서, MIDI·WAV 저장, 키보드만으로도 작곡할 수 있어요.">
+<title>멜로디 스케치패드 — 브라우저에서 쓰는 FL Studio식 작곡 도구</title>
+<meta name="description" content="채널 랙·피아노 롤·플레이리스트·믹서로 패턴을 만들고 곡을 구성하는 흑백 작곡 도구. 녹음 피아노, EDM 믹서, MIDI·WAV 저장, 키보드만으로도 작곡할 수 있어요.">
 <meta name="theme-color" content="#0B0B0B" media="(prefers-color-scheme: dark)"><meta name="theme-color" content="#F4F4F4" media="(prefers-color-scheme: light)">
 <meta property="og:type" content="website"><meta property="og:site_name" content="멜로디 스케치패드"><meta property="og:title" content="멜로디 스케치패드">
 <meta property="og:description" content="브라우저에서 바로 쓰는 피아노 롤 — 멜로디·코드·드럼을 찍고 바로 들어 보세요.">
@@ -21,83 +21,92 @@
 <div class="app">
   <header class="tb" role="toolbar" aria-label="도구 모음">
     <div class="grp main">
+      <div class="seg" role="radiogroup" aria-label="재생 방식">
+        <button id="modePat" role="radio" aria-checked="true" title="패턴만 반복 재생 (L)">PAT</button><button id="modeSong" role="radio" aria-checked="false" title="플레이리스트의 곡 전체 재생 (L)">SONG</button>
+      </div>
       <button class="ib play" id="play" aria-label="재생" title="재생 / 정지 (스페이스)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg></button>
       <div class="lcd" title="템포와 재생 위치">
-      <input id="bpm" type="number" min="60" max="300" value="150" aria-label="BPM"><span class="u">BPM</span>
-      <span class="div" aria-hidden="true"></span>
-      <output id="posOut" aria-label="재생 위치">1 : 1</output>
-    </div>
-      <div class="grp tools" role="group" aria-label="도구">
-      <button class="ib" data-tool="draw" aria-pressed="true" aria-label="연필" title="연필: 찍기·옮기기·길이 (P)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.3V21h3.7L17.8 9.9l-3.7-3.7zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.7 3.7z"/></svg></button>
-      <button class="ib" data-tool="erase" aria-pressed="false" aria-label="지우개" title="지우개: 누르거나 문질러 지우기 (D)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.2 3.6a2 2 0 0 1 2.8 0l2.4 2.4a2 2 0 0 1 0 2.8L12 18.2V18H8.5L3 12.5a2 2 0 0 1 0-2.8zM8.9 16h2.3l1.2-1.2-5.2-5.2L4.4 12zM3 20h18v2H3z"/></svg></button>
-      <button class="ib" data-tool="select" aria-pressed="false" aria-label="선택" title="선택: 네모로 묶어서 옮기기·복제·지우기 (E)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h4v2H5v2H3zm6 0h6v2H9zm8 0h4v4h-2V5h-2zM3 9h2v6H3zm16 0h2v6h-2zM3 17h2v2h2v2H3zm16 0h2v4h-4v-2h2zM9 19h6v2H9z"/></svg></button>
-      <button class="ib" data-tool="hand" aria-pressed="false" aria-label="손" title="손: 끌어서 화면 이동 (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a1.5 1.5 0 0 1 1.5 1.5V11h1V4.5a1.5 1.5 0 0 1 3 0V12h1V7.5a1.5 1.5 0 0 1 3 0V15a7 7 0 0 1-7 7h-1.3a7 7 0 0 1-5.6-2.8L2.6 13.8a1.5 1.5 0 0 1 2.3-1.9L7.5 15V5.5a1.5 1.5 0 0 1 3 0V11V3.5A1.5 1.5 0 0 1 12 2z"/></svg></button>
-    </div>
+        <input id="bpm" type="number" min="60" max="300" value="150" aria-label="BPM"><span class="u">BPM</span>
+        <span class="div" aria-hidden="true"></span>
+        <output id="posOut" aria-label="재생 위치">1 : 1</output>
+      </div>
+      <div class="patbox" role="group" aria-label="패턴">
+        <select id="patSel" aria-label="편집할 패턴"></select>
+        <button class="ib sm" id="patNew" title="새 패턴" aria-label="새 패턴">＋</button>
+        <button class="ib sm" id="patClone" title="패턴 복제" aria-label="패턴 복제">⧉</button>
+      </div>
+      <div class="wins" role="group" aria-label="창 열기·닫기">
+        <button class="wbtn" data-win-toggle="playlist" aria-pressed="true" title="플레이리스트 (F5)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v3H3zm0 6.5h8v3H3zm10 0h8v3h-8zM3 17h12v3H3z"/></svg><span>플레이리스트</span><kbd>F5</kbd></button><button class="wbtn" data-win-toggle="rack" aria-pressed="true" title="채널 랙 (F6)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h4v3H3zm6 0h12v3H9zM3 10.5h4v3H3zm6 0h12v3H9zM3 16h4v3H3zm6 0h12v3H9z"/></svg><span>채널 랙</span><kbd>F6</kbd></button><button class="wbtn" data-win-toggle="roll" aria-pressed="true" title="피아노 롤 (F7)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h4v18H3zm6 3h5v3H9zm3 5h6v3h-6zm-3 5h4v3H9z"/></svg><span>피아노 롤</span><kbd>F7</kbd></button><button class="wbtn" data-win-toggle="browser" aria-pressed="true" title="브라우저 (F8)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h7v16H3zm9 0h9v4h-9zm0 6h9v4h-9zm0 6h9v4h-9z"/></svg><span>브라우저</span><kbd>F8</kbd></button><button class="wbtn" data-win-toggle="mixer" aria-pressed="true" title="믹서 (F9)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h2v8H5zm-1 9h4v2H4zm1 3h2v6H5zm6-12h2v3h-2zm-1 4h4v2h-4zm1 3h2v11h-2zm6-10h2v11h-2zm-1 12h4v2h-4zm1 3h2v2h-2z"/></svg><span>믹서</span><kbd>F9</kbd></button>
+      </div>
       <button class="ib" id="undo" aria-label="되돌리기" title="되돌리기 (Ctrl+Z)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 8c-2.7 0-5.1 1-7 2.6L2 7v9h9l-3.6-3.6A8 8 0 0 1 20.2 16l2.4-.8A10.5 10.5 0 0 0 12.5 8z"/></svg></button>
       <button class="ib more-btn" id="moreBtn" aria-expanded="false" aria-controls="more" aria-label="설정 펼치기" title="설정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5A3.5 3.5 0 1 1 13 8.5a3.5 3.5 0 0 1 0 7z"/></svg></button>
     </div>
     <div class="more" id="more">
       <div class="grp"><button class="ib" id="loop" aria-pressed="true" aria-label="반복" title="반복"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h9l-2-2 1.4-1.4L20 8l-4.6 4.4L14 11l2-2H7a3 3 0 0 0-3 3v1H2v-1a5 5 0 0 1 5-5zm10 10H8l2 2-1.4 1.4L4 16l4.6-4.4L10 13l-2 2h9a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5z"/></svg></button><button class="ib" id="metro" aria-pressed="false" aria-label="메트로놈" title="메트로놈"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2h4l5 20H5zm1.6 2L8 18h8l-1.3-5.3-3.9 3.9-1.4-1.4 4.8-4.8L13.4 4z"/></svg></button></div>
-      <div class="grp">
-      <select id="root" aria-label="조의 으뜸음"></select>
-      <select id="mode" aria-label="장조 또는 단조"><option value="minor">단조</option><option value="major">장조</option></select>
-      <label class="lbl">마디 <select id="bars"></select></label>
-    </div>
-      <div class="grp">
-      <label class="lbl">스냅 <select id="snap"><option value="12">16분</option><option value="16">셋잇단</option><option value="24">8분</option><option value="48">1박</option></select></label>
-      <label class="lbl">길이 <select id="len"><option value="12">16분</option><option value="16">셋잇단</option><option value="24" selected>8분</option><option value="48">4분</option><option value="96">2분</option></select></label>
-      
-    </div>
-      <div class="grp zoom" role="group" aria-label="확대와 축소">
-      <span class="lbl">가로</span><button class="ib sm" id="zxOut" aria-label="가로 축소" title="가로 축소">−</button><button class="ib sm" id="zxIn" aria-label="가로 확대" title="가로 확대 (Ctrl+휠)">＋</button>
-      <span class="lbl">세로</span><button class="ib sm" id="zyOut" aria-label="세로 축소" title="세로 축소">−</button><button class="ib sm" id="zyIn" aria-label="세로 확대" title="세로 확대">＋</button>
-    </div>
+      <div class="grp"><select id="root" aria-label="조의 으뜸음"></select><select id="mode" aria-label="장조 또는 단조"><option value="minor">단조</option><option value="major">장조</option></select></div>
+      <div class="grp"><button class="tbtn xs" id="layoutReset" title="창 위치를 처음처럼">창 배치 초기화</button></div>
     </div>
   </header>
   <div class="selbar" id="selBar" hidden role="group" aria-label="선택한 음">
     <span id="selCount">0개 선택</span>
-    <button class="tbtn" id="selDup">복제</button>
-    <button class="tbtn" id="selUp" aria-label="반음 위로">반음 ↑</button>
-    <button class="tbtn" id="selDown" aria-label="반음 아래로">반음 ↓</button>
-    <button class="tbtn" id="selDel">삭제</button>
-    <button class="tbtn" id="selNone">선택 해제</button>
+    <button class="tbtn" id="selDup">복제</button><button class="tbtn" id="selUp" aria-label="반음 위로">반음 ↑</button><button class="tbtn" id="selDown" aria-label="반음 아래로">반음 ↓</button><button class="tbtn" id="selDel">삭제</button><button class="tbtn" id="selNone">선택 해제</button>
   </div>
 
-  <div class="trackbar" role="group" aria-label="트랙">
-    <label class="lbl">트랙 <select id="trackSel" aria-label="편집할 트랙"></select></label>
-    <select id="inst" aria-label="이 트랙의 악기"><option value="piano">피아노</option><option value="epiano">일렉트릭 피아노</option><option value="supersaw">슈퍼소 리드</option><option value="pluck">플럭</option><option value="chip">칩튠</option><option value="bell">벨</option><option value="sample">내 샘플</option></select>
-    <button class="tbtn xs" id="trackAdd">+ 트랙</button>
-    <button class="tbtn xs" id="trackRename">이름 바꾸기</button>
-    <button class="tbtn xs" id="trackDel">트랙 삭제</button>
-    <span class="pstat" id="pianoStat" role="status"></span>
-  </div>
+  <main class="ws" id="workspace" aria-label="작업 공간">
+    <section class="win" id="win-browser" data-win="browser" aria-label="브라우저">
+      <header class="wh"><b>브라우저</b><span class="wsub">소리 고르기 · 미리 듣기</span><button class="wx" data-close="browser" aria-label="브라우저 닫기">×</button></header>
+      <div class="wb" id="browserBody"></div>
+    </section>
 
-  <section class="editor" aria-label="피아노 롤">
-    <div class="roll" id="rollWrap">
-      <div class="corner" id="corner">F 단조</div>
-      <div class="rulerbox" id="rulerBox"><canvas id="ruler" aria-label="마디 눈금자. 누르면 그 위치부터 재생, 두 번 누르면 처음으로"></canvas></div>
-      <canvas id="keys" class="keys" aria-label="건반. 누르면 소리가 나요"></canvas>
-      <div class="gridbox" id="gridBox"><canvas id="rollCanvas" role="img" aria-label="피아노 롤. 칸을 눌러 음을 찍어요. 다른 트랙의 음은 흐린 테두리로 보여요"></canvas></div>
-    </div>
-    <div class="empty" id="empty">연필로 칸을 눌러 첫 음을 찍어 보세요</div>
-  </section>
+    <section class="win" id="win-playlist" data-win="playlist" aria-label="플레이리스트">
+      <header class="wh"><b>플레이리스트</b><span class="wsub" id="plHint">패턴을 골라 빈칸을 누르면 놓여요 · 끌어서 옮기기 · 오른쪽 클릭으로 지우기 · 두 번 누르면 피아노 롤</span><button class="wx" data-close="playlist" aria-label="플레이리스트 닫기">×</button></header>
+      <div class="wb pl" id="plWrap"><div class="plhead" id="plHead"></div><div class="plbox" id="plBox"><canvas id="plRuler" aria-label="곡 눈금자. 누르면 그 위치부터 재생"></canvas><canvas id="plCanvas" tabindex="0" aria-label="플레이리스트. 패턴 조각을 시간 위에 배치해요"></canvas></div></div>
+    </section>
 
-  <section class="rack" aria-label="채널 랙">
-    <div class="rackbar">
-      <span class="ttl">채널 랙</span>
-      <span class="copy"><select id="cpFrom" aria-label="복사할 첫 마디"></select>~<select id="cpTo" aria-label="복사할 끝 마디"></select>마디를 <select id="cpDest" aria-label="붙일 마디"></select>마디로 <button class="tbtn" id="cpGo">마디 복사</button></span>
-    </div>
-    <div class="lanes" id="lanes">
-      <div class="lanekeys"><div class="ch">코드</div><div>킥</div><div>스네어</div><div>하이햇</div><div>박수</div><div class="vel">세기<select id="velTarget" class="xs" aria-label="세기 줄에서 조절할 대상"><option value="notes">멜로디</option><option value="kick">킥</option><option value="snare">스네어</option><option value="hat">하이햇</option><option value="clap">박수</option></select></div></div>
-      <div class="lanebox" id="laneBox"><div class="chordrow" id="chordRow"></div><canvas id="laneCanvas" aria-label="드럼 스텝과 세기 줄. 눌러서 켜고 끄고, 세기 줄은 끌어서 조절해요"></canvas></div>
-    </div>
-  </section>
+    <section class="win" id="win-rack" data-win="rack" aria-label="채널 랙">
+      <header class="wh"><b>채널 랙</b><span class="wsub" id="rackTitle">Pattern 1</span>
+        <select id="chAdd" class="xs" aria-label="채널 추가"><option value="">+ 채널 추가</option><option value="synth:piano">악기: 피아노</option><option value="synth:epiano">악기: 일렉트릭 피아노</option><option value="synth:supersaw">악기: 슈퍼소</option><option value="synth:pluck">악기: 플럭</option><option value="synth:chip">악기: 칩튠</option><option value="synth:bell">악기: 벨</option><option value="drum:kick">드럼: 킥</option><option value="drum:snare">드럼: 스네어</option><option value="drum:hat">드럼: 하이햇</option><option value="drum:clap">드럼: 박수</option></select>
+        <button class="wx" data-close="rack" aria-label="채널 랙 닫기">×</button></header>
+      <div class="wb" id="rackBody"></div>
+    </section>
 
-  <details class="mixer" id="mixer" open>
-    <summary><span class="ttl">믹서</span><span class="msub">채널마다 볼륨·팬·리버브·딜레이, 마스터 사이드체인과 리미터</span></summary>
-    <div class="mixbar"><button class="tbtn xs" id="mixReset">기본값으로</button></div>
-    <div class="strips" id="mixerStrips"></div>
-  </details>
+    <section class="win" id="win-roll" data-win="roll" aria-label="피아노 롤">
+      <header class="wh"><b>피아노 롤</b><span class="wsub" id="rollTitle">Pattern 1 · 피아노</span>
+        <div class="grp tools" role="group" aria-label="피아노 롤 도구">
+          <button class="ib" data-tool="draw" aria-pressed="true" aria-label="연필" title="연필: 찍기·옮기기·길이 (P)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.3V21h3.7L17.8 9.9l-3.7-3.7zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.7 3.7z"/></svg></button>
+          <button class="ib" data-tool="erase" aria-pressed="false" aria-label="지우개" title="지우개 (D)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.2 3.6a2 2 0 0 1 2.8 0l2.4 2.4a2 2 0 0 1 0 2.8L12 18.2V18H8.5L3 12.5a2 2 0 0 1 0-2.8zM8.9 16h2.3l1.2-1.2-5.2-5.2L4.4 12zM3 20h18v2H3z"/></svg></button>
+          <button class="ib" data-tool="select" aria-pressed="false" aria-label="선택" title="선택: 네모로 묶기 (E)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h4v2H5v2H3zm6 0h6v2H9zm8 0h4v4h-2V5h-2zM3 9h2v6H3zm16 0h2v6h-2zM3 17h2v2h2v2H3zm16 0h2v4h-4v-2h2zM9 19h6v2H9z"/></svg></button>
+          <button class="ib" data-tool="hand" aria-pressed="false" aria-label="손" title="손: 화면 이동 (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a1.5 1.5 0 0 1 1.5 1.5V11h1V4.5a1.5 1.5 0 0 1 3 0V12h1V7.5a1.5 1.5 0 0 1 3 0V15a7 7 0 0 1-7 7h-1.3a7 7 0 0 1-5.6-2.8L2.6 13.8a1.5 1.5 0 0 1 2.3-1.9L7.5 15V5.5a1.5 1.5 0 0 1 3 0V11V3.5A1.5 1.5 0 0 1 12 2z"/></svg></button>
+        </div>
+        <label class="lbl">스냅 <select id="snap" class="xs"><option value="12">16분</option><option value="16">셋잇단</option><option value="24">8분</option><option value="48">1박</option></select></label>
+        <label class="lbl">길이 <select id="len" class="xs"><option value="12">16분</option><option value="16">셋잇단</option><option value="24" selected>8분</option><option value="48">4분</option><option value="96">2분</option></select></label>
+        <label class="lbl">패턴 <select id="bars" class="xs" aria-label="패턴 길이 (마디)"></select>마디</label>
+        <span class="zoom"><button class="ib sm" id="zxOut" aria-label="가로 축소" title="가로 축소">−</button><button class="ib sm" id="zxIn" aria-label="가로 확대" title="가로 확대 (Ctrl+휠)">＋</button><button class="ib sm" id="zyOut" aria-label="세로 축소" title="세로 축소">⌄</button><button class="ib sm" id="zyIn" aria-label="세로 확대" title="세로 확대">⌃</button></span>
+        <span class="copy"><select id="cpFrom" class="xs" aria-label="복사할 첫 마디"></select>~<select id="cpTo" class="xs" aria-label="복사할 끝 마디"></select>→<select id="cpDest" class="xs" aria-label="붙일 마디"></select><button class="tbtn xs" id="cpGo">마디 복사</button></span>
+        <span class="pstat" id="pianoStat" role="status"></span>
+        <button class="wx" data-close="roll" aria-label="피아노 롤 닫기">×</button></header>
+      <div class="wb rollbody">
+        <div class="editor">
+          <div class="roll" id="rollWrap">
+            <div class="corner" id="corner">F 단조</div>
+            <div class="rulerbox" id="rulerBox"><canvas id="ruler" aria-label="패턴 눈금자. 누르면 그 위치부터 재생, 두 번 누르면 처음으로"></canvas></div>
+            <canvas id="keys" class="keys" aria-label="건반. 누르면 소리가 나요"></canvas>
+            <div class="gridbox" id="gridBox"><canvas id="rollCanvas" role="img" aria-label="피아노 롤. 칸을 눌러 음을 찍어요. 같은 패턴의 다른 채널 음은 흐린 테두리로 보여요"></canvas></div>
+          </div>
+          <div class="empty" id="empty">연필로 칸을 눌러 첫 음을 찍어 보세요</div>
+        </div>
+        <div class="lanes" id="lanes">
+          <div class="lanekeys"><div class="ch">코드</div><div class="vel">세기</div></div>
+          <div class="lanebox" id="laneBox"><div class="chordrow" id="chordRow"></div><canvas id="laneCanvas" aria-label="세기 줄. 막대를 위아래로 끌어 세기를 바꿔요"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="win" id="win-mixer" data-win="mixer" aria-label="믹서">
+      <header class="wh"><b>믹서</b><span class="wsub">채널마다 볼륨·팬·리버브·딜레이·EQ · 마스터 사이드체인과 리미터</span><button class="tbtn xs" id="mixReset">기본값으로</button><button class="wx" data-close="mixer" aria-label="믹서 닫기">×</button></header>
+      <div class="wb strips" id="mixerStrips"></div>
+    </section>
+  </main>
 
   <footer class="actions">
     <label class="pname"><span class="vh">곡 이름</span><input id="projName" maxlength="40" aria-label="곡 이름"></label>
@@ -108,8 +117,7 @@
     <button class="tbtn" id="wav" hidden>오디오 저장 (zip)</button>
     <button class="tbtn" id="loadProj">프로젝트 불러오기</button>
     <button class="tbtn" id="midiLoad">MIDI 불러오기</button>
-    <input type="file" id="midiIn" accept=".mid,.midi,audio/midi" hidden>
-    <input type="file" id="fileIn" accept=".json,application/json" hidden>
+    <input type="file" id="midiIn" accept=".mid,.midi,audio/midi" hidden><input type="file" id="fileIn" accept=".json,application/json" hidden>
     <button class="tbtn" id="clear">새 곡</button>
     <span class="status" id="status" role="status" aria-live="polite"></span>
     <span class="vh" id="sr" aria-live="assertive"></span>
@@ -118,16 +126,19 @@
 
   <details class="help">
     <summary>사용법</summary>
-    <p><b>연필</b> 빈칸을 누르면 음이 생기고, 누른 채 옆으로 끌면 길어져요. 음을 끌면 옮겨지고, 오른쪽 끝을 끌면 길이가 바뀌어요. 음을 한 번 누르거나 오른쪽 클릭하면 지워져요.
-    <b>지우개</b> 음을 누르거나 문질러서 지워요. <b>선택</b> 네모로 묶어서 여러 음을 고르고, 끌어서 옮기거나 위쪽 버튼으로 복제·반음 이동·삭제해요 (Delete, Ctrl+A/C/V/D, 방향키도 돼요). <b>손</b> 끌어서 화면을 움직여요. <b>확대</b> 설정의 가로·세로 −/＋ 또는 Ctrl+마우스 휠. 휴대폰에서는 두 손가락으로 밀어도 움직여요.
-    <b>눈금자</b> 맨 위 마디 번호 줄을 누르면 그 위치부터 재생돼요. 두 번 누르면 처음으로 돌아가요.
-    <b>트랙</b> 롤 위의 트랙 줄에서 트랙을 고르고, "+ 트랙"으로 악기별 멜로디를 더해요. 지금 트랙의 음만 편집되고, 다른 트랙의 음은 흐린 테두리로 보여요. 트랙마다 믹서 채널이 생겨요. <b>세기</b> 채널 랙 맨 아래 "세기" 줄에서 대상(멜로디·킥·스네어·하이햇·박수)을 고르고 막대를 위아래로 끌면 세기가 바뀌어요 (멜로디는 선택한 음이 있으면 그 음만). 음표가 흐릴수록 약한 음이에요. <b>키보드</b> 피아노 롤을 Tab으로 선택한 뒤 방향키로 이동, Enter로 찍기·지우기, +/−로 길이, [ ]로 세기. <b>채널 랙</b> 코드 줄은 박마다 칸이 있어서 마디 중간에도 코드를 바꿀 수 있어요. 코드는 다음 코드가 나올 때까지 이어져요. 드럼 칸을 눌러 켜고 꺼요. <b>믹서</b> 채널마다 볼륨·팬·리버브·딜레이·EQ를 조절하고, SC 버튼으로 사이드체인을 받을지 정해요. 멜로디·코드는 밝기·어택·릴리즈로 음색을 다듬고, 킥 칸에서 드럼 키트(EDM·808·하드·어쿠스틱풍)를 골라요. 코드 소리와 자동 베이스 패턴도 여기서 골라요. 마스터의 사이드체인을 올리면 킥에 맞춰 코드·멜로디·베이스가 출렁여요. <b>내 샘플</b> 멜로디나 드럼 칸에 내 소리 파일을 넣을 수 있고, 이 브라우저에 저장돼요. <b>마디 복사</b>로 반복되는 부분을 한 번에 붙여요.
-    건반의 점은 지금 조 안의 음, 큰 점은 으뜸음이에요. 작업은 이 기기에 자동 저장돼요. <b>MIDI 불러오기</b>로 MIDI 파일의 음을 롤로 가져올 수 있어요 (128마디까지, MIDI 채널마다 트랙으로 나뉘어요).</p>
+    <p><b>작업 흐름 (FL Studio와 같아요)</b> ① 채널 랙에서 스텝 버튼으로 드럼을 찍고 ② 채널 이름을 누르면 그 채널의 피아노 롤이 열려서 멜로디를 찍어요 ③ 이렇게 만든 한 조각이 <b>패턴</b>이에요 ④ 플레이리스트에서 패턴을 시간 위에 놓아 곡을 만들어요 ⑤ 맨 위 <b>PAT</b>은 패턴만 반복, <b>SONG</b>은 플레이리스트 곡 전체를 재생해요 (L키로 전환).</p>
+    <p><b>창</b> F5 플레이리스트 · F6 채널 랙 · F7 피아노 롤 · F8 브라우저 · F9 믹서. 창 제목줄을 끌면 옮겨지고, 오른쪽 아래 모서리를 끌면 크기가 바뀌어요. 휴대폰에서는 창이 위아래로 쌓여요.
+    <b>패턴</b> 맨 위 패턴 칸에서 고르고, ＋ 새 패턴, ⧉ 복제. 패턴 이름은 채널 랙 제목줄을 두 번 눌러 바꿔요.
+    <b>채널 랙</b> 스텝 버튼을 누르면 켜지고 꺼져요. 채널 이름을 누르면 피아노 롤이 그 채널로 바뀌어요. ⋯ 버튼으로 이름 바꾸기·삭제. "+ 채널 추가"로 악기나 드럼을 더해요.
+    <b>피아노 롤</b> 연필로 빈칸을 누르면 음이 생기고 끌면 길어져요. 음을 한 번 누르거나 오른쪽 클릭하면 지워져요. 선택 도구로 네모로 묶어 옮기기·복제·반음 이동. 아래 <b>코드</b> 줄은 박마다 코드를 둘 수 있고, <b>세기</b> 줄은 막대를 끌어 음마다 세기를 바꿔요. 같은 패턴의 다른 채널 음은 흐린 테두리로 보여요.
+    <b>플레이리스트</b> 맨 위 패턴 칸에서 패턴을 고른 뒤 빈칸을 누르면 놓여요. 끌어서 옮기고, 오른쪽 클릭(길게 누르기)으로 지우고, 두 번 누르면 그 패턴의 피아노 롤이 열려요. 눈금자를 누르면 그 위치부터 재생돼요.
+    <b>브라우저</b> 악기·드럼 키트를 눌러 미리 듣고, "채널로" 버튼으로 채널 랙에 더해요.
+    <b>키보드</b> 피아노 롤을 Tab으로 선택한 뒤 방향키로 이동, Enter로 찍기·지우기, +/−로 길이, [ ]로 세기. <b>MIDI 불러오기</b>는 채널마다 나눠서 패턴 하나로 가져와요. 작업은 이 기기에 자동 저장돼요.</p>
     <p class="credit">피아노 소리: Salamander Grand Piano V3 — Alexander Holm, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC-BY 3.0</a> (잘라서 변환함)</p>
   </details>
 </div>
 
-<p class="vh" id="kbHelp">키보드 조작: 방향키로 칸 이동, Shift+방향키로 한 마디 또는 한 옥타브 이동, Enter로 음 찍기와 지우기, 더하기와 빼기로 길이, 대괄호로 세기, Delete로 지우기. 채널 랙에서는 위아래로 줄 이동, Enter로 켜고 끄기, 세기 줄에서는 대괄호.</p>
+<p class="vh" id="kbHelp">키보드 조작: 방향키로 칸 이동, Shift+방향키로 한 마디 또는 한 옥타브 이동, Enter로 음 찍기와 지우기, 더하기와 빼기로 길이, 대괄호로 세기, Delete로 지우기. 세기 줄에서는 좌우로 이동하고 대괄호로 세기.</p>
 <dialog id="projDlg" aria-labelledby="projTitle">
   <h2 id="projTitle">내 프로젝트</h2>
   <p class="dsub">이 브라우저에 저장된 곡들이에요. 다른 기기로 옮기려면 "프로젝트 저장"으로 파일을 만들어 주세요 (내 샘플도 함께 담겨요).</p>

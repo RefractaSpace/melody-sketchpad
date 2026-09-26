@@ -1,4 +1,4 @@
-/* 02-view.js — 그리기
+/* 02-view.js — 피아노 롤 그리기 (지금 패턴 · 지금 채널)
    곡 전체 크기의 캔버스 대신, 화면에 보이는 크기의 캔버스만 두고 스크롤 위치만큼 옮겨서 그려요.
    (128마디면 가로가 수만 px라 전체를 그리면 느리고, 브라우저 캔버스 한계도 넘어요) */
 const wrap = $('rollWrap'), rc = $('rollCanvas'), kc = $('keys'), ru = $('ruler'), lc = $('laneCanvas'), lanes = $('lanes');
@@ -86,9 +86,10 @@ function drawRoll() {
   }
   x.globalAlpha = 1;
   const visible = n => n.s * TICKPX < x1 && (n.s + n.l) * TICKPX > x0 && n.p <= pTop && n.p >= pBot;
-  // 다른 트랙의 음: 흐린 테두리 (고스트 노트)
   x.lineWidth = 1; x.strokeStyle = CS.mute;
-  S.tracks.forEach((t, ti) => { if (ti === S.cur) return; for (const n of t.notes) if (visible(n)) { rr(x, n.s * TICKPX + 1.5, (HIGH - n.p) * ROWH + 2, Math.max(4, n.l * TICKPX - 2), ROWH - 4, 3); x.stroke(); } });
+  // 다른 채널의 음: 흐린 테두리 (고스트 노트) — 멜로디 편집 중엔 멜로디 채널만, 드럼 편집 중엔 드럼 채널만
+  const kind = curCh().kind;
+  S.channels.forEach((c, ci) => { if (ci === S.ch || c.kind !== kind) return; for (const n of notesOf(curPat(), c)) if (visible(n)) { rr(x, n.s * TICKPX + 1.5, (HIGH - n.p) * ROWH + 2, Math.max(4, n.l * TICKPX - 2), ROWH - 4, 3); x.stroke(); } });
   x.font = '600 10px "IBM Plex Sans KR",sans-serif'; x.textBaseline = 'middle';
   for (const n of curNotes()) {
     if (!visible(n)) continue;
@@ -108,44 +109,30 @@ function drawRoll() {
   if (startTick > 0) { x.fillStyle = CS.ink; x.globalAlpha = .35; x.fillRect(startTick * TICKPX - .5, v.st, 1, v.vh); x.globalAlpha = 1; }
   if (playTick >= 0) { x.fillStyle = CS.ink; x.fillRect(playTick * TICKPX - 1, v.st, 2, v.vh); }
   x.restore();
-  $('empty').style.display = S.tracks.some(t => t.notes.length) ? 'none' : 'block';
+  $('empty').style.display = Object.values(curPat().notes).some(a => a.length) ? 'none' : 'block';
 }
 
-let velTarget = 'notes';
 function drawLanes() {
-  const v = laneView(), x = sizeCanvas(lc, v.vw, LANES_H), step = 12 * TICKPX;
+  const v = laneView(), x = sizeCanvas(lc, v.vw, LANES_H);
   lc.style.transform = `translateX(${v.sl}px)`;
   x.fillStyle = CS.panel; x.fillRect(0, 0, v.vw, LANES_H);
   x.save(); x.translate(-v.sl, 0);
-  const i0 = Math.max(0, Math.floor(v.sl / step)), i1 = Math.min(S.bars * 16, Math.ceil((v.sl + v.vw) / step));
-  for (let d = 0; d < 4; d++) {
-    const y = CHORD_H + d * LANE_H, arr = S.drums[DRUMS[d]];
-    for (let i = i0; i < i1; i++) {
-      const X = i * step, val = arr[i], hot = val && playTick >= i * 12 && playTick < (i + 1) * 12;
-      rr(x, X + 2, y + 4, Math.max(2, step - 4), LANE_H - 8, 3);
-      if (val) { if (hot) { x.fillStyle = CS.bg; x.fill(); x.lineWidth = 2; x.strokeStyle = CS.note; x.stroke(); } else { x.globalAlpha = 0.35 + 0.65 * val; x.fillStyle = CS.note; x.fill(); x.globalAlpha = 1; } }
-      else { x.fillStyle = Math.floor(i / 4) % 2 ? CS['step-b'] : CS['step-a']; x.fill(); }
-    }
-    x.fillStyle = CS.line; x.fillRect(v.sl, y + LANE_H - 1, v.vw, 1);
-  }
-  const vy = CHORD_H + LANE_H * 4;
+  const vy = CHORD_H, bw = 4 * PPQ * TICKPX;
   x.fillStyle = CS.panel2; x.fillRect(v.sl, vy, v.vw, VEL_H); x.fillStyle = CS.line; x.fillRect(v.sl, vy, v.vw, 1);
-  for (let b = Math.floor(i0 / 16); b <= Math.ceil(i1 / 16); b++) { x.fillStyle = CS.mute; x.globalAlpha = .6; x.fillRect(b * 4 * PPQ * TICKPX, CHORD_H, 1, LANE_H * 4 + VEL_H); x.globalAlpha = 1; }
-  const bar = (X, val, on) => { const hh = (VEL_H - 10) * val; x.fillStyle = CS.note; x.globalAlpha = on ? 1 : 0.35; x.fillRect(X + 1, vy + VEL_H - 4 - hh, 3, hh); x.beginPath(); x.arc(X + 2.5, vy + VEL_H - 4 - hh, 3.2, 0, 7); x.fill(); x.globalAlpha = 1; };
-  if (velTarget === 'notes') {
-    for (const n of [...curNotes()].sort((a, b) => a.v - b.v)) { const X = n.s * TICKPX; if (X < v.sl - 8 || X > v.sl + v.vw) continue; bar(X, n.v, sel.has(n) || !sel.size); }
-  } else {
-    const arr = S.drums[velTarget];
-    for (let i = i0; i < i1; i++) if (arr[i]) bar(i * step + step / 2 - 2.5, arr[i], true);
+  for (let b = Math.floor(v.sl / bw); b <= Math.ceil((v.sl + v.vw) / bw); b++) { x.fillStyle = CS.mute; x.globalAlpha = .6; x.fillRect(b * bw, CHORD_H, 1, VEL_H); x.globalAlpha = 1; }
+  for (const n of [...curNotes()].sort((a, b) => a.v - b.v)) {
+    const X = n.s * TICKPX; if (X < v.sl - 8 || X > v.sl + v.vw) continue;
+    const hh = (VEL_H - 10) * n.v; x.fillStyle = CS.note; x.globalAlpha = sel.has(n) || !sel.size ? 1 : 0.35;
+    x.fillRect(X + 1, vy + VEL_H - 4 - hh, 3, hh); x.beginPath(); x.arc(X + 2.5, vy + VEL_H - 4 - hh, 3.2, 0, 7); x.fill(); x.globalAlpha = 1;
   }
-  if (playTick >= 0) { x.fillStyle = CS.ink; x.fillRect(playTick * TICKPX - 1, CHORD_H, 2, LANE_H * 4 + VEL_H); }
+  if (playTick >= 0) { x.fillStyle = CS.ink; x.fillRect(playTick * TICKPX - 1, CHORD_H, 2, VEL_H); }
   drawLaneCursor(x);
   x.restore();
   drawChordRow();
 }
 function drawLaneCursor(x) {
   if (document.activeElement !== lc) return;
-  const step = 12 * TICKPX, y = CHORD_H + (kbLane < 4 ? kbLane * LANE_H : LANE_H * 4), h = kbLane < 4 ? LANE_H : VEL_H;
+  const step = 12 * TICKPX, y = CHORD_H, h = VEL_H;
   x.strokeStyle = CS.ink; x.lineWidth = 2; x.setLineDash([4, 3]); x.strokeRect(kbStep * step + 1, y + 1, step - 2, h - 2); x.setLineDash([]);
 }
 
@@ -153,18 +140,18 @@ function drawLaneCursor(x) {
 let chordSig = '';
 function drawChordRow() {
   const row = $('chordRow'), bw = PPQ * TICKPX;
-  const sig = JSON.stringify([S.chords, bw, names()[1], S.root, S.mode]);
-  if (sig === chordSig && row.childElementCount === S.bars * 4) return;
+  const P = curPat(), sig = JSON.stringify([P.id, P.chords, bw, names()[1], S.root, S.mode]);
+  if (sig === chordSig && row.childElementCount === P.bars * 4) return;
   chordSig = sig; row.innerHTML = '';
   let cur = null;
-  for (let i = 0; i < S.bars * 4; i++) {
-    const c = S.chords[i], bar = Math.floor(i / 4) + 1, beat = i % 4 + 1;
-    if (c) cur = c; else if (i % 4 === 0 && !cur) cur = null;
+  for (let i = 0; i < P.bars * 4; i++) {
+    const c = P.chords[i], bar = Math.floor(i / 4) + 1, beat = i % 4 + 1;
+    if (c) cur = c.x ? null : c;
     const el = document.createElement('button');
-    el.className = 'cell' + (c ? '' : cur ? ' cont' : ' none') + (beat === 1 ? '' : ' beat');
+    el.className = 'cell' + (c && !c.x ? '' : cur ? ' cont' : ' none') + (beat === 1 ? '' : ' beat');
     el.style.width = bw + 'px';
-    el.textContent = c ? chordName(c) : (beat === 1 ? (cur ? '·' : '+ ' + bar) : (cur ? '·' : ''));
-    el.setAttribute('aria-label', `${bar}마디 ${beat}박 코드 ` + (c ? chordName(c) : cur ? `${chordName(cur)} 이어짐` : '없음') + ', 눌러서 고르기');
+    el.textContent = c ? (c.x ? '■' : chordName(c)) : (beat === 1 ? (cur ? '·' : '+ ' + bar) : (cur ? '·' : ''));
+    el.setAttribute('aria-label', `${bar}마디 ${beat}박 코드 ` + (c ? (c.x ? '멈춤' : chordName(c)) : cur ? `${chordName(cur)} 이어짐` : '없음') + ', 눌러서 고르기');
     el.onclick = () => openChord(i);
     row.appendChild(el);
   }

@@ -1,16 +1,19 @@
 /* 01-core.js — 공통 상수 · 곡 데이터 · 저장
-   곡 데이터 S (버전 3)
-   - tracks: [{id, name, inst, notes:[{p,s,l,v}], tone:{br,atk,rel}}], cur: 편집 중인 트랙 번호
-   - chords: 박마다 한 칸 (bars*4), 코드는 다음 코드가 나올 때까지 이어짐
-   - drums: {kick,snare,hat,clap} → 16분마다 0(꺼짐) ~ 1(가장 셈)
-   - mix: 채널 키('trk:<id>', 'chords', 'bass', 'kick'…)마다 설정 + master */
+   곡 데이터 S (버전 4, FL Studio식)
+   - channels: [{id, name, kind:'synth'|'drum', inst, tone}]   ← 채널 랙의 한 줄
+       synth: inst = piano·epiano·supersaw·pluck·chip·bell·sample / drum: inst = kick·snare·hat·clap
+   - patterns: [{id, name, bars, notes:{채널id:[{p,s,l,v}]}, chords:[박마다]}]   ← 짧은 조각
+       드럼 채널의 스텝도 음(높이 72)으로 저장 → 피아노 롤·세기 편집이 똑같이 됨
+   - playlist: {tracks, clips:[{id, pat:패턴id, t:줄, bar:시작 마디}]}   ← 곡 구성
+   - mode: 'pat'(패턴 반복) | 'song'(플레이리스트 재생), pat/ch: 편집 중인 패턴·채널 번호
+   - mix: 채널 키('ch:<id>', 'chords', 'bass')마다 설정 + master */
 const $ = id => document.getElementById(id);
 const PPQ = 48, LOW = 48, HIGH = 96;                 // 한 박 = 48틱, 건반 C3~C7
 const KEYW = 64, RULER = 24;
 const ZX_LEVELS = [0.75, 1, 1.5, 2, 3, 4], RH_LEVELS = [14, 17, 20, 24, 28];
 let zxi = 3, rhi = 2, TICKPX = ZX_LEVELS[zxi], ROWH = RH_LEVELS[rhi];
-const LANE_H = 28, CHORD_H = 34, VEL_H = 60, LANES_H = CHORD_H + LANE_H * 4 + VEL_H;
-const MAX_BARS = 128;
+const LANE_H = 28, CHORD_H = 34, VEL_H = 60, LANES_H = CHORD_H + VEL_H;
+const MAX_BARS = 128, MAX_PAT_BARS = 32, DRUM_PITCH = 72, PL_TRACKS = 10;
 const NAMES_S = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const NAMES_F = ['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
 const MAJ = [0,2,4,5,7,9,11], MIN = [0,2,3,5,7,8,10];
@@ -20,10 +23,10 @@ const DRUMS = ['kick', 'snare', 'hat', 'clap'];
 const DRUM_NAME = {kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수'};
 const INSTS = {piano:'피아노', epiano:'일렉트릭 피아노', supersaw:'슈퍼소', pluck:'플럭', chip:'칩튠', bell:'벨', sample:'내 샘플'};
 const KITS_OK = ['edm', '808', 'hard', 'acoustic'];
-const FIXED_CH = ['chords', 'bass', 'kick', 'snare', 'hat', 'clap'];
+const FIXED_CH = ['chords', 'bass'];
 const CH_NAME = {chords:'코드', bass:'베이스', kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수'};
-const MIX_DEF = {chords:{v:.85,pan:0,rev:.3,dly:0,sc:true}, bass:{v:.45,pan:0,rev:0,dly:0,sc:true},
-  kick:{v:.6,pan:0,rev:0,dly:0,sc:false}, snare:{v:.7,pan:0,rev:.18,dly:0,sc:false}, hat:{v:.45,pan:.15,rev:.05,dly:0,sc:false}, clap:{v:.6,pan:-.1,rev:.25,dly:0,sc:false}};
+const MIX_DEF = {chords:{v:.85,pan:0,rev:.3,dly:0,sc:true}, bass:{v:.45,pan:0,rev:0,dly:0,sc:true}};
+const DRUM_MIX = {kick:{v:.6,pan:0,rev:0,dly:0,sc:false}, snare:{v:.7,pan:0,rev:.18,dly:0,sc:false}, hat:{v:.45,pan:.15,rev:.05,dly:0,sc:false}, clap:{v:.6,pan:-.1,rev:.25,dly:0,sc:false}};
 const TRACK_MIX_DEF = {v:1, pan:0, rev:.22, dly:.18, sc:true};
 const MASTER_DEF = {v:.85, sc:.5, size:2};
 const STORE = 'melody-sketchpad-v1', LIB = 'melody-sketchpad-library', PK = id => 'melody-sketchpad-proj-' + id;
@@ -31,63 +34,84 @@ const STORE = 'melody-sketchpad-v1', LIB = 'melody-sketchpad-library', PK = id =
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const toneDefault = () => ({br:1, atk:0, rel:0.25});
-const trackKey = t => 'trk:' + t.id;
-function newTrack(name, inst) { return {id:newId(), name, inst:inst || 'piano', notes:[], tone:toneDefault()}; }
-function chDefault(key) { const d = key.startsWith('trk:') ? TRACK_MIX_DEF : MIX_DEF[key]; return {...d, lo:0, mid:0, hi:0, mute:0, solo:0}; }
-
+const chKey = c => 'ch:' + c.id;
+const trackKey = chKey;   // 예전 이름 호환
+function newChannel(kind, inst, name) { return {id:newId(), kind, inst, name:name || (kind === 'drum' ? DRUM_NAME[inst] : INSTS[inst]), tone:toneDefault()}; }
+function newPattern(name, bars) { return {id:newId(), name, bars:bars || 4, notes:{}, chords:Array((bars || 4) * 4).fill(null)}; }
+function chDefault(key, ch) {
+  const d = key.startsWith('ch:') ? (ch && ch.kind === 'drum' ? DRUM_MIX[ch.inst] : TRACK_MIX_DEF) : MIX_DEF[key];
+  return {...(d || TRACK_MIX_DEF), lo:0, mid:0, hi:0, mute:0, solo:0};
+}
 function blank() {
-  const bars = 8;
-  const s = {v:3, bpm:150, root:5, mode:'minor', bars, snap:12, len:24,
-    tracks:[newTrack('멜로디 1', 'piano')], cur:0,
-    chords:Array(bars * 4).fill(null), chordInst:'pad', chordTone:{br:1, atk:0.15, rel:0.5},
-    bassMode:'off', bassInst:'reese', kit:'edm',
-    drums:Object.fromEntries(DRUMS.map(d => [d, Array(bars * 16).fill(0)])), mix:{}};
+  const ch = [newChannel('synth', 'piano', '피아노'), newChannel('drum', 'kick'), newChannel('drum', 'clap'), newChannel('drum', 'hat'), newChannel('drum', 'snare')];
+  const p = newPattern('Pattern 1', 4);
+  const s = {v:4, bpm:150, root:5, mode:'minor', snap:12, len:24, channels:ch, patterns:[p], pat:0, ch:0, playMode:'pat',
+    playlist:{tracks:PL_TRACKS, clips:[{id:newId(), pat:p.id, t:0, bar:0}]},
+    chordInst:'pad', chordTone:{br:1, atk:0.15, rel:0.5}, bassMode:'off', bassInst:'reese', kit:'edm', mix:{}};
   fillMix(s); return s;
 }
 function fillMix(s) {
   const m = s.mix || {}, out = {};
-  for (const t of s.tracks) out[trackKey(t)] = {...chDefault(trackKey(t)), ...(m[trackKey(t)] || {})};
+  for (const c of s.channels) out[chKey(c)] = {...chDefault(chKey(c), c), ...(m[chKey(c)] || {})};
   for (const k of FIXED_CH) out[k] = {...chDefault(k), ...(m[k] || {})};
   out.master = {...MASTER_DEF, ...(m.master || {})};
   s.mix = out;
 }
 const normNote = n => ({p:n.p | 0, s:n.s | 0, l:n.l | 0, v:clamp(n.v == null ? 0.8 : +n.v, 0.05, 1)});
 const okNote = n => n && n.p >= LOW && n.p <= HIGH && n.s >= 0 && n.l > 0;
+const normChord = c => c ? (c.x ? {x:1} : {r:clamp(c.r | 0, 0, 11), q:QUAL[c.q] ? c.q : ''}) : null;
 
-// 옛 버전(트랙 하나·마디 코드) 데이터를 버전 3으로 바꾸고, 값이 이상하면 바로잡음
-function normalize(s) {
-  s = {...s};
-  if (!Array.isArray(s.tracks)) {
-    const t = newTrack('멜로디 1', s.inst === 'lead' ? 'supersaw' : (s.inst || 'piano'));
-    t.notes = s.notes || [];
-    if (s.tone && s.tone.melody) t.tone = {...toneDefault(), ...s.tone.melody};
-    s.tracks = [t]; s.cur = 0;
-    if (s.mix && s.mix.melody) { s.mix = {...s.mix, [trackKey(t)]: s.mix.melody}; delete s.mix.melody; }
+// 버전 3(트랙 + 드럼 칸)까지의 곡을 버전 4(채널 + 패턴 + 플레이리스트)로 바꿈
+function toV4(s) {
+  if (!Array.isArray(s.tracks)) {   // 버전 2 이하: 멜로디 하나
+    s = {...s, tracks:[{id:newId(), name:'멜로디 1', inst:s.inst === 'lead' ? 'supersaw' : (s.inst || 'piano'), notes:s.notes || [], tone:(s.tone && s.tone.melody) || toneDefault()}]};
+    if (s.mix && s.mix.melody) s.mix = {...s.mix, ['trk:' + s.tracks[0].id]:s.mix.melody};
     if (s.tone && s.tone.chords) s.chordTone = s.tone.chords;
   }
-  const oldBarChords = !s.v || s.v < 3;
+  const bars = clamp(s.bars | 0 || 8, 1, MAX_BARS), old = s.mix || {};
+  const oldBar = !s.v || s.v < 3, ch = s.chords || [];
+  const p = newPattern('Pattern 1', bars);
+  p.chords = Array.from({length:bars * 4}, (_, i) => normChord(oldBar ? (i % 4 === 0 ? ch[i / 4] : null) : ch[i]));
+  const channels = [], mix = {};
+  for (const t of s.tracks) { const c = {id:t.id || newId(), kind:'synth', inst:INSTS[t.inst] ? t.inst : 'piano', name:t.name || '멜로디', tone:{...toneDefault(), ...(t.tone || {})}}; channels.push(c); p.notes[c.id] = t.notes || []; if (old['trk:' + t.id]) mix[chKey(c)] = old['trk:' + t.id]; }
+  for (const d of DRUMS) {
+    const c = newChannel('drum', d); channels.push(c); if (old[d]) mix[chKey(c)] = old[d];
+    const a = (s.drums && s.drums[d]) || []; p.notes[c.id] = [];
+    a.forEach((v, i) => { v = v === true ? 1 : +v || 0; if (v > 0) p.notes[c.id].push({p:DRUM_PITCH, s:i * 12, l:12, v:clamp(v, 0.05, 1)}); });
+  }
+  for (const k of FIXED_CH) if (old[k]) mix[k] = old[k];
+  if (old.master) mix.master = old.master;
+  return {v:4, bpm:s.bpm, root:s.root, mode:s.mode, snap:s.snap, len:s.len, channels, patterns:[p], pat:0, ch:0, playMode:'pat',
+    playlist:{tracks:PL_TRACKS, clips:[{id:newId(), pat:p.id, t:0, bar:0}]},
+    chordInst:s.chordInst, chordTone:s.chordTone, bassMode:s.bassMode, bassInst:s.bassInst, kit:s.kit, mix};
+}
+function normalize(s) {
+  s = s && s.v >= 4 ? {...s} : toV4(s || {});
   const b = blank();
-  s = {...b, ...s, v:3};
-  s.bars = clamp(s.bars | 0 || 8, 1, MAX_BARS);
-  const lim = s.bars * 4 * PPQ;
+  s = {...b, ...s, v:4};
   const seen = new Set();
-  s.tracks = s.tracks.map((t, i) => {
-    let id = t.id || newId(); if (seen.has(id)) id = newId(); seen.add(id);
-    return {id, name:(t.name || '멜로디 ' + (i + 1)).slice(0, 30), inst:INSTS[t.inst] ? t.inst : 'piano',
-      notes:(t.notes || []).filter(okNote).map(normNote).filter(n => n.s < lim).map(n => ({...n, l:Math.min(n.l, lim - n.s)})),
-      tone:{...toneDefault(), ...(t.tone || {})}};
+  s.channels = (s.channels || []).filter(c => c && (c.kind === 'drum' ? DRUMS.includes(c.inst) : true)).map(c => {
+    let id = c.id || newId(); if (seen.has(id)) id = newId(); seen.add(id);
+    const kind = c.kind === 'drum' ? 'drum' : 'synth';
+    return {id, kind, inst:kind === 'drum' ? c.inst : (INSTS[c.inst] ? c.inst : 'piano'), name:(c.name || (kind === 'drum' ? DRUM_NAME[c.inst] : INSTS[c.inst]) || '채널').slice(0, 24), tone:{...toneDefault(), ...(c.tone || {})}};
   });
-  if (!s.tracks.length) s.tracks = [newTrack('멜로디 1', 'piano')];
-  s.cur = clamp(s.cur | 0, 0, s.tracks.length - 1);
-  const ch = s.chords || [];
-  s.chords = Array.from({length:s.bars * 4}, (_, i) => oldBarChords ? (i % 4 === 0 ? ch[i / 4] || null : null) : (ch[i] || null));
-  const dr = {};
-  for (const d of DRUMS) { const a = (s.drums && s.drums[d]) || []; dr[d] = Array.from({length:s.bars * 16}, (_, i) => a[i] === true ? 1 : clamp(+a[i] || 0, 0, 1)); }
-  s.drums = dr;
+  if (!s.channels.length) s.channels = b.channels;
+  const ids = new Set(s.channels.map(c => c.id));
+  s.patterns = (s.patterns || []).map((p, i) => {
+    const bars = clamp(p.bars | 0 || 4, 1, MAX_BARS), lim = bars * 4 * PPQ, notes = {};
+    for (const [cid, arr] of Object.entries(p.notes || {})) if (ids.has(cid)) notes[cid] = (arr || []).filter(okNote).map(normNote).filter(n => n.s < lim).map(n => ({...n, l:Math.min(n.l, lim - n.s)}));
+    return {id:p.id || newId(), name:(p.name || 'Pattern ' + (i + 1)).slice(0, 24), bars, notes, chords:Array.from({length:bars * 4}, (_, k) => normChord((p.chords || [])[k]))};
+  });
+  if (!s.patterns.length) s.patterns = [newPattern('Pattern 1', 4)];
+  const pids = new Set(s.patterns.map(p => p.id));
+  const pl = s.playlist || {};
+  s.playlist = {tracks:clamp(pl.tracks | 0 || PL_TRACKS, 4, 20), clips:(pl.clips || []).filter(c => c && pids.has(c.pat)).map(c => ({id:c.id || newId(), pat:c.pat, t:clamp(c.t | 0, 0, 19), bar:clamp(c.bar | 0, 0, MAX_BARS - 1)}))};
+  s.pat = clamp(s.pat | 0, 0, s.patterns.length - 1); s.ch = clamp(s.ch | 0, 0, s.channels.length - 1);
+  s.playMode = s.playMode === 'song' ? 'song' : 'pat';
   if (![12, 16, 24, 48].includes(+s.snap)) s.snap = 12;
   if (!KITS_OK.includes(s.kit)) s.kit = 'edm';
+  if (!['off', 'sustain', '8th', 'offbeat'].includes(s.bassMode)) s.bassMode = 'off';
   s.chordTone = {br:1, atk:0.15, rel:0.5, ...(s.chordTone || {})};
-  delete s.notes; delete s.inst; delete s.tone;
   fillMix(s);
   return s;
 }
@@ -122,11 +146,20 @@ function pushUndo() { undoStack.push(JSON.stringify(S)); if (undoStack.length > 
 
 // ---- 편집 상태 (여러 모듈이 함께 씀) ----
 let sel = new Set(), clip = null, drag = null, lastVel = 0.8, lastDrumVel = 1;
-let kb = {t:0, p:72}, kbLane = 0, kbStep = 0, playTick = -1, startTick = 0, keyDown = -1;
+let kb = {t:0, p:72}, kbStep = 0, playTick = -1, songTick = -1, startTick = 0, songStart = 0, keyDown = -1;
 let playing = false;
-const curTrack = () => S.tracks[S.cur];
-const curNotes = () => S.tracks[S.cur].notes;
-const totalTicks = () => S.bars * 4 * PPQ;
+const curPat = () => S.patterns[S.pat];
+const curCh = () => S.channels[S.ch];
+const curTrack = curCh;   // 예전 이름 호환
+function notesOf(p, c) { return p.notes[c.id] || (p.notes[c.id] = []); }
+const curNotes = () => notesOf(curPat(), curCh());
+const patTicks = p => p.bars * 4 * PPQ;
+const totalTicks = () => patTicks(curPat());
+const patById = id => S.patterns.find(p => p.id === id);
+const chById = id => S.channels.find(c => c.id === id);
+// 곡 길이 = 마지막 조각이 끝나는 마디 (조각이 없으면 지금 패턴 길이)
+function songBars() { let e = 0; for (const c of S.playlist.clips) { const p = patById(c.pat); if (p) e = Math.max(e, c.bar + p.bars); } return clamp(e || S.patterns[S.pat].bars, 1, MAX_BARS); }
+const songTicks = () => songBars() * 4 * PPQ;
 
 // ---- 음 이름 ----
 function names() { const f = S.mode === 'major' ? [5,10,3,8,1,6].includes(S.root) : [2,7,0,5,10,3].includes(S.root); return f ? NAMES_F : NAMES_S; }
@@ -134,7 +167,7 @@ const nn = p => names()[p % 12] + (Math.floor(p / 12) - 1);
 const inKey = pc => (S.mode === 'major' ? MAJ : MIN).includes((pc - S.root + 12) % 12);
 const chordName = c => c ? names()[c.r] + (c.q === 'm' ? 'm' : c.q === '' ? '' : c.q) : '';
 const chordVoices = c => { const base = 48 + c.r; return QUAL[c.q].map(i => base + i + (base + i < 52 ? 12 : 0)); };
-function chordAtBeat(i) { for (let k = i; k >= 0; k--) if (S.chords[k]) return S.chords[k]; return null; }
+function chordAtBeat(i, p) { const ch = (p || curPat()).chords; for (let k = i; k >= 0; k--) if (ch[k]) return ch[k].x ? null : ch[k]; return null; }
 
 // ---- 알림 ----
 function status(s) { const el = $('status'); if (!el) return; el.textContent = s; clearTimeout(status.t); status.t = setTimeout(() => el.textContent = '', 4000); }

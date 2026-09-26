@@ -1,5 +1,5 @@
 /* 04-audio.js — 소리 엔진 (음색 · 믹서 채널 · 사이드체인 · 피아노 샘플)
-   채널은 필요할 때 만들어져요: 트랙마다 'trk:<id>', 그리고 코드·베이스·드럼 */
+   채널은 필요할 때 만들어져요: 채널 랙의 채널마다 'ch:<id>', 그리고 코드·베이스 */
 const hz = m => 440 * Math.pow(2, (m - 69) / 12);
 const SAMPLES = {};            // 샘플 칸 → {buf, root, name}
 const PIANO = {};              // 건반 번호 → AudioBuffer (Salamander Grand Piano, CC-BY 3.0)
@@ -75,7 +75,7 @@ function getCh(E, key) {
   const lo = ac.createBiquadFilter(), md = ac.createBiquadFilter(), hi = ac.createBiquadFilter();
   lo.type = 'lowshelf'; lo.frequency.value = 180; md.type = 'peaking'; md.frequency.value = 1200; md.Q.value = 0.8; hi.type = 'highshelf'; hi.frequency.value = 5000;
   inp.connect(duck); duck.connect(lo); lo.connect(md); md.connect(hi); hi.connect(vol); vol.connect(pan); pan.connect(E.in); pan.connect(rs); pan.connect(ds); rs.connect(E.rev); ds.connect(E.dlyIn);
-  const m = S.mix[key] || chDefault(key); vol.gain.value = m.v; pan.pan.value = m.pan; rs.gain.value = m.rev; ds.gain.value = m.dly;
+  const m = S.mix[key] || chDefault(key, key.startsWith('ch:') ? chById(key.slice(3)) : null); vol.gain.value = m.v; pan.pan.value = m.pan; rs.gain.value = m.rev; ds.gain.value = m.dly;
   return E.ch[key] = {inp, duck, vol, pan, rs, ds, lo, md, hi};
 }
 function applyMix(E, mix) {
@@ -100,12 +100,15 @@ function playSample(E, slot, m, t, d, vel, dest) {
 function sidechain(EE, t) {
   const amt = S.mix.master.sc; if (amt <= 0) return; const beat = 60 / S.bpm;
   for (const k of Object.keys(S.mix)) {
-    if (k === 'master' || k === 'kick' || !S.mix[k].sc) continue;
+    if (k === 'master' || !S.mix[k].sc) continue;
     const g = getCh(EE, k).duck.gain; g.setValueAtTime(1 - amt * (k === 'bass' ? 1 : 0.85), t); g.setTargetAtTime(1, t + 0.02, beat * 0.18);
   }
 }
 // 지금 트랙 악기로 한 음 들려주기
-function playTrackNote(EE, tr, p, t, d, v) { voice(EE, tr.inst, p, t, d, v, getCh(EE, trackKey(tr)).inp, tr.tone, trackKey(tr)); }
+function playTrackNote(EE, ch, p, t, d, v) {
+  if (ch.kind === 'drum') { drumHit(ch.inst, t, EE, v, chKey(ch)); return; }
+  voice(EE, ch.inst, p, t, d, v, getCh(EE, chKey(ch)).inp, ch.tone, chKey(ch));
+}
 function preview(p, v) { ensureCtx(); playTrackNote(E, curTrack(), p, ctx.currentTime + 0.01, 0.3, v == null ? 0.9 : v); }
 
 // ---- 음색 (파형 · 봉투 · 악기들) ----
@@ -170,8 +173,8 @@ const KITS={edm:{k:[190,48,.09,.09,2.5,.5],s:[[185,330],2600,.2,.55,.14],h:[1,.0
   hard:{k:[320,55,.06,.13,7,.9],s:[[200,380],3000,.3,.7,.12],h:[1,.05,.45],c:[.22,.55]},
   acoustic:{k:[110,58,.05,.07,1,.3],s:[[190,290],3600,.26,.6,.08],h:[0,.09,.3],c:[.14,.35]}};
 
-function drumHit(d,t,EE,vel){EE=EE||E;vel=vel==null?1:vel;const ac=EE.ac,dest=getCh(EE,d).inp,K=KITS[S.kit]||KITS.edm;
-  if(playSample(EE,d,null,t,null,vel,dest)){if(d==='kick')sidechain(EE,t);return}
+function drumHit(d,t,EE,vel,key){EE=EE||E;vel=vel==null?1:vel;const ac=EE.ac,dest=getCh(EE,key||d).inp,K=KITS[S.kit]||KITS.edm;
+  if((key&&playSample(EE,key,null,t,null,vel,dest))||playSample(EE,d,null,t,null,vel,dest)){if(d==='kick')sidechain(EE,t);return}
   if(d==='kick'){const[f0,f1,sw,tau,drive,click]=K.k;const o=ac.createOscillator(),g=ac.createGain(),sh=ac.createWaveShaper();const cv=new Float32Array(512);for(let i=0;i<512;i++){const x=i/255.5-1;cv[i]=Math.tanh(drive*x)/Math.tanh(drive)}sh.curve=cv;
     o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(f1,t+sw);g.gain.setValueAtTime(vel,t);g.gain.setTargetAtTime(0.0001,t+0.04,tau);o.connect(sh);sh.connect(g);g.connect(dest);o.start(t);o.stop(t+tau*6+0.1);
     if(S.kit==='acoustic')noiseBurst(EE,t,0.03,'bandpass',900,0.8,click*vel,dest);else noiseBurst(EE,t,0.012,'highpass',3000,0.7,click*vel,dest);sidechain(EE,t)}
