@@ -17,7 +17,7 @@ def check(name, ok, detail=''):
 async def main():
     tmp = tempfile.mkdtemp()
     async with async_playwright() as p:
-        b = await p.chromium.launch()
+        b = await p.chromium.launch(args=['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'])
         ctx = await b.new_context(viewport={'width': 1440, 'height': 1000}, color_scheme='dark', accept_downloads=True)
         pg = await ctx.new_page(); errs = []
         pg.on('pageerror', lambda e: errs.append(str(e)))
@@ -268,6 +268,21 @@ async def main():
         lay = await lp.evaluate("(()=>{const r=document.getElementById('win-roll').getBoundingClientRect();return {rows:Math.floor(view().vh/ROWH),bottom:Math.round(r.bottom),tb:Math.round(document.querySelector('.tb').getBoundingClientRect().height)}})()")
         await lp.close()
         check('노트북 화면(1366×768): 피아노 롤 20줄 이상 · 화면 안에 다 보임', lay['rows'] >= 20 and lay['bottom'] <= 768 and lay['tb'] < 70, str(lay))
+        # 자판 건반 · MIDI 건반 · 녹음
+        await J("""(()=>{const s=normalize(blank());s.bpm=120;s.patterns[0].bars=1;s.patterns[0].chords=Array(4).fill(null);s.playMode='pat';S=s;startTick=0;refreshAll();$('loop').setAttribute('aria-pressed','true')})()""")
+        await pg.click('#typeKeys'); await J("setRec(true);play()"); await pg.wait_for_timeout(250)
+        await pg.keyboard.down('q'); await pg.wait_for_timeout(260); await pg.keyboard.up('q'); await pg.wait_for_timeout(150)
+        await J("handleMidi([0xB0,64,127]);handleMidi([0x90,64,100])"); await pg.wait_for_timeout(200); await J("handleMidi([0x80,64,0])")
+        held = await J("live.has(64)"); await pg.wait_for_timeout(200); await J("handleMidi([0xB0,64,0])"); await pg.wait_for_timeout(100)
+        await J("stop();setRec(false)"); await pg.click('#typeKeys')
+        recd = await J("curNotes().map(n=>[n.p,n.s%12===0,n.l>=12,Math.round(n.v*100)])")
+        undo1 = await J("(()=>{$('undo').click();return curNotes().length})()")
+        check('자판 건반·MIDI 건반으로 녹음 (서스테인 페달 · 되돌리기 한 번에)', sorted(r[0] for r in recd) == [64, 72] and all(r[1] and r[2] for r in recd) and [r[3] for r in recd if r[0] == 72] == [80] and held and undo1 == 0, f'{recd} · 페달 누르는 동안 유지 {held} · 되돌린 뒤 {undo1}개')
+        slot = await J("(()=>{addChannel('synth','piano');return chKey(curCh())})()")
+        await J(f"micToggle('{slot}','테스트 채널')"); await pg.wait_for_timeout(1600); await J(f"micToggle('{slot}','테스트 채널')")
+        await pg.wait_for_function(f"!!SAMPLES['{slot}']", timeout=8000)
+        mic = await J(f"[+SAMPLES['{slot}'].buf.duration.toFixed(1),curCh().inst,Math.max(...SAMPLES['{slot}'].buf.getChannelData(0).slice(4000,40000).map(Math.abs))]")
+        check('마이크 녹음 → 채널 소리 (내 샘플)', mic[0] >= 1.0 and mic[1] == 'sample' and mic[2] > 0.01, f'{mic[0]}초 · 악기 {mic[1]} · 소리 크기 {mic[2]:.2f}')
         v3 = {'v': 3, 'bpm': 128, 'root': 0, 'mode': 'major', 'bars': 2, 'tracks': [{'id': 'a', 'name': '리드', 'inst': 'pluck', 'notes': [{'p': 60, 's': 0, 'l': 24}]}], 'chords': [{'r': 0, 'q': ''}, None, None, None, {'r': 7, 'q': ''}], 'drums': {'kick': [1, 0, 0, 0, 0.5]}}
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v3)}));openProject(id)}})()")
         conv = await J("[S.channels.map(c=>c.name), S.patterns.length, S.playlist.clips.length, chordName(S.patterns[0].chords[4]), notesOf(S.patterns[0],S.channels[1]).map(n=>n.v)]")

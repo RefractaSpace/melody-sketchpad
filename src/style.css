@@ -328,3 +328,11 @@ dialog.wide{width:min(920px,94vw)}
 #win-roll .wh .pstat{white-space:nowrap}
 #win-roll .wh > *{flex-shrink:0}
 #win-roll .wh > .wsub{flex-shrink:1}
+
+.ib.rec svg circle{fill:var(--mute)}
+.ib.rec[aria-pressed="true"]{border-color:#e5484d}
+.ib.rec[aria-pressed="true"] svg circle{fill:#e5484d}
+.tbtn.typek{height:36px}
+.tbtn.typek[aria-pressed="true"],#midiConn[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.smp .tbtn.micon{border-color:#e5484d;color:#e5484d}
+@media (max-width:760px){.tbtn.typek{display:none}}

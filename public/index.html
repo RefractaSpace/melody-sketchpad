@@ -25,6 +25,8 @@
         <button id="modePat" role="radio" aria-checked="true" title="패턴만 반복 재생 (L)">PAT</button><button id="modeSong" role="radio" aria-checked="false" title="플레이리스트의 곡 전체 재생 (L)">SONG</button>
       </div>
       <button class="ib play" id="play" aria-label="재생" title="재생 / 정지 (스페이스)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg></button>
+      <button class="ib rec" id="recBtn" aria-pressed="false" aria-label="녹음 대기" title="녹음 대기 (R): 켠 채로 재생하면서 MIDI 건반·자판 건반을 치면 지금 채널에 찍혀요"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/></svg></button>
+      <button class="tbtn xs typek" id="typeKeys" aria-pressed="false" title="컴퓨터 자판을 건반으로 (Z줄·Q줄, -/=로 옥타브, Esc로 끄기)">⌨ 자판 건반</button>
       <div class="lcd" title="템포와 재생 위치">
         <input id="bpm" type="number" min="60" max="300" step="0.01" value="150" aria-label="BPM (소수점 가능, 예: 126.5)"><span class="u">BPM</span>
         <span class="div" aria-hidden="true"></span>
@@ -44,6 +46,7 @@
     <div class="more" id="more">
       <div class="grp"><button class="ib" id="loop" aria-pressed="true" aria-label="반복" title="반복"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h9l-2-2 1.4-1.4L20 8l-4.6 4.4L14 11l2-2H7a3 3 0 0 0-3 3v1H2v-1a5 5 0 0 1 5-5zm10 10H8l2 2-1.4 1.4L4 16l4.6-4.4L10 13l-2 2h9a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5z"/></svg></button><button class="ib" id="metro" aria-pressed="false" aria-label="메트로놈" title="메트로놈"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2h4l5 20H5zm1.6 2L8 18h8l-1.3-5.3-3.9 3.9-1.4-1.4 4.8-4.8L13.4 4z"/></svg></button></div>
       <div class="grp"><select id="root" aria-label="조의 으뜸음"></select><select id="mode" aria-label="장조 또는 단조"><option value="minor">단조</option><option value="major">장조</option></select></div>
+      <div class="grp"><button class="tbtn xs" id="midiConn" aria-pressed="false" title="USB MIDI 건반 연결 (크롬·엣지)">MIDI 건반 연결</button><button class="tbtn xs" id="quantBtn" aria-pressed="true" title="녹음한 음을 스냅 칸에 맞추기">녹음 퀀타이즈</button></div>
       <div class="grp"><button class="tbtn xs" id="layoutReset" title="창 위치를 처음처럼">창 배치 초기화</button></div>
     </div>
   </header>
@@ -135,6 +138,7 @@
     <b>플레이리스트</b> 맨 위 패턴 칸에서 패턴을 고른 뒤 빈칸을 누르면 놓여요. 끌어서 옮기고, 오른쪽 클릭(길게 누르기)으로 지우고, 두 번 누르면 그 패턴의 피아노 롤이 열려요. 눈금자를 누르면 그 위치부터 재생돼요.
     <b>브라우저</b> 악기·드럼 키트를 눌러 미리 듣고, "채널로" 버튼으로 채널 랙에 더해요.
     <b>악보 텍스트</b> "악보 복사"는 곡을 글(악보 형식)로 복사해요. 이 글을 대화에 붙이면 AI가 곡을 읽을 수 있고, AI가 이 형식으로 쓴 곡은 "악보 붙여넣기"로 바로 불러올 수 있어요. <b>저장</b>은 우리 형식 .msk로 해요 (작고 빠르고, 내 샘플까지 담겨요). <b>불러오기</b>는 파일 이름이 아니라 내용을 스캔해서 형식을 알아봐요. <b>곡 코드</b>(MSK1.…)는 곡을 글자로 바꾼 것이라 메시지로 보내고 "붙여넣기"로 열 수 있어요. <b>파일 변환기</b>는 모든 형식을 서로 바꾸고 오디오(.wav)도 만들어요.
+    <b>건반·녹음</b> ⌨ 자판 건반을 켜면 Z줄·Q줄이 피아노 건반이 돼요 (-/=로 옥타브). ⚙에서 MIDI 건반을 연결할 수 있어요. ● 녹음을 켜고 재생하면서 치면 지금 채널에 찍혀요 (반복할 때마다 겹쳐 녹음). 믹서의 채널마다 🎤로 마이크 소리를 녹음해 그 채널 소리로 쓸 수 있어요.
     <b>키보드</b> 피아노 롤을 Tab으로 선택한 뒤 방향키로 이동, Enter로 찍기·지우기, +/−로 길이, [ ]로 세기. <b>MIDI 불러오기</b>는 채널마다 나눠서 패턴 하나로 가져와요. 작업은 이 기기에 자동 저장돼요.</p>
     <p class="credit">피아노 소리: Salamander Grand Piano V3 — Alexander Holm, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC-BY 3.0</a> (잘라서 변환함)</p>
   </details>

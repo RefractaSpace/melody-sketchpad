@@ -27,6 +27,8 @@ function buildBrowser() {
   s = bSection('패턴');
   S.patterns.forEach((P, i) => { const it = bItem(s, `${P.name} · ${P.bars}마디`, [['색', () => { pushUndo(); P.color = (P.color + 1) % PAT_COLORS.length; save(); buildBrowser(); drawPlaylist(); }, `${P.name} 색 바꾸기 (지금 ${P.color ? P.color + '번' : '없음'})`], ['열기', () => { selectPattern(i); openWin('roll'); }], ['이름', () => renamePattern(i)], ['삭제', () => deletePattern(i)]], i === S.pat);
     if (P.color) it.style.boxShadow = `inset 4px 0 ${PAT_COLORS[P.color]}`; });
+  s = bSection('녹음');
+  bItem(s, mic ? '마이크 녹음 중…' : '마이크로 녹음해서 새 채널', [[mic ? '■ 멈춤' : '🎤 녹음', () => micNewChannel(), mic ? '마이크 녹음 멈추기' : '마이크로 녹음해서 새 채널 만들기']]);
   const names = Object.entries(SAMPLES);
   if (names.length) { s = bSection('내 샘플'); for (const [k, v] of names) bItem(s, v.name, [['▶', () => { ensureCtx(); playSample(E, k, null, ctx.currentTime + 0.02, null, 0.9, E.in); }, v.name + ' 미리 듣기']]); }
 }

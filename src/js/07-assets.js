@@ -22,7 +22,9 @@ function sampleCtl(slot, label) {
       buildMixer(); status(`${label}에 "${f.name}"을 넣었어요.`);
     } catch (e) { status('이 파일은 소리로 읽을 수 없어요. wav나 mp3로 넣어 주세요.'); }
   };
-  w.append(nm, up, fi);
+  const mc = document.createElement('button'), recNow = typeof mic !== 'undefined' && mic && mic.slot === slot; mc.className = 'tbtn xs' + (recNow ? ' micon' : ''); mc.textContent = recNow ? '■ 멈춤' : '🎤 녹음';
+  mc.setAttribute('aria-label', label + (recNow ? ' 마이크 녹음 멈추기' : ' 마이크로 녹음')); mc.onclick = () => micToggle(slot, label);
+  w.append(nm, up, mc, fi);
   if (s) {
     if (isTrack) {
       const rs = document.createElement('select'); rs.className = 'xs'; rs.setAttribute('aria-label', '샘플의 기준음');
