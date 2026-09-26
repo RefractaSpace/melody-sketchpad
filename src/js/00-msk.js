@@ -5,7 +5,7 @@
    몸통: 청크가 이어짐 → [종류 4글자][길이: 가변 숫자][내용]
      INFO 곡 정보 · CHAN 채널 · FXCH 코드·베이스·마스터 믹서 · PATN 패턴(하나에 하나) · PLST 플레이리스트 · SMPL 내 샘플
      IDS  채널·패턴 번호표 (브라우저 안 저장용 — 내 샘플 연결을 지키려고)
-     PLEX 조각 길이·시작 오프셋 · PCOL 패턴 색 · TMAP 템포 지도
+     PLEX 조각 길이·시작 오프셋 · PCOL 패턴 색 · TMAP 템포 지도 · FXSL 이펙트 칸 · AUTO 자동화
      TEMP 정밀 BPM (×100, 예: 126.5 → 12650) · CRC  맨 끝, 앞 내용 전체의 CRC32 (바이트가 바뀌면 알아챔)
      모르는 종류는 건너뜀 → 나중에 형식을 늘려도 옛 앱이 안 깨짐
    가변 숫자(varint): 7비트씩, 앞 비트가 1이면 다음 바이트가 이어짐 → 0~127은 1바이트
@@ -19,6 +19,7 @@ const MSK_BMODE = ['off', 'sustain', '8th', 'offbeat'];
 const MSK_BINST = ['reese', 'sub', 'saw'];
 const MSK_KIT = ['edm', '808', 'hard', 'acoustic'];
 const MSK_Q = ['', 'm', '7', 'maj7', 'm7', 'sus4', 'dim', 'aug'];
+const MSK_FX = ['', 'comp', 'dist', 'lpf', 'hpf', 'chorus'];
 const mskIdx = (list, v) => Math.max(0, list.indexOf(v));
 const q8 = x => clamp(Math.round(x), 0, 255);
 // CRC32: 바이트가 하나라도 바뀌면 값이 달라지는 "지문" (ZIP·PNG와 같은 계산법)
@@ -81,6 +82,13 @@ function encodeMskBody(song, name, samples, keepIds) {
     if (slot.startsWith('ch:') && ci < 0) continue;   // 이 곡에 없는 채널의 샘플
     w.chunk('SMPL', p => { if (ci >= 0) { p.u8(0); p.vu(ci); } else { p.u8(1); p.str(slot); } p.str(s.name); p.u8(s.root); const u = new Uint8Array(s.ab); p.vu(u.length); p.raw(u); });
   }
+  // 이펙트 칸: [종류(0 채널·1 코드·2 베이스), 채널 번호, 칸 수, (종류·a·b)…]
+  const fxKeys = [...song.channels.map((c, i) => [0, i, chKey(c)]), [1, 0, 'chords'], [2, 0, 'bass']].filter(([, , k]) => song.mix[k] && song.mix[k].fx && song.mix[k].fx.length);
+  if (fxKeys.length) w.chunk('FXSL', p => { p.vu(fxKeys.length); for (const [kind, i, k] of fxKeys) { p.u8(kind); p.vu(i); const fx = song.mix[k].fx; p.vu(fx.length); for (const f of fx) { p.u8(mskIdx(MSK_FX, f.type)); p.u8(q8(f.a * 250)); p.u8(q8(f.b * 250)); } } });
+  // 자동화: [패턴 번호, 채널 수, (채널 번호, 볼륨 점들, 필터 점들)…]
+  const autoP = song.patterns.map((P, pi) => [pi, P]).filter(([, P]) => P.auto && Object.keys(P.auto).length);
+  if (autoP.length) w.chunk('AUTO', p => { p.vu(autoP.length); for (const [pi, P] of autoP) { const ent = Object.entries(P.auto).map(([cid, A]) => [song.channels.findIndex(c => c.id === cid), A]).filter(([ci]) => ci >= 0); p.vu(pi); p.vu(ent.length);
+    for (const [ci, A] of ent) { p.vu(ci); for (const k of ['vol', 'cut']) { const pts = A[k] || []; p.vu(pts.length); let ps = 0; for (const q of pts) { p.vu(q.s - ps); ps = q.s; p.u8(q8(q.v * 250)); } } } } });
   w.chunk('TEMP', p => p.vu(Math.round(song.bpm * 100)));
   if (song.tempo && song.tempo.length) w.chunk('TMAP', p => { p.vu(song.tempo.length); let pt = 0; for (const x of song.tempo) { p.vu(x.t - pt); pt = x.t; p.vu(Math.round(x.bpm * 100)); } });
   if (keepIds) w.chunk('IDS ', p => { p.vu(song.channels.length); for (const c of song.channels) p.str(c.id); p.vu(song.patterns.length); for (const P of song.patterns) p.str(P.id); });
@@ -120,6 +128,8 @@ function decodeMskBody(body, needCrc) {
       const at = r.i, type = MSK_TD.decode(r.raw(4)), p = new MskR(r.raw(r.vu()));
       if (type === 'CRC ') { const want = (p.u8() | p.u8() << 8 | p.u8() << 16 | p.u8() << 24) >>> 0; if (mskCrc(body.subarray(0, at)) !== want) throw new Error('검사 값이 안 맞아요 — 파일 일부가 바뀌었어요'); crcOk = true; continue; }
       if (type === 'TEMP') { song.bpm = p.vu() / 100; continue; }
+      if (type === 'FXSL') { for (let k = p.vu(); k > 0; k--) { const kind = p.u8(), i = p.vu(), fx = []; for (let n = p.vu(); n > 0; n--) fx.push({type:MSK_FX[p.u8()] || '', a:p.u8() / 250, b:p.u8() / 250}); (song._fx = song._fx || []).push([kind, i, fx]); } continue; }
+      if (type === 'AUTO') { for (let k = p.vu(); k > 0; k--) { const pi = p.vu(), ent = []; for (let n = p.vu(); n > 0; n--) { const ci = p.vu(), A = {}; for (const key of ['vol', 'cut']) { const pts = []; let s = 0; for (let j = p.vu(); j > 0; j--) { s += p.vu(); pts.push({s, v:p.u8() / 250}); } if (pts.length) A[key] = pts; } ent.push([ci, A]); } (song._auto = song._auto || []).push([pi, ent]); } continue; }
       if (type === 'TMAP') { song.tempo = []; let t = 0; for (let k = p.vu(); k > 0; k--) { t += p.vu(); song.tempo.push({t, bpm:p.vu() / 100}); } continue; }
       if (type === 'INFO') {
         name = p.str(); const bpm0 = p.vu(); if (song.bpm == null) song.bpm = bpm0; song.root = p.u8(); song.mode = p.u8() ? 'minor' : 'major'; song.snap = p.u8(); song.len = p.u8(); song.playMode = p.u8() ? 'song' : 'pat';
@@ -163,6 +173,9 @@ function decodeMskBody(body, needCrc) {
     song.patterns.forEach((P, i) => { if (ids.pat[i]) P.id = ids.pat[i]; });
   }
   if (pcol) song.patterns.forEach((P, i) => { if (pcol[i]) P.color = pcol[i]; });
+  for (const [kind, i, fx] of song._fx || []) { const k = kind === 0 ? (song.channels[i] ? chKey(song.channels[i]) : null) : kind === 1 ? 'chords' : 'bass'; if (k) song.mix[k] = {...(song.mix[k] || {}), fx}; }
+  for (const [pi, ent] of song._auto || []) { const P = song.patterns[pi]; if (!P) continue; P.auto = {}; for (const [ci, A] of ent) if (song.channels[ci]) P.auto[song.channels[ci].id] = A; }
+  delete song._fx; delete song._auto;
   clipsTodo.forEach((c, i) => { const P = song.patterns[c.pi]; if (!P) return; const o = {id:newId(), pat:P.id, t:c.t, bar:c.bar}; if (plex && plex[i]) { if (plex[i][0]) o.len = plex[i][0]; if (plex[i][1]) o.off = plex[i][1]; } song.playlist.clips.push(o); });
   const out = normalize(song);
   return {song:out, name, samples:samples.map(s => ({slot:s.byIndex ? (out.channels[s.key] ? chKey(out.channels[s.key]) : null) : s.key, name:s.name, root:s.root, ab:s.ab})).filter(s => s.slot)};

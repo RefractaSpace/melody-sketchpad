@@ -53,6 +53,7 @@ function scoreText(title) {
       const items = arr.map(n => `${posText(n.s)} ${nn(n.p)} ${lenText(n.l)}` + (Math.round(n.v * 100) !== 80 ? ` v${Math.round(n.v * 100)}` : ''));
       for (let i = 0; i < items.length; i += 8) L.push((i ? '  ' : head) + items.slice(i, i + 8).join(' | '));
     }
+    for (const c of S.channels) { const A = P.auto && P.auto[c.id]; if (!A) continue; for (const [k, nm] of [['vol', '볼륨'], ['cut', '필터']]) if (A[k]) L.push(`${cname.get(c.id)} ${nm}: ` + A[k].map(q => `${posText(q.s)} ${Math.round(q.v * 100)}`).join(' | ')); }
   }
   L.push('', '[플레이리스트]');
   const byTrack = {}; for (const cl of S.playlist.clips) (byTrack[cl.t] = byTrack[cl.t] || []).push(cl);
@@ -131,6 +132,12 @@ function parseScore(text) {
         const beat = (+m[1] - 1) * 4 + (+m[2] - 1); if (beat < 0 || beat >= P.bars * 4 || +m[2] > 4) { warn(i, `코드 위치 ${pt}가 패턴 밖이에요`); continue; }
         P.chords[beat] = r.c; if (r.warn) warn(i, r.warn);
       }
+      return;
+    }
+    const am = /^(.+?)\s+(볼륨|필터)$/.exec(key.trim());
+    if (am && chByName.has(am[1].trim())) {   // 자동화 줄: 위치 값%
+      const c = chByName.get(am[1].trim()), k = am[2] === '볼륨' ? 'vol' : 'cut'; P.auto = P.auto || {}; const A = P.auto[c.id] = P.auto[c.id] || {}; A[k] = A[k] || [];
+      for (const part of val.split('|').map(x => x.trim()).filter(Boolean)) { const [pt, vt] = part.split(/\s+/), t = parsePos(pt || ''), v = parseFloat(vt); if (t == null || !(v >= 0 && v <= 100) || t > lim) { warn(i, `자동화 "${part}"를 읽을 수 없어요 (예: 1.1.1 80)`); continue; } A[k].push({s:t, v:v / 100}); }
       return;
     }
     const c = channelNamed(i, key.trim()), arr = notesOf(P, c);

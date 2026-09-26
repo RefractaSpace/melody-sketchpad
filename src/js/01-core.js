@@ -55,6 +55,7 @@ function fillMix(s) {
   const m = s.mix || {}, out = {};
   for (const c of s.channels) out[chKey(c)] = {...chDefault(chKey(c), c), ...(m[chKey(c)] || {})};
   for (const k of FIXED_CH) out[k] = {...chDefault(k), ...(m[k] || {})};
+  for (const k of Object.keys(out)) out[k].fx = (Array.isArray(out[k].fx) ? out[k].fx : []).filter(f => f && ['comp', 'dist', 'lpf', 'hpf', 'chorus'].includes(f.type)).slice(0, 3).map(f => ({type:f.type, a:clamp(+f.a || 0, 0, 1), b:clamp(+f.b || 0, 0, 1)}));
   out.master = {...MASTER_DEF, ...(m.master || {})};
   s.mix = out;
 }
@@ -102,7 +103,11 @@ function normalize(s) {
   s.patterns = (s.patterns || []).map((p, i) => {
     const bars = clamp(p.bars | 0 || 4, 1, MAX_BARS), lim = bars * 4 * PPQ, notes = {};
     for (const [cid, arr] of Object.entries(p.notes || {})) if (ids.has(cid)) notes[cid] = (arr || []).filter(okNote).map(normNote).filter(n => n.s < lim).map(n => ({...n, l:Math.min(n.l, lim - n.s)}));
-    return {id:p.id || newId(), name:(p.name || 'Pattern ' + (i + 1)).slice(0, 24), bars, notes, chords:Array.from({length:bars * 4}, (_, k) => normChord((p.chords || [])[k])), color:clamp(p.color | 0, 0, PAT_COLORS.length - 1)};
+    const auto = {};   // 자동화: {채널id: {vol:[{s,v}], cut:[{s,v}]}} — 점은 패턴 끝(lim)까지 허용
+    for (const [cid, A] of Object.entries(p.auto || {})) { if (!ids.has(cid) || !A) continue; const o = {};
+      for (const k of ['vol', 'cut']) { const mp = new Map(); for (const x of A[k] || []) { const t = Math.round(+x.s || 0); if (t >= 0 && t <= lim) mp.set(t, clamp(+x.v || 0, 0, 1)); } if (mp.size) o[k] = [...mp].sort((a, b) => a[0] - b[0]).map(([s, v]) => ({s, v})); }
+      if (Object.keys(o).length) auto[cid] = o; }
+    return {id:p.id || newId(), name:(p.name || 'Pattern ' + (i + 1)).slice(0, 24), bars, notes, auto, chords:Array.from({length:bars * 4}, (_, k) => normChord((p.chords || [])[k])), color:clamp(p.color | 0, 0, PAT_COLORS.length - 1)};
   });
   if (!s.patterns.length) s.patterns = [newPattern('Pattern 1', 4)];
   const pids = new Set(s.patterns.map(p => p.id));

@@ -108,6 +108,32 @@ function velAt(x, y) {
   let targets = curNotes().filter(n => n.s === best); if (targets.some(n => sel.has(n))) targets = targets.filter(n => sel.has(n));
   targets.forEach(n => n.v = v); if (curCh().kind === 'drum') lastDrumVel = v; else lastVel = v; return targets.length;
 }
+// ---- 자동화 줄 편집 ----
+function autoPts(create) {
+  const P = curPat(), c = curCh(); if (!P.auto) P.auto = {};
+  let A = P.auto[c.id]; if (!A) { if (!create) return null; A = P.auto[c.id] = {}; }
+  if (!A[laneMode]) { if (!create) return null; A[laneMode] = []; } return A[laneMode];
+}
+function autoNear(pts, q) { let best = -1, bd = 10; pts.forEach((p, i) => { const d = Math.hypot(p.s * TICKPX - q.x, autoY(CHORD_H, p.v) - q.y); if (d < bd) { bd = d; best = i; } }); return best; }
+function autoClean() { const P = curPat(), c = curCh(), A = P.auto[c.id]; if (!A) return; for (const k of Object.keys(A)) { A[k].sort((a, b) => a.s - b.s); if (!A[k].length) delete A[k]; } if (!Object.keys(A).length) delete P.auto[c.id]; }
+let autoDrag = null;
+lc.addEventListener('pointerdown', e => {
+  if (laneMode === 'vel') return; const q = laneHit(e); if (q.y < CHORD_H || e.button === 2) return;
+  e.stopImmediatePropagation(); pushUndo(); const pts = autoPts(true); let i = autoNear(pts, q);
+  const s = clamp(Math.round(q.x / TICKPX / S.snap) * S.snap, 0, totalTicks()), val = clamp((CHORD_H + VEL_H - 4 - q.y) / (VEL_H - 10), 0, 1);
+  if (i < 0) { const same = pts.findIndex(p => p.s === s); if (same >= 0) { pts[same].v = val; i = same; } else { pts.push({s, v:val}); pts.sort((a, b) => a.s - b.s); i = pts.findIndex(p => p.s === s); } }
+  autoDrag = pts[i]; try { lc.setPointerCapture(e.pointerId); } catch (_) {} drawLanes();
+}, true);
+lc.addEventListener('pointermove', e => {
+  if (!autoDrag) return; const q = laneHit(e), pts = autoPts(true);
+  const s = clamp(Math.round(q.x / TICKPX / S.snap) * S.snap, 0, totalTicks());
+  if (!pts.some(p => p !== autoDrag && p.s === s)) autoDrag.s = s;
+  autoDrag.v = clamp((CHORD_H + VEL_H - 4 - q.y) / (VEL_H - 10), 0, 1); pts.sort((a, b) => a.s - b.s); drawLanes();
+});
+lc.addEventListener('pointerup', () => { if (!autoDrag) return; autoDrag = null; autoClean(); save(); announce(`${laneMode === 'vol' ? '볼륨' : '필터'} 자동화 점을 바꿨어요.`); });
+function autoDelete(e) { if (laneMode === 'vel') return; e.preventDefault(); const pts = autoPts(false); if (!pts) return; const i = autoNear(pts, laneHit(e)); if (i < 0) return; pushUndo(); pts.splice(i, 1); autoClean(); save(); drawLanes(); }
+lc.addEventListener('dblclick', autoDelete); lc.addEventListener('contextmenu', autoDelete);
+$('laneMode').onchange = () => { laneMode = $('laneMode').value; drawLanes(); announce('아래 줄: ' + $('laneMode').selectedOptions[0].textContent); };
 lc.addEventListener('pointerdown', e => { const q = laneHit(e); if (q.y < CHORD_H) return; pushUndo(); try { lc.setPointerCapture(e.pointerId); } catch (_) {} velDrag = true; if (!velAt(q.x, q.y)) undoStack.pop(); drawLanes(); drawRoll(); });
 lc.addEventListener('pointermove', e => { if (!velDrag) return; const q = laneHit(e); velAt(q.x, q.y); drawLanes(); drawRoll(); });
 lc.addEventListener('pointerup', () => { if (velDrag) { velDrag = false; save(); drawRack(); announce('세기를 바꿨어요.'); } });

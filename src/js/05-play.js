@@ -32,8 +32,26 @@ function chordSegments(P) {
   return out;
 }
 // 패턴 하나의 [t0, t1) 구간 소리 예약 — at(패턴 틱) = 그 틱이 울릴 시각(초)
+// 자동화 선에서 틱 t의 값 (점 사이는 직선, 첫 점 앞·끝 점 뒤는 그 값 그대로)
+function autoAt(pts, t) { if (t <= pts[0].s) return pts[0].v; for (let i = 1; i < pts.length; i++) if (t <= pts[i].s) { const a = pts[i - 1], b = pts[i]; return a.v + (b.v - a.v) * (t - a.s) / (b.s - a.s); } return pts[pts.length - 1].v; }
+function scheduleAuto(EE, P, t0, t1, at) {
+  for (const c of S.channels) {
+    const A = P.auto && P.auto[c.id]; if (!A && !(P.notes[c.id] || []).length) continue;   // 이 패턴이 안 쓰는 채널은 건드리지 않음
+    const ch = getCh(EE, chKey(c)), T0 = at(t0);
+    for (const [k, param, map, def] of [['vol', ch.aVol.gain, v => v, 1], ['cut', ch.aCut.frequency, cutHz, AUTO_CUT_MAX]]) {
+      const pts = A && A[k];
+      if (!pts || !pts.length) { param.setValueAtTime(def, T0); continue; }
+      // 예약 구간이 길어도(WAV는 2초씩) 6틱마다 중간 점을 넣어서, 필터처럼 귀에 곱셈으로 들리는 값도 선을 따라가게
+      param.setValueAtTime(map(autoAt(pts, t0)), T0);
+      const cuts = new Set(pts.filter(q => q.s > t0 && q.s < t1).map(q => q.s)); for (let t = Math.floor(t0 / 6) * 6 + 6; t < t1; t += 6) cuts.add(t);
+      for (const t of [...cuts].sort((a, b) => a - b)) param.linearRampToValueAtTime(map(autoAt(pts, t)), at(t));
+      param.linearRampToValueAtTime(map(autoAt(pts, t1)), at(t1));
+    }
+  }
+}
 function schedulePattern(EE, P, t0, t1, at) {
   const dur = (a, l) => at(a + l) - at(a);
+  scheduleAuto(EE, P, t0, t1, at);
   for (const c of S.channels) { const arr = P.notes[c.id]; if (arr) for (const n of arr) if (n.s >= t0 && n.s < t1) playTrackNote(EE, c, n.p, at(n.s), dur(n.s, n.l) * 0.98, n.v); }
   for (const seg of chordSegments(P)) if (seg.s >= t0 && seg.s < t1) chordPlay(EE, S.chordInst, chordVoices(seg.c), at(seg.s), dur(seg.s, seg.l) * 0.98);
   if (S.bassMode !== 'off') {

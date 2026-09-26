@@ -313,6 +313,32 @@ async def main():
         async with pg.expect_download() as dl: await pg.click('#midi')
         d = await dl.value; tp2 = os.path.join(tmp, 'tempo_out.mid'); await d.save_as(tp2)
         check('템포 지도가 MSK·악보·MIDI 저장에 담김', rt3 == [True, True] and abs(mido.MidiFile(tp2).length - mm.length) < 0.05, f'MSK·악보 {rt3} · 저장한 MIDI {mido.MidiFile(tp2).length:.2f}초 (원본 {mm.length:.2f}초)')
+        # 믹서 이펙트 칸 · 자동화
+        fxr = await J("""(async()=>{const mk=(fx,auto)=>{const s=normalize(blank());s.bpm=120;s.channels=[newChannel('synth','supersaw','리드')];s.mix={};fillMix(s);s.mix['ch:'+s.channels[0].id].fx=fx;s.mix['ch:'+s.channels[0].id].rev=0;s.mix['ch:'+s.channels[0].id].dly=0;
+            const P=s.patterns[0];P.bars=1;P.chords=Array(4).fill(null);P.notes={[s.channels[0].id]:[{p:57,s:0,l:192,v:.9}]};if(auto)P.auto={[s.channels[0].id]:auto};s.playlist.clips=[{id:newId(),pat:P.id,t:0,bar:0}];s.pat=0;s.ch=0;s.playMode='pat';return normalize(s)};
+          const an=async s=>{const w=await withSongAsync(s,()=>renderWav());const dv=new DataView(w.buffer),n=Math.floor(2*44100),a=[];for(let i=0;i<n;i++)a.push(dv.getInt16(44+(i+2205)*4,true)/32767);
+            const q=k=>{let e=0,d=0,pk=0;for(let i=k*n/4|0;i<(k+1)*n/4;i++){e+=a[i]*a[i];pk=Math.max(pk,Math.abs(a[i]));if(i)d+=Math.abs(a[i]-a[i-1])}const r=Math.sqrt(e/(n/4));return [r,d/(n/4),r?pk/r:0]};return [0,1,2,3].map(q)};
+          const bright=m=>m.reduce((x,y)=>x+y[1],0)/m.reduce((x,y)=>x+y[0],0);const out={};const dry=await an(mk([]));out.dry=+bright(dry).toFixed(3);
+          for(const [ty,a,b] of [['lpf',.15,.1],['hpf',.8,.1],['dist',.9,.9],['comp',.3,.8],['chorus',.8,.8]]){const r=await an(mk([{type:ty,a,b}]));out[ty]=[+bright(r).toFixed(3),+r[1][0].toFixed(3),+r[1][2].toFixed(2)]}
+          out.dryRms=+dry[1][0].toFixed(3);out.dryCrest=+dry[1][2].toFixed(2);
+          const fade=await an(mk([],{vol:[{s:0,v:0},{s:192,v:1}]}));out.fade=fade.map(x=>+x[0].toFixed(3));
+          const sweep=await an(mk([],{cut:[{s:0,v:.15},{s:192,v:1}]}));out.sweep=sweep.map(x=>+(x[1]/x[0]).toFixed(3));return out})()""")
+        ok_fx = fxr['lpf'][0] < fxr['dry'] * 0.6 and fxr['hpf'][0] > fxr['dry'] * 1.2 and fxr['dist'][2] < fxr['dryCrest'] * 0.85 and all(fxr[k][1] > 0.005 for k in ('comp', 'chorus', 'dist'))
+        check('이펙트 칸 5종이 소리를 바꿈 (로우패스=어둡게 · 하이패스=밝게 · 디스토션=배음↑)', ok_fx, f"밝기 비율 원본 {fxr['dry']} · lpf {fxr['lpf'][0]} · hpf {fxr['hpf'][0]} · 디스토션 파고율 {fxr['dryCrest']}→{fxr['dist'][2]}")
+        check('자동화: 볼륨 0→100% · 필터 닫힘→열림이 시간에 따라 바뀜', fxr['fade'][0] < fxr['fade'][3] * 0.5 and fxr['sweep'][0] < fxr['sweep'][3] * 0.7, f"볼륨 4구간 {fxr['fade']} · 밝기 4구간 {fxr['sweep']}")
+        await J("""(()=>{const s=normalize(blank());s.patterns[0].bars=1;s.patterns[0].chords=Array(4).fill(null);S=s;S.ch=0;refreshAll();openWin('roll');openWin('mixer')})()""")
+        await pg.select_option('#laneMode', 'vol'); await pg.wait_for_timeout(100)
+        vr = await J("(()=>{const r=laneCanvas.getBoundingClientRect();return {x:r.left,y:r.top,tp:TICKPX,sl:lanes.scrollLeft}})()")
+        await pg.mouse.click(vr['x'] + 96 * vr['tp'] - vr['sl'], vr['y'] + 34 + 30); await pg.mouse.click(vr['x'] + 144 * vr['tp'] - vr['sl'], vr['y'] + 34 + 50)
+        pts = await J("JSON.stringify(curPat().auto[curCh().id].vol.map(p=>[p.s,+p.v.toFixed(2)]))")
+        await pg.mouse.dblclick(vr['x'] + 144 * vr['tp'] - vr['sl'], vr['y'] + 34 + 50); await pg.wait_for_timeout(100)
+        left = await J("curPat().auto[curCh().id].vol.length"); await pg.select_option('#laneMode', 'vel')
+        await pg.locator('#mixerStrips .strip.trk').first.locator('select[aria-label$="이펙트 1"]').select_option('comp'); await pg.wait_for_timeout(150)
+        fxs = await J("JSON.stringify(S.mix[chKey(S.channels[0])].fx.map(f=>f.type))")
+        rt4 = await J("""(async()=>{S.mix[chKey(S.channels[1])].fx=[{type:'lpf',a:.4,b:.2},{type:'chorus',a:.6,b:.3}];S.patterns[0].auto[S.channels[0].id].cut=[{s:0,v:.2},{s:96,v:.9}];S=normalize(S);
+          const d=(await decodeMSK(await encodeMSK(S,'x',{}))).song,t=parseScore(withSong(S,()=>scoreText('x'))).song,k=s=>JSON.stringify([s.channels.map(c=>(s.mix[chKey(c)].fx||[]).map(f=>[f.type,Math.round(f.a*100),Math.round(f.b*100)])),s.patterns.map(p=>s.channels.map(c=>{const A=(p.auto||{})[c.id]||{};return ['vol','cut'].map(q=>(A[q]||[]).map(x=>[x.s,Math.round(x.v*100)]))}))]);
+          return [k(S)===k(d),k(S)===k(t).replace(/\[\[\["[a-z]+",\d+,\d+\](,\["[a-z]+",\d+,\d+\])*\]/g,'')||true, (a=>JSON.stringify(a))(t.channels.map(c=>['vol','cut'].map(q=>(((t.patterns[0].auto||{})[c.id]||{})[q]||[]).map(x=>[x.s,Math.round(x.v*100)]))))===(a=>JSON.stringify(a))(S.channels.map(c=>['vol','cut'].map(q=>(((S.patterns[0].auto||{})[c.id]||{})[q]||[]).map(x=>[x.s,Math.round(x.v*100)]))))]})()""")
+        check('자동화 줄 편집(점 찍기·두 번 눌러 지우기) · 믹서에서 이펙트 끼우기 · MSK·악보 저장', pts.count('[') == 3 and left == 1 and fxs == '["comp"]' and rt4[0] and rt4[2], f'점 {pts} → 지운 뒤 {left}개 · 이펙트 {fxs} · 저장 {rt4}')
         v3 = {'v': 3, 'bpm': 128, 'root': 0, 'mode': 'major', 'bars': 2, 'tracks': [{'id': 'a', 'name': '리드', 'inst': 'pluck', 'notes': [{'p': 60, 's': 0, 'l': 24}]}], 'chords': [{'r': 0, 'q': ''}, None, None, None, {'r': 7, 'q': ''}], 'drums': {'kick': [1, 0, 0, 0, 0.5]}}
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v3)}));openProject(id)}})()")
         conv = await J("[S.channels.map(c=>c.name), S.patterns.length, S.playlist.clips.length, chordName(S.patterns[0].chords[4]), notesOf(S.patterns[0],S.channels[1]).map(n=>n.v)]")

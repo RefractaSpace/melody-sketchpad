@@ -67,16 +67,56 @@ function makeEngine(ac, live) {
   E.waves = makeWaves(ac); E.size = -1;
   return E;
 }
-// 채널: 입력 → 사이드체인 → EQ(저·중·고) → 볼륨 → 팬 → 마스터 (+ 리버브·딜레이 센드)
+// 채널: 입력 → 사이드체인 → EQ(저·중·고) → 이펙트 칸 → 자동화(볼륨·필터) → 볼륨 → 팬 → 마스터 (+ 리버브·딜레이 센드)
 function getCh(E, key) {
   if (E.ch[key]) return E.ch[key];
   const ac = E.ac, mk = () => ac.createGain();
   const inp = mk(), duck = mk(), vol = mk(), pan = ac.createStereoPanner(), rs = mk(), ds = mk();
   const lo = ac.createBiquadFilter(), md = ac.createBiquadFilter(), hi = ac.createBiquadFilter();
   lo.type = 'lowshelf'; lo.frequency.value = 180; md.type = 'peaking'; md.frequency.value = 1200; md.Q.value = 0.8; hi.type = 'highshelf'; hi.frequency.value = 5000;
-  inp.connect(duck); duck.connect(lo); lo.connect(md); md.connect(hi); hi.connect(vol); vol.connect(pan); pan.connect(E.in); pan.connect(rs); pan.connect(ds); rs.connect(E.rev); ds.connect(E.dlyIn);
+  const fxIn = mk(), fxOut = mk(), aVol = mk(), aCut = ac.createBiquadFilter(); aCut.type = 'lowpass'; aCut.frequency.value = AUTO_CUT_MAX; aCut.Q.value = 0.7;
+  inp.connect(duck); duck.connect(lo); lo.connect(md); md.connect(hi); hi.connect(fxIn); fxIn.connect(fxOut); fxOut.connect(aVol); aVol.connect(aCut); aCut.connect(vol); vol.connect(pan); pan.connect(E.in); pan.connect(rs); pan.connect(ds); rs.connect(E.rev); ds.connect(E.dlyIn);
   const m = S.mix[key] || chDefault(key, key.startsWith('ch:') ? chById(key.slice(3)) : null); vol.gain.value = m.v; pan.pan.value = m.pan; rs.gain.value = m.rev; ds.gain.value = m.dly;
-  return E.ch[key] = {inp, duck, vol, pan, rs, ds, lo, md, hi};
+  const ch = E.ch[key] = {inp, duck, vol, pan, rs, ds, lo, md, hi, fxIn, fxOut, aVol, aCut, fxSig:'', fxNodes:[]};
+  applyFx(E, ch, m.fx || []); return ch;
+}
+// ---- 이펙트 칸 (채널마다 3칸) — a·b는 0~1 손잡이 ----
+const FX_TYPES = ['', 'comp', 'dist', 'lpf', 'hpf', 'chorus'];   // 뒤에만 덧붙이기 (MSK 번호표)
+const FX_NAME = {'':'비어 있음', comp:'압축기', dist:'디스토션', lpf:'로우패스', hpf:'하이패스', chorus:'코러스'};
+const FX_KNOBS = {comp:['임계값', '비율'], dist:['세기', '밝기'], lpf:['주파수', '공명'], hpf:['주파수', '공명'], chorus:['깊이', '섞기']};
+const FX_DEF = {comp:[0.7, 0.16], dist:[0.3, 0.5], lpf:[0.7, 0.1], hpf:[0.2, 0.1], chorus:[0.5, 0.4]};
+const AUTO_CUT_MAX = 18000, cutHz = v => 40 * Math.pow(AUTO_CUT_MAX / 40, clamp(v, 0, 1));   // 0~1 → 40Hz~18kHz (귀에 고르게)
+function makeFx(ac, f) {
+  const g = () => ac.createGain(), a = f.a, b = f.b;
+  if (f.type === 'comp') {   // 압축기: 큰 소리를 눌러 고르게, 줄어든 만큼 다시 키움
+    const c = ac.createDynamicsCompressor(), thr = -60 + a * 60, ratio = 1 + b * 19, mk = g();
+    c.threshold.value = thr; c.ratio.value = ratio; c.knee.value = 6; c.attack.value = 0.005; c.release.value = 0.15;
+    mk.gain.value = Math.pow(10, (-thr * (1 - 1 / ratio)) / 40); c.connect(mk); return {inp:c, out:mk};
+  }
+  if (f.type === 'dist') {   // 디스토션: tanh로 찌그러뜨리고 로우패스로 밝기 조절
+    const pre = g(), sh = ac.createWaveShaper(), tone = ac.createBiquadFilter(), post = g(), k = 1 + a * 30, cv = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; cv[i] = Math.tanh(k * x) / Math.tanh(k); } sh.curve = cv; sh.oversample = '2x';
+    tone.type = 'lowpass'; tone.frequency.value = 1500 + b * 16000; post.gain.value = 1 / (1 + a * 1.5);
+    pre.connect(sh); sh.connect(tone); tone.connect(post); return {inp:pre, out:post};
+  }
+  if (f.type === 'lpf' || f.type === 'hpf') { const q = ac.createBiquadFilter(); q.type = f.type === 'lpf' ? 'lowpass' : 'highpass'; q.frequency.value = cutHz(a); q.Q.value = 0.5 + b * 15; return {inp:q, out:q}; }
+  if (f.type === 'chorus') {   // 코러스: 살짝 흔들리는 지연 소리를 섞어서 넓게
+    const inp = g(), out = g(), dry = g(), wet = g(), d1 = ac.createDelay(0.1), d2 = ac.createDelay(0.1), lfo = ac.createOscillator(), dep = g(), dep2 = g(), p1 = ac.createStereoPanner(), p2 = ac.createStereoPanner();
+    d1.delayTime.value = 0.017; d2.delayTime.value = 0.023; lfo.frequency.value = 0.8; dep.gain.value = 0.002 + a * 0.006; dep2.gain.value = -(0.002 + a * 0.006);
+    lfo.connect(dep); lfo.connect(dep2); dep.connect(d1.delayTime); dep2.connect(d2.delayTime); lfo.start();
+    p1.pan.value = -0.6; p2.pan.value = 0.6; dry.gain.value = 1 - b * 0.4; wet.gain.value = b * 0.8;
+    inp.connect(dry); dry.connect(out); inp.connect(d1); inp.connect(d2); d1.connect(p1); d2.connect(p2); p1.connect(wet); p2.connect(wet); wet.connect(out);
+    return {inp, out, stop:() => { try { lfo.stop(); } catch (e) {} }};
+  }
+  return null;
+}
+function applyFx(E, ch, fx) {
+  const sig = JSON.stringify(fx); if (sig === ch.fxSig) return; ch.fxSig = sig;
+  try { ch.fxIn.disconnect(); } catch (e) {}
+  for (const n of ch.fxNodes) { try { n.out.disconnect(); } catch (e) {} if (n.stop) n.stop(); }
+  ch.fxNodes = []; let prev = ch.fxIn;
+  for (const f of fx) { const n = makeFx(E.ac, f); if (!n) continue; prev.connect(n.inp); prev = n.out; ch.fxNodes.push(n); }
+  prev.connect(ch.fxOut);
 }
 function applyMix(E, mix) {
   const t = E.ac.currentTime, keys = Object.keys(mix).filter(k => k !== 'master'), anySolo = keys.some(k => mix[k].solo);
@@ -84,6 +124,7 @@ function applyMix(E, mix) {
     const m = mix[k], ch = getCh(E, k), on = !m.mute && (!anySolo || m.solo);
     ch.vol.gain.setTargetAtTime(on ? m.v : 0, t, 0.015); ch.pan.pan.setTargetAtTime(m.pan, t, 0.015); ch.rs.gain.setTargetAtTime(m.rev, t, 0.015); ch.ds.gain.setTargetAtTime(m.dly, t, 0.015);
     ch.lo.gain.setTargetAtTime(m.lo || 0, t, 0.015); ch.md.gain.setTargetAtTime(m.mid || 0, t, 0.015); ch.hi.gain.setTargetAtTime(m.hi || 0, t, 0.015);
+    applyFx(E, ch, m.fx || []);
   }
   for (const k of Object.keys(E.ch)) if (!mix[k]) E.ch[k].vol.gain.setTargetAtTime(0, t, 0.015);   // 지운 트랙
   E.out.gain.setTargetAtTime(mix.master.v, t, 0.015);

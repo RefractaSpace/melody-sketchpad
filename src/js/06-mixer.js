@@ -8,6 +8,12 @@ function mixSlider(label, val, min, max, step, on, fmt) {
   w.append(l, s, v); return w;
 }
 const pct = v => Math.round(v * 100), eqf = v => (v > 0 ? '+' : '') + v.toFixed(0) + 'dB';
+const hzf = v => { const h = cutHz(v); return h >= 1000 ? (h / 1000).toFixed(1) + 'k' : Math.round(h) + ''; };
+function fxFmt(type, j) {
+  if (type === 'comp') return j ? v => (1 + v * 19).toFixed(1) + ':1' : v => Math.round(-60 + v * 60) + 'dB';
+  if (type === 'lpf' || type === 'hpf') return j ? v => (0.5 + v * 15).toFixed(1) : hzf;
+  return pct;
+}
 const remix = () => { if (E) applyMix(E, S.mix); };
 function subTitle(st, t) { const h = document.createElement('div'); h.className = 'sub'; h.textContent = t; st.appendChild(h); }
 function toneKnobs(st, T) {
@@ -34,6 +40,15 @@ function channelStrip(key, label) {
   st.appendChild(mixSlider('저음', m.lo, -12, 12, 1, v => { m.lo = v; remix(); }, eqf));
   st.appendChild(mixSlider('중음', m.mid, -12, 12, 1, v => { m.mid = v; remix(); }, eqf));
   st.appendChild(mixSlider('고음', m.hi, -12, 12, 1, v => { m.hi = v; remix(); }, eqf));
+  // 이펙트 칸: 채운 칸 + 빈 칸 하나 (최대 3칸)
+  subTitle(st, '이펙트'); m.fx = m.fx || [];
+  for (let k = 0; k < 3; k++) {
+    const f = m.fx[k];
+    st.appendChild(selectEl(`${label} 이펙트 ${k + 1}`, Object.entries(FX_NAME), f ? f.type : '', v => {
+      pushUndo(); const a = m.fx.slice(); if (!v) a.splice(k, 1); else a[k] = {type:v, a:FX_DEF[v][0], b:FX_DEF[v][1]}; m.fx = a.filter(Boolean); remix(); buildMixer(); }));
+    if (!f) break;
+    FX_KNOBS[f.type].forEach((nm, j) => st.appendChild(mixSlider(nm, j ? f.b : f.a, 0, 1, 0.01, v => { if (j) f.b = v; else f.a = v; m.fx = m.fx.slice(); remix(); }, fxFmt(f.type, j))));
+  }
   return st;
 }
 function selectEl(label, opts, val, on) {

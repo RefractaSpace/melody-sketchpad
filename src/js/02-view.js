@@ -120,7 +120,8 @@ function drawLanes() {
   const vy = CHORD_H, bw = 4 * PPQ * TICKPX;
   x.fillStyle = CS.panel2; x.fillRect(v.sl, vy, v.vw, VEL_H); x.fillStyle = CS.line; x.fillRect(v.sl, vy, v.vw, 1);
   for (let b = Math.floor(v.sl / bw); b <= Math.ceil((v.sl + v.vw) / bw); b++) { x.fillStyle = CS.mute; x.globalAlpha = .6; x.fillRect(b * bw, CHORD_H, 1, VEL_H); x.globalAlpha = 1; }
-  for (const n of [...curNotes()].sort((a, b) => a.v - b.v)) {
+  if (laneMode !== 'vel') drawAutoLane(x, v, vy);
+  else for (const n of [...curNotes()].sort((a, b) => a.v - b.v)) {
     const X = n.s * TICKPX; if (X < v.sl - 8 || X > v.sl + v.vw) continue;
     const hh = (VEL_H - 10) * n.v; x.fillStyle = CS.note; x.globalAlpha = sel.has(n) || !sel.size ? 1 : 0.35;
     x.fillRect(X + 1, vy + VEL_H - 4 - hh, 3, hh); x.beginPath(); x.arc(X + 2.5, vy + VEL_H - 4 - hh, 3.2, 0, 7); x.fill(); x.globalAlpha = 1;
@@ -168,3 +169,16 @@ function requestDraw() { if (drawReq) return; drawReq = requestAnimationFrame(()
 let syncing = false;
 wrap.addEventListener('scroll', () => { if (!syncing) { syncing = true; lanes.scrollLeft = wrap.scrollLeft; syncing = false; } requestDraw(); }, {passive:true});
 lanes.addEventListener('scroll', () => { if (!syncing) { syncing = true; wrap.scrollLeft = lanes.scrollLeft; syncing = false; } requestDraw(); }, {passive:true});
+
+// 자동화 줄 (볼륨·필터): 점과 선, 없으면 기본값 점선
+let laneMode = 'vel';
+const autoY = (vy, val) => vy + VEL_H - 4 - val * (VEL_H - 10);
+function drawAutoLane(x, v, vy) {
+  const A = curPat().auto && curPat().auto[curCh().id], pts = (A && A[laneMode]) || [], W0 = 0, W1 = totalTicks() * TICKPX;
+  x.strokeStyle = CS.mute; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(W0, autoY(vy, 1)); x.lineTo(W1, autoY(vy, 1)); x.stroke(); x.setLineDash([]);
+  x.font = '11px "IBM Plex Sans KR",sans-serif'; x.fillStyle = CS.mute; x.textBaseline = 'top';
+  if (!pts.length) { x.fillText(`${laneMode === 'vol' ? '볼륨' : '필터'} 자동화 — 눌러서 점 찍기`, v.sl + 8, vy + 6); return; }
+  x.strokeStyle = CS.note; x.lineWidth = 2; x.beginPath(); x.moveTo(W0, autoY(vy, pts[0].v));
+  for (const p of pts) x.lineTo(p.s * TICKPX, autoY(vy, p.v)); x.lineTo(W1, autoY(vy, pts[pts.length - 1].v)); x.stroke();
+  x.fillStyle = CS.note; for (const p of pts) { x.beginPath(); x.arc(p.s * TICKPX, autoY(vy, p.v), 4, 0, 7); x.fill(); }
+}
