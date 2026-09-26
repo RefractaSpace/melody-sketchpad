@@ -129,16 +129,16 @@ function loadSong() {
     try { const old = JSON.parse(lsGet(STORE) || 'null'); if (old && old.notes) first = normalize(old); } catch (e) {}
     const id = newId();
     lib.list[id] = {name:first ? '내 첫 곡' : '새 곡', updated:Date.now()}; lib.current = id;
-    lsSet(PK(id), JSON.stringify(first || blank())); saveLib();
+    lsSet(PK(id), songToStore(first || blank())); saveLib();
   }
-  try { const d = JSON.parse(lsGet(PK(lib.current)) || 'null'); if (d) return normalize(d); } catch (e) {}
+  try { const d = songFromStore(lsGet(PK(lib.current))); if (d) return d; } catch (e) {}
   return blank();
 }
 let S = loadSong(), undoStack = [], saveT = 0;
 function save() {
   clearTimeout(saveT);
   saveT = setTimeout(() => {
-    if (!lsSet(PK(lib.current), JSON.stringify(S))) status('저장 공간이 가득 찼어요. 안 쓰는 프로젝트를 지워 주세요.');
+    if (!lsSet(PK(lib.current), songToStore(S))) status('저장 공간이 가득 찼어요. 안 쓰는 프로젝트를 지워 주세요.');
     lib.list[lib.current].updated = Date.now(); saveLib();
   }, 200);
 }

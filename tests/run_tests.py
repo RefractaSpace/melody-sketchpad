@@ -157,14 +157,40 @@ async def main():
         d = await dl.value; mp = os.path.join(tmp, 'a.mid'); await d.save_as(mp)
         import mido; m = mido.MidiFile(mp)
         check('MIDI 저장 (악기 채널마다 트랙 + 코드 + 드럼)', len(m.tracks) == 1 + 1 + 2, f'트랙 {len(m.tracks)}개')
-        await pg.locator('#midiIn').set_input_files(mp); await pg.wait_for_timeout(500)
+        await pg.locator('#fileIn').set_input_files(mp); await pg.wait_for_timeout(500)
         got = await J("[S.channels.map(c=>c.kind+':'+c.inst), S.patterns.length, S.patterns[0].chords.filter(Boolean).length]")
         check('MIDI 불러오기 (악기·드럼 채널로 · 코드 복원)', got[1] == 1 and 'drum:kick' in got[0] and got[2] >= 1, str(got))
 
+        # 우리 형식 MSK
+        await J("idbPut('ch:'+S.channels[0].id,{ab:wavBytes(new AudioBuffer({length:100,sampleRate:44100,numberOfChannels:2})).buffer,root:62,name:'짧은샘플.wav'})")
+        before = await J("JSON.stringify([S.channels.map(c=>c.kind+c.inst+c.name),S.patterns.map(p=>[p.bars,Object.values(p.notes).flat().length])])")
         async with pg.expect_download() as dl: await pg.click('#saveProj')
-        d = await dl.value; jp = os.path.join(tmp, 'p.json'); await d.save_as(jp); pj = json.load(open(jp))
-        await pg.locator('#fileIn').set_input_files(jp); await pg.wait_for_timeout(500)
-        check('프로젝트 파일 저장 → 불러오기 (버전 4)', pj.get('version') == 4 and await J("S.channels.length") == len(pj['song']['channels']))
+        d = await dl.value; mk = os.path.join(tmp, 'p.msk'); await d.save_as(mk); raw = open(mk, 'rb').read()
+        await pg.locator('#fileIn').set_input_files(mk); await pg.wait_for_timeout(500)
+        after = await J("JSON.stringify([S.channels.map(c=>c.kind+c.inst+c.name),S.patterns.map(p=>[p.bars,Object.values(p.notes).flat().length])])")
+        smp = await J("(async()=>{const a=await idbAll();return Object.entries(a).filter(([k,v])=>k==='ch:'+S.channels[0].id).map(([k,v])=>[v.name,v.root,v.ab.byteLength])})()")
+        check('저장(.msk) → 불러오기: 곡과 내 샘플까지 그대로', raw[:3] == b'MSK' and before == after and smp == [['짧은샘플.wav', 62, 444]], f'{len(raw):,}바이트 · 샘플 {smp}')
+        sz = await J("""(async()=>{const j=JSON.stringify({app:'melody-sketchpad',version:4,song:S}).length,m=(await encodeMSK(S,'x',{})).length,t=scoreText('x').length;return [j,m,t]})()""")
+        check('MSK가 프로젝트 JSON보다 5배 이상 작음', sz[0] / sz[1] >= 5, f'JSON {sz[0]:,} · 악보 {sz[2]:,} · MSK {sz[1]:,} 바이트 ({sz[0]/sz[1]:.0f}배)')
+        # 확장자가 틀려도 내용으로 알아봄 (MSK를 .txt로, MIDI를 .json으로)
+        wrong1 = os.path.join(tmp, '가짜이름.txt'); open(wrong1, 'wb').write(raw)
+        wrong2 = os.path.join(tmp, '가짜이름.json'); open(wrong2, 'wb').write(open(mp, 'rb').read())
+        await pg.locator('#fileIn').set_input_files(wrong1); await pg.wait_for_timeout(400); st1 = await pg.inner_text('#status')
+        await pg.locator('#fileIn').set_input_files(wrong2); await pg.wait_for_timeout(400); st2 = await pg.inner_text('#status')
+        check('확장자가 틀려도 내용을 스캔해서 형식 인식', 'MSK 파일로 알아보고' in st1 and 'MIDI 파일로 알아보고' in st2, f'{st1[:22]} / {st2[:22]}')
+        bad = await J("""(async()=>{const u=await encodeMSK(S,'x',{},false);const out=[];
+          try{await decodeMSK(u.slice(0,u.length-7))}catch(e){out.push(e.message)}
+          const extra=new MskW();extra.chunk('ZZZZ',p=>{p.str('미래의 기능');p.vu(12345)});const e=extra.done(),v=new Uint8Array(u.length+e.length);v.set(u.slice(0,5));v.set(e,5);v.set(u.slice(5),5+e.length);
+          const r=await decodeMSK(v);out.push(r.song.channels.length===S.channels.length);
+          try{await decodeMSK(Uint8Array.from([77,83,75,9,0]))}catch(e){out.push(e.message)}return out})()""")
+        check('망가진 파일은 알려 주고, 모르는 청크는 건너뜀', '끊겼' in bad[0] and bad[1] is True and '새 버전' in bad[2], f'{bad[0][:30]} / 건너뜀 {bad[1]}')
+        code = await J("(async()=>mskToCode(await encodeMSK(S,'코드곡',{})))()")
+        await pg.click('#scoreIn'); await pg.fill('#scoreText', code); await pg.wait_for_timeout(400)
+        cm = await pg.inner_text('#scoreMsg'); await pg.click('#scoreLoad'); await pg.wait_for_timeout(300)
+        check('곡 코드 붙여넣기 → 새 프로젝트', '곡 코드로 알아봤어요' in cm and await J("lib.list[lib.current].name") == '코드곡', f'{len(code):,}글자')
+        store = await J("""(()=>{save();clearTimeout(saveT);lsSet(PK(lib.current),songToStore(S));const v=lsGet(PK(lib.current)),j=JSON.stringify(S).length,a=JSON.stringify([S.channels.map(c=>c.id),S.patterns.map(p=>p.id)]);
+          openProject(lib.current);return [v.slice(0,5),v.length,j,a===JSON.stringify([S.channels.map(c=>c.id),S.patterns.map(p=>p.id)])]})()""")
+        check('내 프로젝트도 MSK로 저장 (번호표 유지)', store[0] == 'MSK1.' and store[3] is True and store[2] / store[1] > 3, f'JSON {store[2]:,}글자 → MSK {store[1]:,}글자')
 
         # 악보 텍스트 형식: 왕복 · 오류 줄 번호 · 붙여넣기 · 변환기
         rt = await J("""(()=>{const t=scoreText('왕복'),r=parseScore(t),k=s=>JSON.stringify([s.bpm,s.root,s.mode,s.channels.map(c=>c.kind+c.inst),s.patterns.map(p=>[p.bars,p.chords,s.channels.map(c=>(p.notes[c.id]||[]).map(n=>[n.p,n.s,n.l,Math.round(n.v*(c.kind==='drum'?10:100))]).sort())]),s.playlist.clips.map(c=>[c.t,c.bar])]);

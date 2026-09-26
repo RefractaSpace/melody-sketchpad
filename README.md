@@ -11,7 +11,8 @@
 | 브라우저 | F8 | 소리 미리 듣기 · 채널로 더하기 · 패턴 목록 |
 | 믹서 | F9 | 채널마다 볼륨·팬·리버브·딜레이·EQ, 마스터 |
 
-곡은 **악보 텍스트 형식(.txt)**으로도 저장·불러오기 할 수 있어요 → [형식 설명서](docs/score-format.md). 사람도 AI도 읽고 쓸 수 있고, **파일 변환기**로 악보·프로젝트·MIDI·오디오를 서로 바꿔요. 예제 곡은 `songs/` 폴더에 있어요.
+곡은 **우리 형식 MSK(.msk)**로 저장해요 → [MSK 형식 설명서](docs/msk-format.md). 작은 이진 파일이라 프로젝트 JSON보다 15~45배 작고, 내 샘플까지 담겨요. 내 프로젝트 목록도 브라우저에 MSK로 보관해서 곡을 훨씬 많이 저장할 수 있어요.
+**불러오기**는 파일 이름이 아니라 **내용을 스캔해서** 형식(MSK·MIDI·프로젝트·악보)을 알아봐요. 사람이 읽는 **악보 형식(.txt)** → [악보 형식 설명서](docs/score-format.md). **곡 코드**(MSK1.…)로 곡을 글자로 주고받을 수 있고, **파일 변환기**로 모든 형식을 서로 바꿔요. 예제 곡은 `songs/` 폴더에 있어요.
 
 맨 위 **PAT**은 지금 패턴만 반복, **SONG**은 플레이리스트 곡 전체를 재생해요 (L키로 전환). 창은 제목줄을 끌어 옮기고 모서리로 크기를 바꿔요.
 
@@ -21,13 +22,15 @@
   - `piano.js` 녹음 피아노 소리 — 화면이 먼저 뜨고, 이 파일은 뒤에서 따로 불러와요 (그동안은 합성 피아노)
   - `og.png` 링크 공유 미리보기 그림 · `apple-touch-icon.png` 휴대폰 홈 화면 아이콘
 - `src/` — 고칠 때 보는 **읽기 쉬운 원본** (`src/index.html`을 열면 원본 코드로 바로 실행돼요)
+  - `js/00-msk.js` 우리 형식 MSK 읽기·쓰기 · 형식 자동 인식(스캔) · 브라우저 저장
   - `js/01-core.js` 곡 데이터(채널·패턴·플레이리스트)·저장 · `02-view.js` 피아노 롤 그리기 · `03-edit.js` 피아노 롤 편집 · `04-audio.js` 소리 엔진
   - `js/05-play.js` 재생(PAT·SONG) · `06-mixer.js` 믹서 · `07-assets.js` 내 샘플 · `08-io.js` 저장·MIDI·WAV
   - `js/10-rack.js` 채널 랙 · `11-playlist.js` 플레이리스트 · `12-windows.js` 떠다니는 창 · `13-browser.js` 브라우저 · `14-score.js` 악보 텍스트 형식 · `15-convert.js` 악보 붙여넣기·파일 변환기 · `99-app.js` 패턴·설정·시작
   - `piano-samples.js` 피아노 소리 원본 · `build.py` 원본 → `public/` 만들기
+- `docs/msk-format.md` — MSK 형식 설명서 (바이트 구조)
 - `docs/score-format.md` — 악보 텍스트 형식 설명서
 - `songs/` — 예제 곡 (악보 형식)
-- `tests/run_tests.py` — 브라우저 자동 테스트 (35가지)
+- `tests/run_tests.py` — 브라우저 자동 테스트 (40가지)
 - `vercel.json` — "빌드 없이 public 폴더를 배포" 설정
 
 ## 배포
@@ -45,5 +48,5 @@
 ## 원본을 고친 뒤
 1. `src/` 안의 파일을 고쳐요 (`src/index.html`을 열어 바로 확인)
 2. `python src/build.py` 실행 → `public/`이 다시 만들어져요 (`--min`을 붙이면 terser로 압축)
-3. `python tests/run_tests.py public/index.html`로 자동 테스트 (35가지)
+3. `python tests/run_tests.py public/index.html`로 자동 테스트 (40가지)
 4. GitHub에 올리면 사이트가 자동으로 바뀌어요

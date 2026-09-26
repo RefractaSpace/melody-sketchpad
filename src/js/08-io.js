@@ -213,51 +213,36 @@ function midiToSong(ab) {
   const nNotes = Object.values(P.notes).reduce((a, x) => a + x.length, 0);
   return {song, info:`채널 ${song.channels.length}개, 음 ${nNotes}개, ${song.bpm} BPM, ${bars}마디 패턴` + (cut ? ` (${MAX_BARS}마디까지만)` : '') + (moved ? ' · 롤 밖의 음은 옥타브를 옮겼어요' : '')};
 }
-$('midiIn').onchange = async () => {
-  const f = $('midiIn').files[0]; $('midiIn').value = ''; if (!f) return;
-  try {
-    const {song, info} = midiToSong(await f.arrayBuffer());
-    pushUndo(); sel.clear(); song.mix.master = S.mix.master; S = song; save(); refreshAll(); if (E) applyMix(E, S.mix);
-    status(`${f.name}을 불러왔어요: ${info}`);
-  } catch (e) { status('MIDI를 읽지 못했어요: ' + (e.message || '알 수 없는 형식')); }
-};
-$('midiLoad').onclick = () => $('midiIn').click();
-
 // ---- 프로젝트 파일 (내 샘플까지 담음) ----
 function ab64(ab) { const u = new Uint8Array(ab); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
 function b64ab(b) { const bin = atob(b), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; }
+// 저장: 우리 형식 .msk (내 샘플까지, 압축)
 $('saveProj').onclick = async () => {
-  const all = await idbAll(), samples = {};
-  for (const [k, v] of Object.entries(all)) if (v && v.ab) samples[k] = {name:v.name, root:v.root, b64:ab64(v.ab)};
-  const j = JSON.stringify({app:'melody-sketchpad', version:4, name:lib.list[lib.current]?.name, song:S, samples}), fn = fileName() + '.json';
-  if (inClaude) offer(fn, j); else localDownload(fn, new Blob([j], {type:'application/json'}));
-  const n = Object.keys(samples).length; if (n) setTimeout(() => status(`프로젝트를 저장했어요 (내 샘플 ${n}개 포함).`), 300);
+  save(); const samples = await songSamples(S), u = await encodeMSK(S, lib.list[lib.current].name, samples), fn = fileName() + '.msk';
+  if (inClaude) offer(fn.replace(/\.msk$/, '-msk.zip'), new Blob([zip(fn, u)])); else localDownload(fn, new Blob([u], {type:'application/octet-stream'}));
+  const n = Object.keys(samples).length; setTimeout(() => status(`저장했어요: ${fn} (${(u.length / 1024).toFixed(1)} KB` + (n ? `, 내 샘플 ${n}개 포함` : '') + ')'), 300);
 };
+// 불러오기: 파일 속 내용을 스캔해서 형식을 알아냄 (MSK · 곡 코드 · MIDI · 프로젝트 · 악보)
 $('loadProj').onclick = () => $('fileIn').click();
 $('fileIn').onchange = async () => {
   const f = $('fileIn').files[0]; $('fileIn').value = ''; if (!f) return;
   try {
-    const raw = JSON.parse(await f.text()), song = raw && raw.app === 'melody-sketchpad' ? raw.song : raw;
-    if (!song || !(song.notes || song.tracks || song.channels)) throw 0;
-    const id = newId(); lib.list[id] = {name:(raw.name || f.name.replace(/\.json$/i, '')).slice(0, 40), updated:Date.now()};
-    lsSet(PK(id), JSON.stringify(normalize(song))); openProject(id);
-    let n = 0;
-    if (raw.samples) for (const [k, v] of Object.entries(raw.samples)) { try { const ab = b64ab(v.b64); SAMPLES[k] = {buf:await decode(ab), root:v.root || 60, name:v.name}; await idbPut(k, {ab, root:v.root || 60, name:v.name}); n++; } catch (e) {} }
-    buildMixer(); status(`"${lib.list[id].name}"을 새 프로젝트로 불러왔어요` + (n ? ` (내 샘플 ${n}개 포함)` : '') + '.');
-  } catch (e) { status('이 파일은 스케치패드 프로젝트 파일이 아니에요.'); }
+    const r = await loadAny(f), n = await openLoaded(r);
+    status(`${r.from} 파일로 알아보고 "${lib.list[lib.current].name}"을 새 프로젝트로 열었어요` + (n ? ` (내 샘플 ${n}개)` : '') + (r.warnings.length ? ` · 알림 ${r.warnings.length}개` : '') + '.');
+  } catch (e) { status('불러오지 못했어요: ' + (e.message || '알 수 없는 형식')); }
 };
 
 // ---- 내 프로젝트 (여러 곡) ----
 function openProject(id) {
   clearTimeout(saveT); if (playing) stop();
-  lib.current = id; saveLib(); let d = null; try { d = JSON.parse(lsGet(PK(id)) || 'null'); } catch (e) {}
-  S = normalize(d || blank()); undoStack = []; sel.clear(); $('selBar').hidden = true; startTick = 0; songStart = 0;
+  lib.current = id; saveLib(); let d = null; try { d = songFromStore(lsGet(PK(id))); } catch (e) {}
+  S = d || blank(); undoStack = []; sel.clear(); $('selBar').hidden = true; startTick = 0; songStart = 0;
   refreshAll(); if (E) applyMix(E, S.mix); $('projName').value = lib.list[id].name; updatePos(0);
 }
 function newProject(copy) {
   const id = newId(), base = copy ? JSON.parse(JSON.stringify(S)) : {...blank(), bpm:S.bpm, root:S.root, mode:S.mode};
   lib.list[id] = {name:copy ? (lib.list[lib.current].name + ' 복사본').slice(0, 40) : '새 곡 ' + (Object.keys(lib.list).length + 1), updated:Date.now()};
-  save(); lsSet(PK(id), JSON.stringify(base)); openProject(id); return id;
+  save(); lsSet(PK(id), songToStore(normalize(base))); openProject(id); return id;
 }
 function renderProjects() {
   const box = $('projList'); box.innerHTML = '';
