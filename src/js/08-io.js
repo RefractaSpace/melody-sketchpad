@@ -209,7 +209,7 @@ function midiToSong(ab) {
     P.chords[beat] = found || {r:Math.min(...ps) % 12, q:''};
   }
   if (!channels.length) channels.push(newChannel('synth', 'piano', '피아노'));
-  const song = normalize({v:4, channels, patterns:[P], pat:0, ch:0, mix:{}, playMode:'pat', playlist:{tracks:PL_TRACKS, clips:[{id:newId(), pat:P.id, t:0, bar:0}]}, bpm:clamp(Math.round(r.bpm), 60, 300)});
+  const song = normalize({v:4, channels, patterns:[P], pat:0, ch:0, mix:{}, playMode:'pat', playlist:{tracks:PL_TRACKS, clips:[{id:newId(), pat:P.id, t:0, bar:0}]}, bpm:clamp(Math.round(r.bpm * 100) / 100, 60, 300)});
   const nNotes = Object.values(P.notes).reduce((a, x) => a + x.length, 0);
   return {song, info:`채널 ${song.channels.length}개, 음 ${nNotes}개, ${song.bpm} BPM, ${bars}마디 패턴` + (cut ? ` (${MAX_BARS}마디까지만)` : '') + (moved ? ' · 롤 밖의 음은 옥타브를 옮겼어요' : '')};
 }

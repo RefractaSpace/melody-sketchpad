@@ -97,7 +97,7 @@ function parseScore(text) {
     if (sec === 'head') {
       const k = key.replace(/\s/g, '').toLowerCase();
       if (k === '제목' || k === '곡' || k === 'title') title = val.slice(0, 40);
-      else if (k === 'bpm' || k === '템포' || k === 'tempo') { const b = parseFloat(val); if (!(b >= 20 && b <= 400)) fail(i, `BPM "${val}"을 읽을 수 없어요`); song.bpm = clamp(Math.round(b), 60, 300); if (song.bpm !== Math.round(b)) warn(i, `BPM은 60~300만 돼서 ${song.bpm}로 바꿨어요`); }
+      else if (k === 'bpm' || k === '템포' || k === 'tempo') { const b = parseFloat(val); if (!(b >= 20 && b <= 400)) fail(i, `BPM "${val}"을 읽을 수 없어요`); song.bpm = clamp(Math.round(b * 100) / 100, 60, 300); if (song.bpm !== Math.round(b * 100) / 100) warn(i, `BPM은 60~300만 돼서 ${song.bpm}로 바꿨어요`); }
       else if (k === '조' || k === '키' || k === 'key') {
         const m = /^([A-G])([#♯b♭]?)\s*(장조|단조|major|minor|maj|min|m)?/i.exec(val); if (!m) fail(i, `조 "${val}"를 읽을 수 없어요 (예: C 장조, F# 단조)`);
         song.root = (PC_OF[m[1].toUpperCase()] + ACC[m[2]] + 12) % 12; song.mode = /단조|minor|min|^m$/i.test(m[3] || '') ? 'minor' : 'major';

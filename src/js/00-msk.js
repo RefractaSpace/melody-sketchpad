@@ -1,10 +1,11 @@
 /* 00-msk.js — 우리 형식 MSK (.msk) · 형식 자동 인식(스캔)
    맨 먼저 실행돼요: 앱이 켜질 때 브라우저에 MSK로 저장된 곡을 바로 읽어야 해서
    ─ 파일 구조 ─────────────────────────────────────────────
-   머리 5바이트: 'M' 'S' 'K' 버전(1) 플래그(bit0 = 몸통 압축)
+   머리 5바이트: 'M' 'S' 'K' 버전(1) 플래그(bit0 = 몸통 압축, bit1 = CRC 청크 필수)
    몸통: 청크가 이어짐 → [종류 4글자][길이: 가변 숫자][내용]
      INFO 곡 정보 · CHAN 채널 · FXCH 코드·베이스·마스터 믹서 · PATN 패턴(하나에 하나) · PLST 플레이리스트 · SMPL 내 샘플
      IDS  채널·패턴 번호표 (브라우저 안 저장용 — 내 샘플 연결을 지키려고)
+     TEMP 정밀 BPM (×100, 예: 126.5 → 12650) · CRC  맨 끝, 앞 내용 전체의 CRC32 (바이트가 바뀌면 알아챔)
      모르는 종류는 건너뜀 → 나중에 형식을 늘려도 옛 앱이 안 깨짐
    가변 숫자(varint): 7비트씩, 앞 비트가 1이면 다음 바이트가 이어짐 → 0~127은 1바이트
    음 하나: [앞 음과 시작 차이][음높이][길이][세기] → 보통 4바이트
@@ -19,6 +20,9 @@ const MSK_KIT = ['edm', '808', 'hard', 'acoustic'];
 const MSK_Q = ['', 'm', '7', 'maj7', 'm7', 'sus4', 'dim', 'aug'];
 const mskIdx = (list, v) => Math.max(0, list.indexOf(v));
 const q8 = x => clamp(Math.round(x), 0, 255);
+// CRC32: 바이트가 하나라도 바뀌면 값이 달라지는 "지문" (ZIP·PNG와 같은 계산법)
+const MSK_CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function mskCrc(u) { let c = 0xffffffff; for (let i = 0; i < u.length; i++) c = MSK_CRC_T[(c ^ u[i]) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
 
 class MskW {   // 바이트 쓰기
   constructor(n = 4096) { this.b = new Uint8Array(n); this.n = 0; }
@@ -51,7 +55,7 @@ async function mskDeflate(u, inflate) {
 // 곡 → 몸통 바이트 (압축 전). samples: {칸이름: {ab, root, name}}, keepIds: 번호표도 저장
 function encodeMskBody(song, name, samples, keepIds) {
   const w = new MskW();
-  w.chunk('INFO', p => { p.str(name || ''); p.vu(song.bpm); p.u8(song.root); p.u8(song.mode === 'minor' ? 1 : 0); p.u8(song.snap); p.u8(song.len); p.u8(song.playMode === 'song' ? 1 : 0);
+  w.chunk('INFO', p => { p.str(name || ''); p.vu(Math.round(song.bpm)); p.u8(song.root); p.u8(song.mode === 'minor' ? 1 : 0); p.u8(song.snap); p.u8(song.len); p.u8(song.playMode === 'song' ? 1 : 0);
     p.u8(mskIdx(MSK_CHORD, song.chordInst)); p.u8(mskIdx(MSK_BMODE, song.bassMode)); p.u8(mskIdx(MSK_BINST, song.bassInst)); p.u8(mskIdx(MSK_KIT, song.kit)); p.vu(song.pat); p.vu(song.ch); wTone(p, song.chordTone); });
   w.chunk('CHAN', p => { p.vu(song.channels.length); for (const c of song.channels) { p.u8(c.kind === 'drum' ? 1 : 0); p.u8(c.kind === 'drum' ? DRUMS.indexOf(c.inst) : mskIdx(MSK_INST, c.inst)); p.str(c.name); wTone(p, c.tone); wMix(p, song.mix[chKey(c)]); } });
   w.chunk('FXCH', p => { wMix(p, song.mix.chords); wMix(p, song.mix.bass); const m = song.mix.master; p.u8(q8(m.v * 200)); p.u8(q8(m.sc * 200)); p.u8(m.size); });
@@ -73,14 +77,18 @@ function encodeMskBody(song, name, samples, keepIds) {
     if (slot.startsWith('ch:') && ci < 0) continue;   // 이 곡에 없는 채널의 샘플
     w.chunk('SMPL', p => { if (ci >= 0) { p.u8(0); p.vu(ci); } else { p.u8(1); p.str(slot); } p.str(s.name); p.u8(s.root); const u = new Uint8Array(s.ab); p.vu(u.length); p.raw(u); });
   }
+  w.chunk('TEMP', p => p.vu(Math.round(song.bpm * 100)));
   if (keepIds) w.chunk('IDS ', p => { p.vu(song.channels.length); for (const c of song.channels) p.str(c.id); p.vu(song.patterns.length); for (const P of song.patterns) p.str(P.id); });
+  const crc = mskCrc(w.b.subarray(0, w.n));   // 여기까지 전체의 지문을 맨 끝에
+  w.chunk('CRC ', p => { p.u8(crc & 255); p.u8(crc >>> 8 & 255); p.u8(crc >>> 16 & 255); p.u8(crc >>> 24 & 255); });
   return w.done();
 }
-const mskFile = (body, flags) => { const out = new Uint8Array(5 + body.length); out.set([77, 83, 75, MSK_VERSION, flags]); out.set(body, 5); return out; };
+const MSK_ZIP = 1, MSK_HASCRC = 2;
+const mskFile = (body, flags) => { const out = new Uint8Array(5 + body.length); out.set([77, 83, 75, MSK_VERSION, flags | MSK_HASCRC]); out.set(body, 5); return out; };
 // 곡 → .msk 파일 (압축할 수 있으면 압축)
 async function encodeMSK(song, name, samples, compress = true) {
   let body = encodeMskBody(song, name, samples, false), flags = 0;
-  if (compress) { const z = await mskDeflate(body, false); if (z && z.length < body.length) { body = z; flags |= 1; } }
+  if (compress) { const z = await mskDeflate(body, false); if (z && z.length < body.length) { body = z; flags |= MSK_ZIP; } }
   return mskFile(body, flags);
 }
 // 브라우저 안 저장용: 바로(동기로) 만들고, 번호표 포함, 압축 없음
@@ -93,19 +101,22 @@ function mskHead(u) {
 // .msk 바이트 → {song, name, samples:[{slot, name, root, ab}]}
 async function decodeMSK(u) {
   let body = u.subarray(5);
-  if (mskHead(u) & 1) { body = await mskDeflate(body, true); if (!body) throw new Error('이 브라우저는 압축된 MSK 파일을 풀 수 없어요'); }
-  return decodeMskBody(body);
+  const f = mskHead(u);
+  if (f & MSK_ZIP) { body = await mskDeflate(body, true); if (!body) throw new Error('이 브라우저는 압축된 MSK 파일을 풀 수 없어요'); }
+  return decodeMskBody(body, !!(f & MSK_HASCRC));
 }
-function decodeMskSync(u) { if (mskHead(u) & 1) throw new Error('압축된 MSK는 decodeMSK로 읽어 주세요'); return decodeMskBody(u.subarray(5)); }
-function decodeMskBody(body) {
-  let ids = null;
+function decodeMskSync(u) { const f = mskHead(u); if (f & MSK_ZIP) throw new Error('압축된 MSK는 decodeMSK로 읽어 주세요'); return decodeMskBody(u.subarray(5), !!(f & MSK_HASCRC)); }
+function decodeMskBody(body, needCrc) {
+  let ids = null, crcOk = false;
   const song = {v:4, channels:[], patterns:[], playlist:{tracks:PL_TRACKS, clips:[]}, mix:{}}, samples = [], clipsTodo = []; let name = '';
   try {
     const r = new MskR(body);
     while (!r.end()) {
-      const type = MSK_TD.decode(r.raw(4)), p = new MskR(r.raw(r.vu()));
+      const at = r.i, type = MSK_TD.decode(r.raw(4)), p = new MskR(r.raw(r.vu()));
+      if (type === 'CRC ') { const want = (p.u8() | p.u8() << 8 | p.u8() << 16 | p.u8() << 24) >>> 0; if (mskCrc(body.subarray(0, at)) !== want) throw new Error('검사 값이 안 맞아요 — 파일 일부가 바뀌었어요'); crcOk = true; continue; }
+      if (type === 'TEMP') { song.bpm = p.vu() / 100; continue; }
       if (type === 'INFO') {
-        name = p.str(); song.bpm = p.vu(); song.root = p.u8(); song.mode = p.u8() ? 'minor' : 'major'; song.snap = p.u8(); song.len = p.u8(); song.playMode = p.u8() ? 'song' : 'pat';
+        name = p.str(); const bpm0 = p.vu(); if (song.bpm == null) song.bpm = bpm0; song.root = p.u8(); song.mode = p.u8() ? 'minor' : 'major'; song.snap = p.u8(); song.len = p.u8(); song.playMode = p.u8() ? 'song' : 'pat';
         song.chordInst = MSK_CHORD[p.u8()] || 'pad'; song.bassMode = MSK_BMODE[p.u8()] || 'off'; song.bassInst = MSK_BINST[p.u8()] || 'reese'; song.kit = MSK_KIT[p.u8()] || 'edm'; song.pat = p.vu(); song.ch = p.vu(); song.chordTone = rTone(p);
       } else if (type === 'CHAN') {
         for (let k = p.vu(); k > 0; k--) {
@@ -134,6 +145,7 @@ function decodeMskBody(body) {
       }
       // 모르는 청크는 건너뜀
     }
+    if (needCrc && !crcOk) throw new Error('검사 값(CRC 청크)이 없어요');
   } catch (e) { throw new Error('MSK 파일이 망가졌어요 (' + e.message + ')'); }
   if (ids) {   // 저장해 둔 번호표로 되돌림 (믹서·음·샘플 칸이 번호표로 이어져 있어서)
     song.channels.forEach((c, i) => { const id = ids.ch[i]; if (!id || id === c.id) return;

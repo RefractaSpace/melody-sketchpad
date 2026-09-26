@@ -180,10 +180,20 @@ async def main():
         check('확장자가 틀려도 내용을 스캔해서 형식 인식', 'MSK 파일로 알아보고' in st1 and 'MIDI 파일로 알아보고' in st2, f'{st1[:22]} / {st2[:22]}')
         bad = await J("""(async()=>{const u=await encodeMSK(S,'x',{},false);const out=[];
           try{await decodeMSK(u.slice(0,u.length-7))}catch(e){out.push(e.message)}
-          const extra=new MskW();extra.chunk('ZZZZ',p=>{p.str('미래의 기능');p.vu(12345)});const e=extra.done(),v=new Uint8Array(u.length+e.length);v.set(u.slice(0,5));v.set(e,5);v.set(u.slice(5),5+e.length);
-          const r=await decodeMSK(v);out.push(r.song.channels.length===S.channels.length);
+          const extra=new MskW();extra.chunk('ZZZZ',p=>{p.str('미래의 기능');p.vu(12345)});const body=encodeMskBody(S,'x',{},false),noCrc=body.slice(0,body.length-9);
+          const fw=new MskW();fw.raw(extra.done());fw.raw(noCrc);const crc=mskCrc(fw.b.subarray(0,fw.n));fw.chunk('CRC ',p=>{p.u8(crc&255);p.u8(crc>>>8&255);p.u8(crc>>>16&255);p.u8(crc>>>24&255)});
+          const r=await decodeMSK(mskFile(fw.done(),0));out.push(r.song.channels.length===S.channels.length);
           try{await decodeMSK(Uint8Array.from([77,83,75,9,0]))}catch(e){out.push(e.message)}return out})()""")
         check('망가진 파일은 알려 주고, 모르는 청크는 건너뜀', '끊겼' in bad[0] and bad[1] is True and '새 버전' in bad[2], f'{bad[0][:30]} / 건너뜀 {bad[1]}')
+        old = list(open(os.path.join(HERE, 'old_v1_nocrc.msk'), 'rb').read())
+        guard = await J("""async(old)=>{const out={};
+          const s=normalize(blank());s.bpm=126.5;notesOf(s.patterns[0],s.channels[0]).push({p:72,s:0,l:24,v:.8});
+          out.bpm=(await decodeMSK(await encodeMSK(s,'',{}))).song.bpm;
+          const u=encodeMskSync(s,'곡');let silent=0;for(let i=5;i<u.length;i++){const v=u.slice();v[i]^=0x20;try{decodeMskSync(v);silent++}catch(e){}}out.silent=silent;out.len=u.length-5;
+          let bad=0;for(let k=0;k<200;k++){const v=new Uint8Array(5+Math.floor(Math.random()*300));crypto.getRandomValues(v);v.set([77,83,75,1,2]);try{decodeMskSync(v)}catch(e){bad++}}out.bad=bad;
+          const o=await decodeMSK(Uint8Array.from(old));out.old=[o.name,o.song.bpm,o.song.patterns.length];return out}""", old)
+        check('MSK 안전장치: 소수점 BPM · 바이트 하나 바뀌면 거절 · 옛 파일도 읽힘', guard['bpm'] == 126.5 and guard['silent'] == 0 and guard['bad'] == 200 and guard['old'] == ['Plum풍 1번 진행', 138, 2],
+              f"BPM {guard['bpm']} · 뒤집기 {guard['len']}번 중 놓침 {guard['silent']} · 무작위 200개 거절 {guard['bad']} · 옛 파일 {guard['old']}")
         code = await J("(async()=>mskToCode(await encodeMSK(S,'코드곡',{})))()")
         await pg.click('#scoreIn'); await pg.fill('#scoreText', code); await pg.wait_for_timeout(400)
         cm = await pg.inner_text('#scoreMsg'); await pg.click('#scoreLoad'); await pg.wait_for_timeout(300)

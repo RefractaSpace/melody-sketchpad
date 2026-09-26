@@ -35,7 +35,7 @@ function refreshAll() {
   $('selBar').hidden = sel.size === 0;
   syncControls(); refreshTitles(); drawAll(); buildRack(); buildMixer(); drawPlaylist(); buildBrowser();
 }
-$('bpm').onchange = () => { S.bpm = clamp(+$('bpm').value || 150, 60, 300); $('bpm').value = S.bpm; save(); if (E) applyMix(E, S.mix); };
+$('bpm').onchange = () => { S.bpm = clamp(Math.round((+$('bpm').value || 150) * 100) / 100, 60, 300); $('bpm').value = S.bpm; save(); if (E) applyMix(E, S.mix); };
 rootSel.onchange = () => { S.root = +rootSel.value; save(); drawAll(); };
 $('mode').onchange = () => { S.mode = $('mode').value; save(); drawAll(); };
 $('snap').onchange = () => { S.snap = +$('snap').value; save(); drawRoll(); drawRuler(); };
