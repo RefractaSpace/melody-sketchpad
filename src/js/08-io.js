@@ -55,7 +55,10 @@ function flatten() {
   return {song:!!song, notes, chords, len:song ? songTicks() : totalTicks()};
 }
 function midiBytes() {
-  const F = flatten(), us = Math.round(60000000 / S.bpm), tr = [mtrack([{t:0, o:0, b:[0xff, 0x51, 3, (us >> 16) & 255, (us >> 8) & 255, us & 255]}, {t:0, o:0, b:[0xff, 0x58, 4, 4, 2, 24, 8]}], '멜로디 스케치패드')];
+  const F = flatten(), tev = b => { const us = Math.round(60000000 / b); return [0xff, 0x51, 3, (us >> 16) & 255, (us >> 8) & 255, us & 255]; };
+  const head = [{t:0, o:0, b:tev(S.bpm)}, {t:0, o:0, b:[0xff, 0x58, 4, 4, 2, 24, 8]}];
+  if (F.song) for (const x of S.tempo) head.push({t:x.t, o:1, b:tev(x.bpm)});   // SONG이면 템포 지도도 MIDI에
+  const tr = [mtrack(head, '멜로디 스케치패드')];
   const synth = S.channels.filter(c => c.kind === 'synth'), free = [0, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15];
   synth.forEach((c, i) => {
     const ch = free[i % free.length], ev = [{t:0, o:0, b:[0xc0 | ch, PROG[c.inst] || 0]}];
@@ -110,7 +113,7 @@ function wavBytes(buf) {
 //    → 조각마다 채널 앞에 "버스"를 따로 두고, 그 조각의 마지막 음이 멈추면 버스를 뽑아요(disconnect).
 const WAV_STEP = 1, WAV_AHEAD = 2, WAV_TAIL = 0.5, WAV_SAFE = 8;   // 초
 async function renderWav(onProgress) {
-  const sr = 44100, span = playSpan(), ts = tickSec(), base = 0.05, secs = span * ts + 3;
+  const sr = 44100, span = playSpan(), base = 0.05, secs = tSec(span) + 3;
   const oc = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, Math.ceil(sr * secs), sr);
   const OE = makeEngine(oc, false); applyMix(OE, S.mix);
   // 소리 부품이 멈추는 시각을 기록해서, 조각이 언제 완전히 끝나는지 알아냄
@@ -122,12 +125,12 @@ async function renderWav(onProgress) {
   }
   const chunks = []; let done = 0;
   const scheduleUntil = sec => {
-    const end = Math.min(span, Math.ceil((sec - base) / ts / 12) * 12); if (end <= done) return;
+    const end = Math.min(span, Math.ceil(tTick(Math.max(0, sec - base)) / 12) * 12); if (end <= done) return;
     const chunk = {buses:[], sources:[], end:0};
     for (const ch of Object.values(OE.ch)) { ch.realInp = ch.realInp || ch.inp; const g = oc.createGain(); g.connect(ch.realInp); ch.inp = g; chunk.buses.push(g); }
     cur = chunk; scheduleRange(OE, done, end, base, false); cur = null;
     // 멈춤 시각이 없는 부품이 하나라도 있으면 넉넉하게 기다림
-    const rangeEnd = base + end * ts; if (!chunk.sources.every(f => f())) chunk.end = Math.max(chunk.end, rangeEnd + WAV_SAFE);
+    const rangeEnd = base + tSec(end); if (!chunk.sources.every(f => f())) chunk.end = Math.max(chunk.end, rangeEnd + WAV_SAFE);
     chunk.end = Math.max(chunk.end, rangeEnd) + WAV_TAIL; chunks.push(chunk); done = end;
   };
   const unplug = t => { for (const c of chunks) if (!c.gone && c.end < t) { c.buses.forEach(g => g.disconnect()); c.gone = true; } };
@@ -186,7 +189,7 @@ function parseMidi(buf) {
     bpm = +Object.entries(w).sort((a, b) => b[1] - a[1])[0][0];
   }
   markers.sort((a, b) => a[0] - b[0]);
-  return {notes, drums, div, bpm, progs, names, markers, tempoCount:tempos.length};
+  return {notes, drums, div, bpm, progs, names, markers, tempoCount:tempos.length, tempos};
 }
 // General MIDI 악기 번호 → 스케치패드 악기
 const PROG_TO_INST = pr => pr == null ? 'piano' : pr < 4 ? 'piano' : pr < 8 ? 'epiano' : pr === 8 ? 'celesta' : pr < 16 ? 'bell' : pr >= 32 && pr <= 39 ? 'bass'
@@ -244,9 +247,11 @@ function midiToSong(ab) {
     split = patterns.length;
   }
   const key = guessKey(channels.filter(c => c.kind === 'synth').flatMap(c => P.notes[c.id] || []));
-  const song = normalize({v:4, channels, patterns, pat:0, ch:0, mix:{}, root:key.root, mode:key.mode, playMode:split ? 'song' : 'pat', playlist:{tracks:PL_TRACKS, clips}, bpm:clamp(Math.round(r.bpm * 100) / 100, 60, 300)});
+  // 템포 지도: MIDI의 템포 변화를 그대로 (기본 BPM은 가장 오래 쓰인 템포, PAT 반복용)
+  const tempo = []; if (r.tempos.length > 1) { let last = null; for (const [t, us] of r.tempos) { const b = Math.round(60000000 / us * 100) / 100, tt = cv(t); if (tt >= lim) break; if (b !== last) { tempo.push({t:tt, bpm:b}); last = b; } } }
+  const song = normalize({v:4, channels, patterns, pat:0, ch:0, mix:{}, root:key.root, mode:key.mode, playMode:split || tempo.length ? 'song' : 'pat', playlist:{tracks:PL_TRACKS, clips}, tempo, bpm:clamp(Math.round(r.bpm * 100) / 100, 60, 300)});
   const nNotes = Object.values(P.notes).reduce((a, x) => a + x.length, 0);
-  return {song, info:`채널 ${song.channels.length}개, 음 ${nNotes}개, ${song.bpm} BPM, ${NAMES_S[key.root]} ${key.mode === 'minor' ? '단조' : '장조'}(음 비율로 추정), ` + (split ? `구간 ${split}개를 패턴으로 나눠 플레이리스트에 놓음` : `${bars}마디 패턴`) + (r.tempoCount > 1 ? ` · 템포가 ${r.tempoCount}번 바뀌는 곡이라 가장 오래 쓰인 ${song.bpm} BPM으로` : '') + (cut ? ` (${MAX_BARS}마디까지만)` : '') + (moved ? ' · 건반 밖의 음은 옥타브를 옮겼어요' : '')};
+  return {song, info:`채널 ${song.channels.length}개, 음 ${nNotes}개, ${song.bpm} BPM, ${NAMES_S[key.root]} ${key.mode === 'minor' ? '단조' : '장조'}(음 비율로 추정), ` + (split ? `구간 ${split}개를 패턴으로 나눠 플레이리스트에 놓음` : `${bars}마디 패턴`) + (song.tempo.length ? ` · 템포 지도 ${song.tempo.length}곳 (기본 ${song.bpm} BPM)` : '') + (cut ? ` (${MAX_BARS}마디까지만)` : '') + (moved ? ' · 건반 밖의 음은 옥타브를 옮겼어요' : '')};
 }
 // ---- 프로젝트 파일 (내 샘플까지 담음) ----
 function ab64(ab) { const u = new Uint8Array(ab); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }

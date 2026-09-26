@@ -283,6 +283,36 @@ async def main():
         await pg.wait_for_function(f"!!SAMPLES['{slot}']", timeout=8000)
         mic = await J(f"[+SAMPLES['{slot}'].buf.duration.toFixed(1),curCh().inst,Math.max(...SAMPLES['{slot}'].buf.getChannelData(0).slice(4000,40000).map(Math.abs))]")
         check('마이크 녹음 → 채널 소리 (내 샘플)', mic[0] >= 1.0 and mic[1] == 'sample' and mic[2] > 0.01, f'{mic[0]}초 · 악기 {mic[1]} · 소리 크기 {mic[2]:.2f}')
+        # 템포 지도
+        tmath = await J("""(()=>{const s=normalize(blank());s.bpm=120;s.tempo=[{t:192,bpm:60}];s.playMode='song';S=s;refreshAll();
+          const r=[songSec(192),songSec(384),songTickAt(6),bpmAt(100),bpmAt(200)];s.playMode='pat';r.push(tSec(384));return r.map(x=>+x.toFixed(4))})()""")
+        check('템포 지도 계산: 틱↔초 · PAT 모드는 기본 BPM', tmath == [2, 6, 384, 120, 60, 4], str(tmath))
+        await pg.locator('#fileIn').set_input_files(os.path.join(HERE, 'festival_v16.mid')); await pg.wait_for_timeout(900)
+        app = await J("""(()=>{const out=[];const rh=S.channels.find(c=>c.name.startsWith('Piano RH'));for(const cl of S.playlist.clips)for(const q of clipParts(cl,0,MAX_BARS*BAR_T))for(const n of q.P.notes[rh.id]||[])if(n.s>=q.from&&n.s<q.to)out.push(songSec(q.origin+n.s));
+          return {n:S.tempo.length,bpm:S.bpm,mode:S.playMode,times:out.sort((a,b)=>a-b),len:songSec(songTicks())}})()""")
+        mm = mido.MidiFile(os.path.join(HERE, 'festival_v16.mid')); ref = []
+        tmap = []; now = 0
+        for msg in mido.merge_tracks(mm.tracks):
+            now += msg.time
+            if msg.type == 'set_tempo': tmap.append((now, msg.tempo))
+        def tick2sec(tk):
+            sec = 0; prev_t = 0; tempo = 500000
+            for tt, tp in tmap:
+                if tt >= tk: break
+                sec += mido.tick2second(tt - prev_t, mm.ticks_per_beat, tempo); prev_t = tt; tempo = tp
+            return sec + mido.tick2second(tk - prev_t, mm.ticks_per_beat, tempo)
+        for tr in mm.tracks:
+            if any(m.type == 'track_name' and m.name.startswith('Piano RH') for m in tr):
+                now = 0
+                for msg in tr:
+                    now += msg.time
+                    if msg.type == 'note_on' and msg.velocity > 0: ref.append(tick2sec(now))
+        ref.sort(); err = max(abs(a - b) for a, b in zip(ref, app['times'])) if len(ref) == len(app['times']) else 99
+        check('축제, 청춘 v16: 템포 변화 전부 → 음 1,152개 시각이 원본 MIDI와 일치', app['n'] > 50 and app['mode'] == 'song' and err < 0.01, f"바뀌는 곳 {app['n']}개 · 기본 {app['bpm']} · 최대 오차 {err*1000:.2f}ms · 곡 길이 {app['len']:.1f}초")
+        rt3 = await J("""(async()=>{const d=(await decodeMSK(await encodeMSK(S,'x',{}))).song,t=parseScore(withSong(S,()=>scoreText('x'))).song,k=a=>JSON.stringify(a.map(x=>[x.t,x.bpm]));return [k(d.tempo)===k(S.tempo),k(t.tempo)===k(S.tempo)]})()""")
+        async with pg.expect_download() as dl: await pg.click('#midi')
+        d = await dl.value; tp2 = os.path.join(tmp, 'tempo_out.mid'); await d.save_as(tp2)
+        check('템포 지도가 MSK·악보·MIDI 저장에 담김', rt3 == [True, True] and abs(mido.MidiFile(tp2).length - mm.length) < 0.05, f'MSK·악보 {rt3} · 저장한 MIDI {mido.MidiFile(tp2).length:.2f}초 (원본 {mm.length:.2f}초)')
         v3 = {'v': 3, 'bpm': 128, 'root': 0, 'mode': 'major', 'bars': 2, 'tracks': [{'id': 'a', 'name': '리드', 'inst': 'pluck', 'notes': [{'p': 60, 's': 0, 'l': 24}]}], 'chords': [{'r': 0, 'q': ''}, None, None, None, {'r': 7, 'q': ''}], 'drums': {'kick': [1, 0, 0, 0, 0.5]}}
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v3)}));openProject(id)}})()")
         conv = await J("[S.channels.map(c=>c.name), S.patterns.length, S.playlist.clips.length, chordName(S.patterns[0].chords[4]), notesOf(S.patterns[0],S.channels[1]).map(n=>n.v)]")

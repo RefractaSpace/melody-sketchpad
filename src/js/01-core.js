@@ -46,7 +46,7 @@ function chDefault(key, ch) {
 function blank() {
   const ch = [newChannel('synth', 'piano', '피아노'), newChannel('drum', 'kick'), newChannel('drum', 'clap'), newChannel('drum', 'hat'), newChannel('drum', 'snare')];
   const p = newPattern('Pattern 1', 4);
-  const s = {v:4, bpm:150, root:5, mode:'minor', snap:12, len:24, channels:ch, patterns:[p], pat:0, ch:0, playMode:'pat',
+  const s = {v:4, bpm:150, root:5, mode:'minor', snap:12, len:24, channels:ch, patterns:[p], pat:0, ch:0, playMode:'pat', tempo:[],
     playlist:{tracks:PL_TRACKS, clips:[{id:newId(), pat:p.id, t:0, bar:0}]},
     chordInst:'pad', chordTone:{br:1, atk:0.15, rel:0.5}, bassMode:'off', bassInst:'reese', kit:'edm', mix:{}};
   fillMix(s); return s;
@@ -114,6 +114,9 @@ function normalize(s) {
     return o; })};
   s.pat = clamp(s.pat | 0, 0, s.patterns.length - 1); s.ch = clamp(s.ch | 0, 0, s.channels.length - 1);
   s.playMode = s.playMode === 'song' ? 'song' : 'pat';
+  // 템포 지도: [{t:곡 틱, bpm}] — 틱 순서, 같은 틱은 뒤의 것
+  const tm = new Map(); for (const x of Array.isArray(s.tempo) ? s.tempo : []) { const t = clamp(Math.round(+x.t || 0), 0, MAX_BARS * BAR_T), b = Math.round(clamp(+x.bpm || 0, 20, 400) * 100) / 100; if (b) tm.set(t, b); }
+  s.tempo = [...tm].sort((a, b) => a[0] - b[0]).map(([t, bpm]) => ({t, bpm}));
   if (![12, 16, 24, 48].includes(+s.snap)) s.snap = 12;
   if (!KITS_OK.includes(s.kit)) s.kit = 'edm';
   if (!['off', 'sustain', '8th', 'offbeat'].includes(s.bassMode)) s.bassMode = 'off';

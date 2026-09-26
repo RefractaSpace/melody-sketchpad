@@ -62,7 +62,7 @@
     </section>
 
     <section class="win" id="win-playlist" data-win="playlist" aria-label="플레이리스트">
-      <header class="wh"><b>플레이리스트</b><span class="wsub" id="plHint">패턴을 골라 빈칸을 누르면 놓여요 · 끌어서 옮기기 · 오른쪽 클릭으로 지우기 · 두 번 누르면 피아노 롤</span><button class="wx" data-close="playlist" aria-label="플레이리스트 닫기">×</button></header>
+      <header class="wh"><b>플레이리스트</b><span class="wsub" id="plHint">패턴을 골라 빈칸을 누르면 놓여요 · 끌어서 옮기기 · 오른쪽 클릭으로 지우기 · 두 번 누르면 피아노 롤</span><button class="tbtn xs" id="tempoBtn" title="곡 중간에 템포가 바뀌는 곳 (SONG 재생·WAV·MIDI에 적용)">템포 지도</button><button class="wx" data-close="playlist" aria-label="플레이리스트 닫기">×</button></header>
       <div class="wb pl" id="plWrap"><div class="plhead" id="plHead"></div><div class="plbox" id="plBox"><canvas id="plRuler" aria-label="곡 눈금자. 누르면 그 위치부터 재생"></canvas><canvas id="plCanvas" tabindex="0" aria-label="플레이리스트. 패턴 조각을 시간 위에 배치해요"></canvas></div></div>
     </section>
 
@@ -172,6 +172,13 @@
     <button class="tbtn" id="convMid" disabled>MIDI (.mid)</button><button class="tbtn" id="convWav" disabled>오디오 (.wav)</button>
   </div>
   <div class="drow"><button class="tbtn" id="convOpen" disabled>이 곡을 새 프로젝트로 열기</button><button class="tbtn solid" id="convClose">닫기</button></div>
+</dialog>
+<dialog id="tempoDlg" aria-labelledby="tempoTitle">
+  <h2 id="tempoTitle">템포 지도</h2>
+  <p class="dsub">곡 중간에 템포가 바뀌는 곳이에요. SONG 재생·WAV·MIDI에 적용되고, PAT 모드는 기본 BPM으로 반복해요.</p>
+  <p class="dsub" id="tempoInfo"></p>
+  <div class="tlist" id="tempoList"></div>
+  <div class="drow"><span><button class="tbtn" id="tempoAdd">+ 바꾸는 곳 추가</button> <button class="tbtn" id="tempoRit">끝을 점점 느리게</button> <button class="tbtn" id="tempoClear">모두 지우기</button></span><button class="tbtn solid" id="tempoClose">닫기</button></div>
 </dialog>
 <dialog id="chordDlg" aria-labelledby="chordTitle">
   <h2 id="chordTitle">코드 고르기</h2>

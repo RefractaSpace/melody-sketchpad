@@ -14,6 +14,7 @@ function drawPlaylist() {
   const endBar = songBars();
   for (let b = 0; b <= MAX_BARS; b++) { const X = b * PL_BAR + .5, big = b % 4 === 0; x.fillStyle = big ? CS.ink : CS.line2; x.fillRect(X, big ? 3 : 13, 1, big ? PL_RULER - 4 : PL_RULER - 14); if (big && b < MAX_BARS) { x.fillStyle = CS.ink; x.fillText(String(b + 1), X + 4, 8); } }
   const ss = songStart / (4 * PPQ) * PL_BAR; x.fillStyle = CS.ink; x.beginPath(); x.moveTo(ss, PL_RULER - 1); x.lineTo(ss + 7, PL_RULER - 8); x.lineTo(ss, PL_RULER - 8); x.closePath(); x.fill();
+  drawTempoCurve(x, w, PL_RULER);
   if (songTick >= 0) { x.fillStyle = CS.ink; x.fillRect(songTick / (4 * PPQ) * PL_BAR - 1, 0, 2, PL_RULER); }
   // 격자
   x = sizeCanvas(plc, w, h);

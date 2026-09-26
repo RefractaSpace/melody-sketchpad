@@ -5,7 +5,7 @@
    몸통: 청크가 이어짐 → [종류 4글자][길이: 가변 숫자][내용]
      INFO 곡 정보 · CHAN 채널 · FXCH 코드·베이스·마스터 믹서 · PATN 패턴(하나에 하나) · PLST 플레이리스트 · SMPL 내 샘플
      IDS  채널·패턴 번호표 (브라우저 안 저장용 — 내 샘플 연결을 지키려고)
-     PLEX 조각 길이·시작 오프셋 · PCOL 패턴 색
+     PLEX 조각 길이·시작 오프셋 · PCOL 패턴 색 · TMAP 템포 지도
      TEMP 정밀 BPM (×100, 예: 126.5 → 12650) · CRC  맨 끝, 앞 내용 전체의 CRC32 (바이트가 바뀌면 알아챔)
      모르는 종류는 건너뜀 → 나중에 형식을 늘려도 옛 앱이 안 깨짐
    가변 숫자(varint): 7비트씩, 앞 비트가 1이면 다음 바이트가 이어짐 → 0~127은 1바이트
@@ -82,6 +82,7 @@ function encodeMskBody(song, name, samples, keepIds) {
     w.chunk('SMPL', p => { if (ci >= 0) { p.u8(0); p.vu(ci); } else { p.u8(1); p.str(slot); } p.str(s.name); p.u8(s.root); const u = new Uint8Array(s.ab); p.vu(u.length); p.raw(u); });
   }
   w.chunk('TEMP', p => p.vu(Math.round(song.bpm * 100)));
+  if (song.tempo && song.tempo.length) w.chunk('TMAP', p => { p.vu(song.tempo.length); let pt = 0; for (const x of song.tempo) { p.vu(x.t - pt); pt = x.t; p.vu(Math.round(x.bpm * 100)); } });
   if (keepIds) w.chunk('IDS ', p => { p.vu(song.channels.length); for (const c of song.channels) p.str(c.id); p.vu(song.patterns.length); for (const P of song.patterns) p.str(P.id); });
   const crc = mskCrc(w.b.subarray(0, w.n));   // 여기까지 전체의 지문을 맨 끝에
   w.chunk('CRC ', p => { p.u8(crc & 255); p.u8(crc >>> 8 & 255); p.u8(crc >>> 16 & 255); p.u8(crc >>> 24 & 255); });
@@ -119,6 +120,7 @@ function decodeMskBody(body, needCrc) {
       const at = r.i, type = MSK_TD.decode(r.raw(4)), p = new MskR(r.raw(r.vu()));
       if (type === 'CRC ') { const want = (p.u8() | p.u8() << 8 | p.u8() << 16 | p.u8() << 24) >>> 0; if (mskCrc(body.subarray(0, at)) !== want) throw new Error('검사 값이 안 맞아요 — 파일 일부가 바뀌었어요'); crcOk = true; continue; }
       if (type === 'TEMP') { song.bpm = p.vu() / 100; continue; }
+      if (type === 'TMAP') { song.tempo = []; let t = 0; for (let k = p.vu(); k > 0; k--) { t += p.vu(); song.tempo.push({t, bpm:p.vu() / 100}); } continue; }
       if (type === 'INFO') {
         name = p.str(); const bpm0 = p.vu(); if (song.bpm == null) song.bpm = bpm0; song.root = p.u8(); song.mode = p.u8() ? 'minor' : 'major'; song.snap = p.u8(); song.len = p.u8(); song.playMode = p.u8() ? 'song' : 'pat';
         song.chordInst = MSK_CHORD[p.u8()] || 'pad'; song.bassMode = MSK_BMODE[p.u8()] || 'off'; song.bassInst = MSK_BINST[p.u8()] || 'reese'; song.kit = MSK_KIT[p.u8()] || 'edm'; song.pat = p.vu(); song.ch = p.vu(); song.chordTone = rTone(p);

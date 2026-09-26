@@ -5,9 +5,7 @@ const live = new Map();   // 음높이 → {g, rec:{s0, raw}}
 let recOn = false, quantOn = true, recUndo = false;
 // 지금 재생 위치를 편집 중인 패턴 안의 틱으로 (재생 중이 아니거나 지금 패턴이 안 울리면 -1)
 function nowPatTick() {
-  if (!playing || !ctx) return -1;
-  const el = (ctx.currentTime - startAt) / tickSec(); if (el < 0) return st0;
-  const span = playSpan() - st0, t = st0 + (el % span);
+  const t = timelineNow(); if (t < 0) return -1;
   return S.playMode === 'song' ? localTickInCurPat(t) : t;
 }
 function liveOn(p, v) {

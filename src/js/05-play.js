@@ -1,6 +1,23 @@
-/* 05-play.js — 재생 (PAT: 지금 패턴 반복 · SONG: 플레이리스트 곡 전체) */
+/* 05-play.js — 재생 (PAT: 지금 패턴 반복 · SONG: 플레이리스트 곡 전체, 템포 지도 적용) */
 let startAt = 0, nextTick = 0, timer = 0, raf = 0, st0 = 0, metroOn = false;
 const tickSec = () => 60 / S.bpm / PPQ;
+// ---- 템포 지도 ----
+// S.tempo = [{t:곡 틱, bpm}] — SONG 모드에서만 적용 (PAT 모드는 기본 BPM으로 반복)
+// 바뀌는 곳마다 "거기까지 흐른 초"를 미리 더해 두고, 틱 ↔ 초를 이진 탐색으로 바꿔요
+let tmCache = null;
+function tempoPts() {
+  if (tmCache && tmCache.bpm === S.bpm && tmCache.arr === S.tempo) return tmCache.pts;
+  const pts = [{t:0, sec:0, spt:60 / S.bpm / PPQ}];
+  for (const x of S.tempo || []) { const L = pts[pts.length - 1], spt = 60 / x.bpm / PPQ; if (x.t <= L.t) { L.spt = spt; continue; } pts.push({t:x.t, sec:L.sec + (x.t - L.t) * L.spt, spt}); }
+  tmCache = {bpm:S.bpm, arr:S.tempo, pts}; return pts;
+}
+function tempoIdx(pts, key, v) { let lo = 0, hi = pts.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (pts[m][key] <= v) lo = m; else hi = m - 1; } return lo; }
+function songSec(t) { const pts = tempoPts(), p = pts[tempoIdx(pts, 't', t)]; return p.sec + (t - p.t) * p.spt; }
+function songTickAt(sec) { const pts = tempoPts(), p = pts[tempoIdx(pts, 'sec', sec)]; return p.t + (sec - p.sec) / p.spt; }
+function bpmAt(t) { const pts = tempoPts(); return 60 / PPQ / pts[tempoIdx(pts, 't', t)].spt; }
+const useMap = () => S.playMode === 'song';
+const tSec = t => useMap() ? songSec(t) : t * tickSec();       // 시간축 틱 → 초
+const tTick = sec => useMap() ? songTickAt(sec) : sec / tickSec();   // 초 → 시간축 틱
 function click(EE, t, acc) {
   const o = EE.ac.createOscillator(), g = EE.ac.createGain(); o.type = 'sine'; o.frequency.value = acc ? 1760 : 1180;
   g.gain.setValueAtTime(acc ? 0.3 : 0.18, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05); o.connect(g); g.connect(EE.out); o.start(t); o.stop(t + 0.06);
@@ -14,11 +31,11 @@ function chordSegments(P) {
   }
   return out;
 }
-// 패턴 하나의 [t0, t1) 구간 소리 예약 (base = 이 패턴의 0틱이 울릴 시각)
-function schedulePattern(EE, P, t0, t1, base) {
-  const ts = tickSec();
-  for (const c of S.channels) { const arr = P.notes[c.id]; if (arr) for (const n of arr) if (n.s >= t0 && n.s < t1) playTrackNote(EE, c, n.p, base + n.s * ts, n.l * ts * 0.98, n.v); }
-  for (const seg of chordSegments(P)) if (seg.s >= t0 && seg.s < t1) chordPlay(EE, S.chordInst, chordVoices(seg.c), base + seg.s * ts, seg.l * ts * 0.98);
+// 패턴 하나의 [t0, t1) 구간 소리 예약 — at(패턴 틱) = 그 틱이 울릴 시각(초)
+function schedulePattern(EE, P, t0, t1, at) {
+  const dur = (a, l) => at(a + l) - at(a);
+  for (const c of S.channels) { const arr = P.notes[c.id]; if (arr) for (const n of arr) if (n.s >= t0 && n.s < t1) playTrackNote(EE, c, n.p, at(n.s), dur(n.s, n.l) * 0.98, n.v); }
+  for (const seg of chordSegments(P)) if (seg.s >= t0 && seg.s < t1) chordPlay(EE, S.chordInst, chordVoices(seg.c), at(seg.s), dur(seg.s, seg.l) * 0.98);
   if (S.bassMode !== 'off') {
     const nb = P.bars * 4;
     for (let i = Math.floor(t0 / PPQ); i < Math.min(nb, Math.ceil(t1 / PPQ)); i++) {
@@ -28,37 +45,42 @@ function schedulePattern(EE, P, t0, t1, base) {
       if (S.bassMode === 'sustain') { if (!(changed || i % 4 === 0)) continue; let j = i + 1; while (j < nb && j % 4 !== 0 && chordAtBeat(j, P) === c) j++; hits = [[0, (j - i) * PPQ]]; }
       else if (S.bassMode === '8th') hits = [[0, 22], [24, 22]];
       else hits = [[24, 20]];
-      for (const [o, l] of hits) { const tt = bt + o; if (tt >= t0 && tt < t1) bassPlay(EE, S.bassInst, root, base + tt * ts, l * ts * 0.95); }
+      for (const [o, l] of hits) { const tt = bt + o; if (tt >= t0 && tt < t1) bassPlay(EE, S.bassInst, root, at(tt), dur(tt, l) * 0.95); }
     }
   }
 }
 const playSpan = () => S.playMode === 'song' ? songTicks() : totalTicks();
-// 전체 시간축(PAT: 패턴, SONG: 곡)의 [t0, t1) 예약
+// 전체 시간축(PAT: 패턴, SONG: 곡)의 [t0, t1) 예약 — base + tSec(틱) = 절대 시각
 function scheduleRange(EE, t0, t1, base, metro) {
-  const ts = tickSec();
   if (S.playMode === 'song') {
-    for (const cl of S.playlist.clips) for (const q of clipParts(cl, t0, t1)) schedulePattern(EE, q.P, q.from, q.to, base + q.origin * ts);
-  } else schedulePattern(EE, curPat(), t0, t1, base);
-  if (metro) for (let tt = Math.ceil(t0 / PPQ) * PPQ; tt < t1; tt += PPQ) click(EE, base + tt * ts, tt % BAR_T === 0);
+    for (const cl of S.playlist.clips) for (const q of clipParts(cl, t0, t1)) schedulePattern(EE, q.P, q.from, q.to, lt => base + tSec(q.origin + lt));
+  } else schedulePattern(EE, curPat(), t0, t1, lt => base + tSec(lt));
+  if (metro) for (let tt = Math.ceil(t0 / PPQ) * PPQ; tt < t1; tt += PPQ) click(EE, base + tSec(tt), tt % BAR_T === 0);
 }
 const loopOn = () => $('loop').getAttribute('aria-pressed') === 'true';
 function pump() {
   const ahead = 0.15, now = ctx.currentTime, tot = playSpan(), span = tot - st0;
   if (span <= 0) return;
+  const spanSec = tSec(tot) - tSec(st0);
   while (true) {
-    const k = Math.floor(nextTick / span), local = st0 + (nextTick - k * span), base = startAt + (k * span - st0) * tickSec();
-    if (startAt + nextTick * tickSec() > now + ahead) break;
+    const k = Math.floor(nextTick / span), local = st0 + (nextTick - k * span), base = startAt + k * spanSec - tSec(st0);
+    if (base + tSec(local) > now + ahead) break;
     if (!loopOn() && nextTick >= span) break;
     scheduleRange(E, local, Math.min(tot, local + 12), base, metroOn); nextTick += 12;
   }
 }
-function updatePos(t) { const bar = Math.floor(t / BAR_T) + 1, beat = Math.floor((t % BAR_T) / PPQ) + 1; $('posOut').textContent = bar + ' : ' + beat; }
+function updatePos(t) { const bar = Math.floor(t / BAR_T) + 1, beat = Math.floor((t % BAR_T) / PPQ) + 1; $('posOut').textContent = bar + ' : ' + beat + (useMap() && S.tempo.length ? ` ♩${Math.round(bpmAt(t) * 10) / 10}` : ''); }
 let meterBuf = null;
 function drawMeter() {
   const el = $('meterFill'); if (!el || !E || !E.meter) return;
   if (!meterBuf) meterBuf = new Float32Array(E.meter.fftSize); E.meter.getFloatTimeDomainData(meterBuf);
   let pk = 0; for (const v of meterBuf) pk = Math.max(pk, Math.abs(v));
   const db = 20 * Math.log10(pk + 1e-6); el.style.width = clamp((db + 48) / 48 * 100, 0, 100) + '%'; $('meterDb').textContent = pk > 0.0005 ? db.toFixed(1) + ' dB' : '-∞';
+}
+// 지금 재생 중인 시간축 틱 (재생 중이 아니면 -1)
+function timelineNow() {
+  if (!playing || !ctx) return -1; const el = ctx.currentTime - startAt, tot = playSpan(); if (el < 0) return st0;
+  const spanSec = tSec(tot) - tSec(st0); return Math.min(tot - 1, tTick(tSec(st0) + (el % spanSec)));
 }
 // SONG 재생 중 지금 패턴이 울리고 있으면 그 안의 위치 (없으면 -1)
 function localTickInCurPat(t) {
@@ -67,11 +89,11 @@ function localTickInCurPat(t) {
 }
 function frame() {
   if (!playing) return;
-  const tot = playSpan(), span = tot - st0, el = (ctx.currentTime - startAt) / tickSec();
+  const tot = playSpan(), el = ctx.currentTime - startAt, spanSec = tSec(tot) - tSec(st0);
   drawMeter();
   if (el < 0) { raf = requestAnimationFrame(frame); return; }
-  if (!loopOn() && el >= span) { stop(); return; }
-  const t = st0 + (el % span);
+  if (!loopOn() && el >= spanSec) { stop(); return; }
+  const t = Math.min(tot - 1, tTick(tSec(st0) + (el % spanSec)));
   if (S.playMode === 'song') { songTick = t; playTick = localTickInCurPat(t); followPlaylist(); }
   else { songTick = -1; playTick = t; }
   updatePos(t);

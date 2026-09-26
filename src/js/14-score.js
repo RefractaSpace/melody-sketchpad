@@ -23,6 +23,7 @@ function scoreText(title) {
     '# 드럼 줄은 16칸 = 1마디 · X = 100% · 1~9 = 10~90% · . = 쉼 · 줄 앞이 공백이면 앞 줄에 이어짐', ''];
   if (title) L.push('제목: ' + String(title).replace(/[\r\n]/g, ' '));
   L.push('BPM: ' + S.bpm, '조: ' + names()[S.root] + (S.mode === 'minor' ? ' 단조' : ' 장조'), '재생: ' + (S.playMode === 'song' ? 'SONG' : 'PAT'),
+    ...(S.tempo.length ? ['템포 변화: ' + S.tempo.map(x => `${posText(x.t)} ${x.bpm}`).join(' | ')] : []),
     '코드 소리: ' + CHORD_SOUND[S.chordInst], '베이스: ' + BASS_MODE[S.bassMode] + (S.bassMode === 'off' ? '' : ' ' + BASS_INST[S.bassInst]), '드럼 키트: ' + KIT_NAME[S.kit], '');
   // 채널 이름이 겹치면 뒤에 숫자를 붙임
   const cname = new Map(), used = new Set();
@@ -103,6 +104,10 @@ function parseScore(text) {
         song.root = (PC_OF[m[1].toUpperCase()] + ACC[m[2]] + 12) % 12; song.mode = /단조|minor|min|^m$/i.test(m[3] || '') ? 'minor' : 'major';
       }
       else if (k === '재생') song.playMode = /song/i.test(val) ? 'song' : 'pat';
+      else if (k === '템포변화' || k === '템포지도') {
+        song.tempo = song.tempo || [];
+        for (const part of val.split('|').map(x => x.trim()).filter(Boolean)) { const [pt, bt] = part.split(/\s+/), t = parsePos(pt || ''), b = parseFloat(bt); if (t == null || !(b >= 20 && b <= 400)) { warn(i, `템포 변화 "${part}"를 읽을 수 없어요 (예: 17.1 140)`); continue; } song.tempo.push({t, bpm:b}); }
+      }
       else if (k === '코드소리') { const v = byLabel(CHORD_SOUND, val); if (v) song.chordInst = v; else warn(i, `코드 소리 "${val}"를 몰라서 패드로 했어요`); }
       else if (k === '베이스') { const [a, b] = val.split(/\s+/); const md = byLabel(BASS_MODE, a || ''); if (md) song.bassMode = md; else warn(i, `베이스 "${val}"를 몰라서 끔으로 했어요`); if (b) { const bi = byLabel(BASS_INST, b); if (bi) song.bassInst = bi; } }
       else if (k === '드럼키트' || k === '키트') { const v = byLabel(KIT_NAME, val.replace(/풍$/, '')); if (v) song.kit = v; }
