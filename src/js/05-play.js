@@ -37,10 +37,11 @@ function autoAt(pts, t) { if (t <= pts[0].s) return pts[0].v; for (let i = 1; i 
 function scheduleAuto(EE, P, t0, t1, at) {
   for (const c of S.channels) {
     const A = P.auto && P.auto[c.id]; if (!A && !(P.notes[c.id] || []).length) continue;   // 이 패턴이 안 쓰는 채널은 건드리지 않음
-    const ch = getCh(EE, chKey(c)), T0 = at(t0);
+    const ch = getCh(EE, chKey(c)), T0 = at(t0); ch.atDef = ch.atDef || {vol:true, cut:true};
     for (const [k, param, map, def] of [['vol', ch.aVol.gain, v => v, 1], ['cut', ch.aCut.frequency, cutHz, AUTO_CUT_MAX]]) {
       const pts = A && A[k];
-      if (!pts || !pts.length) { param.setValueAtTime(def, T0); continue; }
+      if (!pts || !pts.length) { if (!ch.atDef[k]) { param.setValueAtTime(def, T0); ch.atDef[k] = true; } continue; }   // 이미 기본값이면 명령을 더 쌓지 않음
+      ch.atDef[k] = false;
       // 예약 구간이 길어도(WAV는 2초씩) 6틱마다 중간 점을 넣어서, 필터처럼 귀에 곱셈으로 들리는 값도 선을 따라가게
       param.setValueAtTime(map(autoAt(pts, t0)), T0);
       const cuts = new Set(pts.filter(q => q.s > t0 && q.s < t1).map(q => q.s)); for (let t = Math.floor(t0 / 6) * 6 + 6; t < t1; t += 6) cuts.add(t);
@@ -117,7 +118,7 @@ function frame() {
   updatePos(t);
   if (playTick >= 0) { const X = playTick * TICKPX, v = view(); if (winOpen('roll') && (X < v.sl || X > v.sl + v.vw - 40)) wrap.scrollLeft = Math.max(0, X - 40); }
   if (winOpen('roll')) { drawRuler(); drawRoll(); drawLanes(); }
-  drawRackPlayhead(); if (S.playMode === 'song') drawPlaylist();
+  drawRackPlayhead(); if (S.playMode === 'song') plOverlay();
   raf = requestAnimationFrame(frame);
 }
 const PLAY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>', STOP_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z"/></svg>';

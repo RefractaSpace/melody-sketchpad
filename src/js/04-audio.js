@@ -45,7 +45,8 @@ function watchPiano() {
   if (window.PIANO_SAMPLES) { preparePiano(); return; }
   pianoStat('녹음 피아노 불러오는 중… (그동안은 합성 피아노)');
   window.addEventListener('piano-samples-ready', () => preparePiano(), {once:true});
-  window.addEventListener('load', () => setTimeout(() => { if (pianoState === 'wait') preparePiano(); }, 300), {once:true});
+  // 화면을 그린 뒤에 요청 → 느린 네트워크에서도 앱이 먼저 떠요. 못 받으면 CDN으로
+  setTimeout(() => { const sc = document.createElement('script'); sc.src = window.PIANO_SRC || 'piano.js'; sc.async = true; sc.onerror = () => preparePiano(); document.head.appendChild(sc); }, 30);
 }
 function pianoSample(E, m, t, d, vel, dest, T) {
   T = T || toneDefault(); const keys = Object.keys(PIANO).map(Number); if (!keys.length) return false;

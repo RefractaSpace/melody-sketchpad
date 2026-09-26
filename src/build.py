@@ -21,7 +21,7 @@ mods = sorted(f for f in os.listdir(os.path.join(here, 'js')) if re.match(r'\d\d
 app = '/* 멜로디 스케치패드 — 읽기 쉬운 원본은 src/js/ (src/index.html과 똑같이 동작하도록 감싸지 않고 순서대로 합침) */\n' + '\n'.join(read('js', m) for m in mods) + '\n'
 html = read('index.html')
 html = re.sub(r'(<script src="js/\d\d-[^"]+" defer></script>\s*)+', '<script src="app.js" defer></script>\n', html)
-html = html.replace('<script src="piano-samples.js" async></script>', '<script src="piano.js" async></script>')
+html = html.replace('window.PIANO_SRC = "piano-samples.js"', 'window.PIANO_SRC = "piano.js"')
 write('index.html', html); write('style.css', read('style.css')); write('app.js', app); write('piano.js', read('piano-samples.js')); write('piano-soft.js', read('piano-soft.js')); write('piano-hard.js', read('piano-hard.js'))
 
 if '--min' in sys.argv:

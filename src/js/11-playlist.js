@@ -4,8 +4,27 @@ const PL_BAR = 30, PL_ROW = 34, PL_RULER = 22;
 let plDrag = null, plCur = {bar:0, t:0}, plPress = 0;
 function clipAt(bar, t) { const cs = S.playlist.clips; for (let i = cs.length - 1; i >= 0; i--) { const c = cs[i]; if (c.t === t && bar >= c.bar && bar < c.bar + clipLen(c)) return c; } return null; }
 
+// 조각·격자·눈금자는 바뀔 때만 그려서 저장(캐시)하고, 재생 중 매 프레임은 복사 + 재생선만 (plOverlay)
+let plCache = null;
+function snapCanvas(c) { const o = document.createElement('canvas'); o.width = c.width; o.height = c.height; o.getContext('2d').drawImage(c, 0, 0); return o; }
 function drawPlaylist() {
   if (!plc) return;
+  const keepTick = songTick; songTick = -1;   // 캐시에는 재생선·재생 중 테두리를 넣지 않음
+  try { drawPlaylistBase(); } finally { songTick = keepTick; }
+  plCache = {r:snapCanvas(plr), c:snapCanvas(plc)}; plOverlay(false);
+}
+function plOverlay(blit = true) {
+  if (!plc) return; if (!plCache || plCache.c.width !== plc.width || plCache.c.height !== plc.height) { drawPlaylist(); return; }
+  const dpr = plc.width / (MAX_BARS * PL_BAR), h = S.playlist.tracks * PL_ROW;
+  for (const [cv, cache] of [[plr, plCache.r], [plc, plCache.c]]) { const x = cv.getContext('2d'); if (blit) { x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(cache, 0, 0); } x.setTransform(dpr, 0, 0, dpr, 0, 0); }
+  if (songTick < 0) return;
+  const X = songTick / BAR_T * PL_BAR, xr = plr.getContext('2d'), x = plc.getContext('2d');
+  xr.fillStyle = CS.ink; xr.fillRect(X - 1, 0, 2, PL_RULER);
+  x.lineWidth = 2; x.strokeStyle = CS.ink;
+  for (const cl of S.playlist.clips) { const len = clipLen(cl); if (songTick >= cl.bar * BAR_T && songTick < (cl.bar + len) * BAR_T) { rr(x, cl.bar * PL_BAR + 1, cl.t * PL_ROW + 2, len * PL_BAR - 2, PL_ROW - 5, 4); x.stroke(); } }
+  x.fillStyle = CS.ink; x.fillRect(X - 1, 0, 2, h);
+}
+function drawPlaylistBase() {
   const tracks = S.playlist.tracks, w = MAX_BARS * PL_BAR, h = tracks * PL_ROW;
   if (plHead.childElementCount !== tracks) { plHead.innerHTML = ''; for (let i = 0; i < tracks; i++) { const d = document.createElement('div'); d.textContent = '트랙 ' + (i + 1); plHead.appendChild(d); } }
   // 눈금자
