@@ -2,7 +2,6 @@
 const plWrap = $('plWrap'), plc = $('plCanvas'), plr = $('plRuler'), plHead = $('plHead');
 const PL_BAR = 30, PL_ROW = 34, PL_RULER = 22;
 let plDrag = null, plCur = {bar:0, t:0}, plPress = 0;
-const clipLen = cl => { const P = patById(cl.pat); return P ? P.bars : 1; };
 function clipAt(bar, t) { const cs = S.playlist.clips; for (let i = cs.length - 1; i >= 0; i--) { const c = cs[i]; if (c.t === t && bar >= c.bar && bar < c.bar + clipLen(c)) return c; } return null; }
 
 function drawPlaylist() {
@@ -26,15 +25,21 @@ function drawPlaylist() {
   x.font = '600 11px "IBM Plex Sans KR",sans-serif'; x.textBaseline = 'top';
   for (const cl of S.playlist.clips) {
     const P = patById(cl.pat); if (!P) continue;
-    const X = cl.bar * PL_BAR, Y = cl.t * PL_ROW, W = P.bars * PL_BAR, cur = P.id === curPat().id;
-    const hot = songTick >= cl.bar * 4 * PPQ && songTick < (cl.bar + P.bars) * 4 * PPQ;
-    rr(x, X + 1, Y + 2, W - 2, PL_ROW - 5, 4); x.fillStyle = cur ? CS.note : CS.line2; x.globalAlpha = cur ? 0.95 : 0.9; x.fill(); x.globalAlpha = 1;
+    const len = clipLen(cl), X = cl.bar * PL_BAR, Y = cl.t * PL_ROW, W = len * PL_BAR, cur = P.id === curPat().id, col = PAT_COLORS[P.color];
+    const hot = songTick >= cl.bar * BAR_T && songTick < (cl.bar + len) * BAR_T;
+    rr(x, X + 1, Y + 2, W - 2, PL_ROW - 5, 4); x.fillStyle = col || (cur ? CS.note : CS.line2); x.globalAlpha = col ? (cur ? 1 : 0.8) : (cur ? 0.95 : 0.9); x.fill(); x.globalAlpha = 1;
+    if (cur && col) { x.lineWidth = 2; x.strokeStyle = CS.note; x.stroke(); }
     if (hot) { x.lineWidth = 2; x.strokeStyle = CS.ink; x.stroke(); }
-    // 음 미리보기
-    const all = Object.values(P.notes).flat(), T = patTicks(P);
-    if (all.length) { const lo = Math.min(...all.map(n => n.p)), hi = Math.max(...all.map(n => n.p)), sp = Math.max(12, hi - lo + 1); x.fillStyle = cur ? CS.bg : CS.ink; x.globalAlpha = .55;
-      for (const n of all) x.fillRect(X + 2 + n.s / T * (W - 4), Y + PL_ROW - 6 - (n.p - lo + 1) / sp * (PL_ROW - 20), Math.max(1.5, n.l / T * (W - 4)), 1.5); x.globalAlpha = 1; }
-    x.save(); x.beginPath(); x.rect(X + 2, Y, W - 4, PL_ROW); x.clip(); x.fillStyle = cur ? CS.bg : CS.ink; x.fillText(P.name, X + 5, Y + 4); x.restore();
+    // 음 미리보기 (조각 안에서 반복되는 만큼)
+    const all = Object.values(P.notes).flat(), ink = col ? '#111' : cur ? CS.bg : CS.ink;
+    if (all.length) { const lo = Math.min(...all.map(n => n.p)), hi = Math.max(...all.map(n => n.p)), sp = Math.max(12, hi - lo + 1), k = PL_BAR / BAR_T; x.fillStyle = ink; x.globalAlpha = .55;
+      for (const q of clipParts(cl, 0, MAX_BARS * BAR_T)) {
+        const ox = q.origin * k;
+        if (q.from === 0 && q.origin > cl.bar * BAR_T) { x.globalAlpha = .35; x.fillRect(ox, Y + 4, 1, PL_ROW - 9); x.globalAlpha = .55; }   // 반복 경계
+        for (const n of all) if (n.s >= q.from && n.s < q.to) x.fillRect(ox + n.s * k + 1, Y + PL_ROW - 6 - (n.p - lo + 1) / sp * (PL_ROW - 20), Math.max(1.5, Math.min(n.l, q.to - n.s) * k), 1.5);
+      } x.globalAlpha = 1; }
+    x.fillStyle = ink; x.globalAlpha = .5; x.fillRect(X + W - 4, Y + 8, 1.5, PL_ROW - 17); x.fillRect(X + 3, Y + 8, 1.5, PL_ROW - 17); x.globalAlpha = 1;   // 끝 손잡이
+    x.save(); x.beginPath(); x.rect(X + 2, Y, W - 4, PL_ROW); x.clip(); x.fillStyle = ink; x.fillText(P.name + (cl.off ? ` (${cl.off + 1}마디부터)` : ''), X + 7, Y + 4); x.restore();
   }
   if (document.activeElement === plc) { x.strokeStyle = CS.ink; x.lineWidth = 2; x.setLineDash([4, 3]); x.strokeRect(plCur.bar * PL_BAR + 1, plCur.t * PL_ROW + 1, PL_BAR - 2, PL_ROW - 3); x.setLineDash([]); }
   if (songTick >= 0) { x.fillStyle = CS.ink; x.fillRect(songTick / (4 * PPQ) * PL_BAR - 1, 0, 2, h); }
@@ -44,6 +49,8 @@ function followPlaylist() {
   if (X < plWrap.scrollLeft || X > plWrap.scrollLeft + vw - 30) plWrap.scrollLeft = Math.max(0, X - 30);
 }
 function plPos(e) { const r = plc.getBoundingClientRect(); const x = e.clientX - r.left, y = e.clientY - r.top; return {bar:clamp(Math.floor(x / PL_BAR), 0, MAX_BARS - 1), t:clamp(Math.floor(y / PL_ROW), 0, S.playlist.tracks - 1), x}; }
+// 조각의 끝 근처인지 (끌어서 길이 바꾸기)
+function plEdge(cl, x) { const X0 = cl.bar * PL_BAR, X1 = (cl.bar + clipLen(cl)) * PL_BAR; return x >= X1 - 8 ? 'R' : x <= X0 + 7 ? 'L' : ''; }
 function removeClip(cl) { pushUndo(); S.playlist.clips = S.playlist.clips.filter(c => c !== cl); save(); drawPlaylist(); status(`${patById(cl.pat).name} 조각을 지웠어요.`); }
 function placeClip(bar, t) {
   const P = curPat(); bar = clamp(bar, 0, MAX_BARS - P.bars);
@@ -54,7 +61,8 @@ plc.addEventListener('pointerdown', e => {
   if (e.button === 2) return; e.preventDefault(); plc.focus({preventScroll:true});
   const q = plPos(e); plCur = {bar:q.bar, t:q.t}; let cl = clipAt(q.bar, q.t); pushUndo(); let created = false;
   if (!cl) { cl = placeClip(q.bar, q.t); created = true; }
-  plDrag = {cl, off:q.bar - cl.bar, moved:false, created, x0:e.clientX, y0:e.clientY};
+  const edge = created ? '' : plEdge(cl, q.x);
+  plDrag = {cl, off:q.bar - cl.bar, moved:false, created, x0:e.clientX, y0:e.clientY, edge, bar0:cl.bar, len0:clipLen(cl), off0:cl.off || 0};
   try { plc.setPointerCapture(e.pointerId); } catch (_) {}
   clearTimeout(plPress);
   if (!created && e.pointerType !== 'mouse') plPress = setTimeout(() => { if (plDrag && !plDrag.moved) { undoStack.pop(); const c = plDrag.cl; plDrag = null; removeClip(c); } }, 550);
@@ -64,12 +72,19 @@ plc.addEventListener('pointermove', e => {
   if (!plDrag) return; const q = plPos(e);
   if (Math.abs(e.clientX - plDrag.x0) > 4 || Math.abs(e.clientY - plDrag.y0) > 4) { plDrag.moved = true; clearTimeout(plPress); }
   if (!plDrag.moved) return;
-  plDrag.cl.bar = clamp(q.bar - plDrag.off, 0, MAX_BARS - clipLen(plDrag.cl)); plDrag.cl.t = q.t; drawPlaylist();
+  const d = plDrag, cl = d.cl, P = patById(cl.pat);
+  if (d.edge === 'R') { cl.len = clamp(Math.round(q.x / PL_BAR) - cl.bar, 1, MAX_BARS - cl.bar); }   // 늘리면 패턴이 반복돼요
+  else if (d.edge === 'L') {   // 앞을 잘라내기: 시작을 뒤로 → 그만큼 패턴 앞부분을 건너뜀
+    const nb = clamp(Math.round(q.x / PL_BAR), d.bar0 - d.off0, d.bar0 + d.len0 - 1), dd = nb - d.bar0;
+    cl.bar = nb; cl.off = ((d.off0 + dd) % P.bars + P.bars) % P.bars; cl.len = d.len0 - dd; if (!cl.off) delete cl.off;
+  } else { cl.bar = clamp(q.bar - d.off, 0, MAX_BARS - clipLen(cl)); cl.t = q.t; }
+  drawPlaylist();
 });
+plc.addEventListener('mousemove', e => { if (plDrag) return; const q = plPos(e), cl = clipAt(q.bar, q.t); plc.style.cursor = cl && plEdge(cl, q.x) ? 'ew-resize' : cl ? 'grab' : 'crosshair'; });
 function plUp() {
   clearTimeout(plPress); if (!plDrag) return; const d = plDrag; plDrag = null;
   if (!d.created && !d.moved) { undoStack.pop(); const i = S.patterns.findIndex(p => p.id === d.cl.pat); if (i !== S.pat) selectPattern(i); }
-  else { save(); if (d.created) announce(`${patById(d.cl.pat).name}을 ${d.cl.bar + 1}마디 트랙 ${d.cl.t + 1}에 놓았어요.`); }
+  else { save(); if (d.created) announce(`${patById(d.cl.pat).name}을 ${d.cl.bar + 1}마디 트랙 ${d.cl.t + 1}에 놓았어요.`); else if (d.edge) announce(`${patById(d.cl.pat).name} 조각: ${d.cl.bar + 1}마디부터 ${clipLen(d.cl)}마디`); }
   drawPlaylist();
 }
 plc.addEventListener('pointerup', plUp); plc.addEventListener('pointercancel', plUp);
@@ -83,13 +98,14 @@ plr.addEventListener('dblclick', () => { songStart = 0; updatePos(0); drawPlayli
 // 키보드: 방향키로 칸 이동 · Enter로 지금 패턴 놓기/지우기 · Delete로 지우기
 plc.addEventListener('focus', () => { drawPlaylist(); announce(plDesc()); });
 plc.addEventListener('blur', () => drawPlaylist());
-function plDesc() { const cl = clipAt(plCur.bar, plCur.t); return `플레이리스트, 트랙 ${plCur.t + 1}, ${plCur.bar + 1}마디, ` + (cl ? `${patById(cl.pat).name} 있음` : '비어 있음') + `. 놓을 패턴: ${curPat().name}`; }
+function plDesc() { const cl = clipAt(plCur.bar, plCur.t); return `플레이리스트, 트랙 ${plCur.t + 1}, ${plCur.bar + 1}마디, ` + (cl ? `${patById(cl.pat).name} 있음 (${clipLen(cl)}마디)` : '비어 있음') + `. 놓을 패턴: ${curPat().name}. 대괄호로 조각 길이 조절`; }
 plc.addEventListener('keydown', e => {
   const k = e.key; let used = true;
   if (k === 'ArrowLeft' || k === 'ArrowRight') plCur.bar = clamp(plCur.bar + (k === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 4 : 1), 0, MAX_BARS - 1);
   else if (k === 'ArrowUp' || k === 'ArrowDown') plCur.t = clamp(plCur.t + (k === 'ArrowUp' ? -1 : 1), 0, S.playlist.tracks - 1);
   else if (k === 'Enter') { const cl = clipAt(plCur.bar, plCur.t); if (cl) removeClip(cl); else { pushUndo(); placeClip(plCur.bar, plCur.t); save(); } }
   else if (k === 'Delete' || k === 'Backspace') { const cl = clipAt(plCur.bar, plCur.t); if (cl) removeClip(cl); }
+  else if (k === '[' || k === ']') { const cl = clipAt(plCur.bar, plCur.t); if (cl) { pushUndo(); cl.len = clamp(clipLen(cl) + (k === ']' ? 1 : -1), 1, MAX_BARS - cl.bar); save(); } }
   else used = false;
   if (used) {
     e.preventDefault(); e.stopPropagation();

@@ -2,15 +2,29 @@
    휴대폰(폭 760px 이하)에서는 창이 위아래로 쌓여요 */
 const WINS = ['browser', 'playlist', 'rack', 'roll', 'mixer'];
 const WIN_NAME = {browser:'브라우저', playlist:'플레이리스트', rack:'채널 랙', roll:'피아노 롤', mixer:'믹서'};
-const LAYOUT_KEY = 'melody-sketchpad-layout-v1', ws = $('workspace');
+const LAYOUT_BASE = 'melody-sketchpad-layout-v2', ws = $('workspace');
+// 화면 크기 종류마다 배치를 따로 저장 (노트북 ↔ 큰 모니터를 오가도 각자 맞게)
+const sizeClass = () => innerHeight < 900 ? 'low' : 'high', layoutKey = () => LAYOUT_BASE + '-' + sizeClass();
+let layoutClass = null;
 let layout = {}, zTop = 10;
 const winEl = n => $('win-' + n);
 const stacked = () => window.matchMedia('(max-width:760px)').matches;
 const winOpen = n => !winEl(n).hidden;
 function defaultLayout() {
-  // 화면 높이에 맞춰 배치: 위 플레이리스트 · 가운데 채널 랙+믹서 · 아래 피아노 롤, 왼쪽 브라우저
-  const W = Math.max(900, ws.clientWidth), L = 266, R = W - L, top = ws.getBoundingClientRect().top + scrollY;
-  const avail = Math.max(820, innerHeight - top - 14), plH = 210, midH = 236, rollY = plH + midH + 12, rollH = Math.max(360, avail - rollY);
+  const W = Math.max(900, ws.clientWidth), top = ws.getBoundingClientRect().top + scrollY, avail = Math.max(560, innerHeight - top - 14);
+  if (innerHeight < 900) {
+    // 노트북처럼 낮은 화면: 왼쪽에 플레이리스트+채널 랙, 오른쪽 전체를 피아노 롤. 브라우저·믹서는 F8·F9로
+    const L = clamp(Math.round(W * 0.36), 380, 560), plH = Math.round(avail * 0.42);
+    return {
+      playlist:{x:0, y:0, w:L - 6, h:plH, open:true},
+      rack:    {x:0, y:plH + 6, w:L - 6, h:avail - plH - 6, open:true},
+      roll:    {x:L, y:0, w:W - L, h:avail, open:true},
+      browser: {x:W - 330, y:40, w:320, h:Math.min(avail - 40, 620), open:false},
+      mixer:   {x:L, y:Math.max(0, avail - 300), w:W - L, h:300, open:false}
+    };
+  }
+  // 높은 화면: 위 플레이리스트 · 가운데 채널 랙+믹서 · 아래 피아노 롤, 왼쪽 브라우저
+  const L = 266, R = W - L, plH = 210, midH = 236, rollY = plH + midH + 12, rollH = Math.max(360, avail - rollY);
   return {
     browser: {x:0, y:0, w:L - 6, h:rollY + rollH, open:true},
     playlist:{x:L, y:0, w:R, h:plH, open:true},
@@ -19,7 +33,11 @@ function defaultLayout() {
     roll:    {x:L, y:rollY, w:R, h:rollH, open:true}
   };
 }
-function saveLayout() { lsSet(LAYOUT_KEY, JSON.stringify(layout)); }
+function saveLayout() { lsSet(layoutKey(), JSON.stringify(layout)); }
+function loadLayout() {
+  const def = defaultLayout(); let saved = null; try { saved = JSON.parse(lsGet(layoutKey()) || 'null'); } catch (e) {}
+  layout = {}; for (const n of WINS) layout[n] = {...def[n], ...((saved && saved[n]) || {})}; layoutClass = sizeClass();
+}
 function applyLayout() {
   let bottom = 0;
   for (const n of WINS) {
@@ -40,9 +58,8 @@ function openWin(n) { layout[n].open = true; applyLayout(); frontWin(n); saveLay
 function closeWin(n) { layout[n].open = false; applyLayout(); saveLayout(); }
 function toggleWin(n) { if (winOpen(n) && winEl(n).classList.contains('front')) closeWin(n); else { openWin(n); announce(WIN_NAME[n] + ' 창을 열었어요.'); } }
 function initWindows() {
-  const def = defaultLayout(); let saved = null; try { saved = JSON.parse(lsGet(LAYOUT_KEY) || 'null'); } catch (e) {}
-  layout = {}; for (const n of WINS) layout[n] = {...def[n], ...((saved && saved[n]) || {})};
-  applyLayout(); frontWin('roll');
+  loadLayout(); applyLayout(); frontWin('roll');
+  window.addEventListener('resize', () => { if (sizeClass() !== layoutClass) { loadLayout(); applyLayout(); drawAll(); drawPlaylist(); } });
   for (const n of WINS) {
     const el = winEl(n), head = el.querySelector('.wh');
     el.addEventListener('pointerdown', () => frontWin(n), true);

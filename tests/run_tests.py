@@ -250,6 +250,24 @@ async def main():
           const P=s.patterns[0];s.channels.forEach((c,i)=>P.notes[c.id]=[{p:c.inst==='bass'?28:c.inst==='celesta'?100:55+i*3,s:i*48,l:48,v:.9}]);s.playlist.clips=[{id:newId(),pat:P.id,t:0,bar:0}];s.pat=0;s.ch=0;
           const w=await withSongAsync(normalize(s),()=>renderWav());const dv=new DataView(w.buffer);const out=[];for(let k=0;k<6;k++){let pk=0;const a=Math.floor((0.05+k*60/120)*44100),b=a+Math.floor(0.3*44100);for(let i=a;i<b;i++)pk=Math.max(pk,Math.abs(dv.getInt16(44+i*4,true)));out.push(+(pk/32767).toFixed(3))}return out})()""")
         check('새 악기 4개 + 크래시가 소리를 냄', all(0.01 < x < 1 for x in snd), f'베이스·첼레스타·하프·팀파니·스트링·크래시 최대 {snd}')
+        # 조각 늘리기(반복)·앞 잘라내기·색
+        await J("""(()=>{const s=normalize(blank());const P=s.patterns[0];P.bars=1;P.chords=Array(4).fill(null);P.notes={};P.notes[s.channels[1].id]=[{p:72,s:0,l:12,v:1}];
+          const Q=newPattern('긴 패턴',4);Q.notes[s.channels[0].id]=[0,1,2,3].map(b=>({p:60+b,s:b*192,l:48,v:.8}));s.patterns.push(Q);
+          s.playlist.clips=[{id:'c1',pat:P.id,t:0,bar:0},{id:'c2',pat:Q.id,t:1,bar:0}];s.playMode='song';S=normalize(s);refreshAll();openWin('playlist');plWrap.scrollLeft=0})()""")
+        await pg.wait_for_timeout(200)
+        r = await J("(()=>{const r=plCanvas.getBoundingClientRect();return {x:r.left,y:r.top}})()")
+        await pg.mouse.move(r['x'] + 30 - 3, r['y'] + 17); await pg.mouse.down(); await pg.mouse.move(r['x'] + 4 * 30, r['y'] + 17, steps=6); await pg.mouse.up()
+        await pg.mouse.move(r['x'] + 3, r['y'] + 34 + 17); await pg.mouse.down(); await pg.mouse.move(r['x'] + 30, r['y'] + 34 + 17, steps=6); await pg.mouse.up()
+        cl = await J("""(()=>{const a=S.playlist.clips.find(c=>patById(c.pat).bars===1),b=S.playlist.clips.find(c=>patById(c.pat).bars===4);window.__h=[];const o=playTrackNote;playTrackNote=function(EE,c,p){__h.push(p);return o.apply(this,arguments)};
+          ensureCtx();scheduleRange(E,0,4*192,ctx.currentTime+9,false);playTrackNote=o;return {a:[a.bar,clipLen(a),a.off||0],b:[b.bar,clipLen(b),b.off||0],hits:__h.slice().sort((x,y)=>x-y)}})()""")
+        check('플레이리스트: 오른쪽 끝 끌어 늘리기(반복) · 왼쪽 끝 끌어 앞 잘라내기', cl['a'] == [0, 4, 0] and cl['b'] == [1, 3, 1] and cl['hits'] == [61, 62, 63, 72, 72, 72, 72], str(cl))
+        col = await J("""(async()=>{S.patterns[1].color=3;const d=(await decodeMSK(await encodeMSK(S,'x',{}))).song,t=parseScore(withSong(S,()=>scoreText('x'))).song;
+          const k=s=>JSON.stringify([s.patterns.map(p=>p.color),s.playlist.clips.map(c=>[c.bar,c.len||0,c.off||0]).sort()]);return [k(S)===k(d),k(S)===k(t),k(S)]})()""")
+        check('조각 길이·시작·패턴 색이 MSK·악보에 저장됨', col[0] and col[1], col[2])
+        lp = await ctx.new_page(); await lp.set_viewport_size({'width': 1366, 'height': 768}); await lp.goto(URL); await lp.wait_for_timeout(1200)
+        lay = await lp.evaluate("(()=>{const r=document.getElementById('win-roll').getBoundingClientRect();return {rows:Math.floor(view().vh/ROWH),bottom:Math.round(r.bottom),tb:Math.round(document.querySelector('.tb').getBoundingClientRect().height)}})()")
+        await lp.close()
+        check('노트북 화면(1366×768): 피아노 롤 20줄 이상 · 화면 안에 다 보임', lay['rows'] >= 20 and lay['bottom'] <= 768 and lay['tb'] < 70, str(lay))
         v3 = {'v': 3, 'bpm': 128, 'root': 0, 'mode': 'major', 'bars': 2, 'tracks': [{'id': 'a', 'name': '리드', 'inst': 'pluck', 'notes': [{'p': 60, 's': 0, 'l': 24}]}], 'chords': [{'r': 0, 'q': ''}, None, None, None, {'r': 7, 'q': ''}], 'drums': {'kick': [1, 0, 0, 0, 0.5]}}
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v3)}));openProject(id)}})()")
         conv = await J("[S.channels.map(c=>c.name), S.patterns.length, S.playlist.clips.length, chordName(S.patterns[0].chords[4]), notesOf(S.patterns[0],S.channels[1]).map(n=>n.v)]")

@@ -5,6 +5,7 @@
    몸통: 청크가 이어짐 → [종류 4글자][길이: 가변 숫자][내용]
      INFO 곡 정보 · CHAN 채널 · FXCH 코드·베이스·마스터 믹서 · PATN 패턴(하나에 하나) · PLST 플레이리스트 · SMPL 내 샘플
      IDS  채널·패턴 번호표 (브라우저 안 저장용 — 내 샘플 연결을 지키려고)
+     PLEX 조각 길이·시작 오프셋 · PCOL 패턴 색
      TEMP 정밀 BPM (×100, 예: 126.5 → 12650) · CRC  맨 끝, 앞 내용 전체의 CRC32 (바이트가 바뀌면 알아챔)
      모르는 종류는 건너뜀 → 나중에 형식을 늘려도 옛 앱이 안 깨짐
    가변 숫자(varint): 7비트씩, 앞 비트가 1이면 다음 바이트가 이어짐 → 0~127은 1바이트
@@ -72,6 +73,9 @@ function encodeMskBody(song, name, samples, keepIds) {
   });
   w.chunk('PLST', p => { p.vu(song.playlist.tracks); const cl = song.playlist.clips.slice().sort((a, b) => a.bar - b.bar || a.t - b.t); p.vu(cl.length); let pb = 0;
     for (const c of cl) { p.vu(Math.max(0, song.patterns.findIndex(P => P.id === c.pat))); p.u8(c.t); p.vu(c.bar - pb); pb = c.bar; } });
+  { const cl = song.playlist.clips.slice().sort((a, b) => a.bar - b.bar || a.t - b.t);   // PLST와 같은 순서
+    if (cl.some(c => c.len || c.off)) w.chunk('PLEX', p => { p.vu(cl.length); for (const c of cl) { p.vu(c.len || 0); p.vu(c.off || 0); } }); }
+  if (song.patterns.some(P => P.color)) w.chunk('PCOL', p => { p.vu(song.patterns.length); for (const P of song.patterns) p.u8(P.color || 0); });
   for (const [slot, s] of Object.entries(samples || {})) {
     const ci = slot.startsWith('ch:') ? song.channels.findIndex(c => chKey(c) === slot) : -1;
     if (slot.startsWith('ch:') && ci < 0) continue;   // 이 곡에 없는 채널의 샘플
@@ -107,7 +111,7 @@ async function decodeMSK(u) {
 }
 function decodeMskSync(u) { const f = mskHead(u); if (f & MSK_ZIP) throw new Error('압축된 MSK는 decodeMSK로 읽어 주세요'); return decodeMskBody(u.subarray(5), !!(f & MSK_HASCRC)); }
 function decodeMskBody(body, needCrc) {
-  let ids = null, crcOk = false;
+  let ids = null, crcOk = false, plex = null, pcol = null;
   const song = {v:4, channels:[], patterns:[], playlist:{tracks:PL_TRACKS, clips:[]}, mix:{}}, samples = [], clipsTodo = []; let name = '';
   try {
     const r = new MskR(body);
@@ -140,6 +144,8 @@ function decodeMskBody(body, needCrc) {
       } else if (type === 'SMPL') {
         const kind = p.u8(), key = kind === 0 ? p.vu() : p.str(), nm = p.str(), root = p.u8(), bytes = p.raw(p.vu());
         samples.push({key, byIndex:kind === 0, name:nm, root, ab:bytes.slice().buffer});
+      } else if (type === 'PLEX') { plex = []; for (let k = p.vu(); k > 0; k--) plex.push([p.vu(), p.vu()]);
+      } else if (type === 'PCOL') { pcol = []; for (let k = p.vu(); k > 0; k--) pcol.push(p.u8());
       } else if (type === 'IDS ') {
         ids = {ch:[], pat:[]}; for (let k = p.vu(); k > 0; k--) ids.ch.push(p.str()); for (let k = p.vu(); k > 0; k--) ids.pat.push(p.str());
       }
@@ -154,7 +160,8 @@ function decodeMskBody(body, needCrc) {
       c.id = id; });
     song.patterns.forEach((P, i) => { if (ids.pat[i]) P.id = ids.pat[i]; });
   }
-  for (const c of clipsTodo) { const P = song.patterns[c.pi]; if (P) song.playlist.clips.push({id:newId(), pat:P.id, t:c.t, bar:c.bar}); }
+  if (pcol) song.patterns.forEach((P, i) => { if (pcol[i]) P.color = pcol[i]; });
+  clipsTodo.forEach((c, i) => { const P = song.patterns[c.pi]; if (!P) return; const o = {id:newId(), pat:P.id, t:c.t, bar:c.bar}; if (plex && plex[i]) { if (plex[i][0]) o.len = plex[i][0]; if (plex[i][1]) o.off = plex[i][1]; } song.playlist.clips.push(o); });
   const out = normalize(song);
   return {song:out, name, samples:samples.map(s => ({slot:s.byIndex ? (out.channels[s.key] ? chKey(out.channels[s.key]) : null) : s.key, name:s.name, root:s.root, ab:s.ab})).filter(s => s.slot)};
 }

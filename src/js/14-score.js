@@ -38,7 +38,7 @@ function scoreText(title) {
   const pname = new Map(), pused = new Set();
   for (const P of S.patterns) { let n = safeName(P.name), k = 2; while (pused.has(n)) n = safeName(P.name) + ' ' + k++; pused.add(n); pname.set(P.id, n); }
   for (const P of S.patterns) {
-    L.push('', `[패턴] ${pname.get(P.id)} | ${P.bars}마디`);
+    L.push('', `[패턴] ${pname.get(P.id)} | ${P.bars}마디` + (P.color ? ` | 색 ${P.color}` : ''));
     const cs = []; P.chords.forEach((c, i) => { if (c) cs.push(`${Math.floor(i / 4) + 1}.${i % 4 + 1} ${c.x ? '멈춤' : chordName(c)}`); });
     if (cs.length) L.push('코드: ' + cs.join(' | '));
     for (const c of S.channels) {
@@ -56,7 +56,7 @@ function scoreText(title) {
   L.push('', '[플레이리스트]');
   const byTrack = {}; for (const cl of S.playlist.clips) (byTrack[cl.t] = byTrack[cl.t] || []).push(cl);
   for (const t of Object.keys(byTrack).map(Number).sort((a, b) => a - b))
-    L.push(`트랙 ${t + 1}: ` + byTrack[t].sort((a, b) => a.bar - b.bar).map(cl => `${pname.get(cl.pat)} @${cl.bar + 1}`).join(', '));
+    L.push(`트랙 ${t + 1}: ` + byTrack[t].sort((a, b) => a.bar - b.bar).map(cl => `${pname.get(cl.pat)} @${cl.bar + 1}` + (cl.len ? `:${cl.len}` : '') + (cl.off ? `+${cl.off}` : '')).join(', '));
   return L.join('\n') + '\n';
 }
 
@@ -112,8 +112,8 @@ function parseScore(text) {
     if (sec === 'pl') {
       const m = /^트랙\s*(\d+)$/.exec(key.trim()); if (!m) { warn(i, `"${key}"는 "트랙 1:" 모양이어야 해요`); return; }
       for (const part of val.split(',').map(x => x.trim()).filter(Boolean)) {
-        const mm = /^(.+?)\s*@\s*(\d+)$/.exec(part); if (!mm) { warn(i, `"${part}"는 "패턴이름 @마디" 모양이어야 해요`); continue; }
-        clipsTodo.push({i, name:mm[1].trim(), t:clamp(+m[1] - 1, 0, 19), bar:+mm[2] - 1});
+        const mm = /^(.+?)\s*@\s*(\d+)(?::(\d+))?(?:\+(\d+))?$/.exec(part); if (!mm) { warn(i, `"${part}"는 "패턴이름 @마디" 모양이어야 해요 (길이·시작: @1:8+2)`); continue; }
+        clipsTodo.push({i, name:mm[1].trim(), t:clamp(+m[1] - 1, 0, 19), bar:+mm[2] - 1, len:mm[3] ? +mm[3] : 0, off:mm[4] ? +mm[4] : 0});
       }
       return;
     }
@@ -157,11 +157,11 @@ function parseScore(text) {
       if (name === '플레이리스트') { sec = 'pl'; return; }
       if (name.startsWith('패턴')) {
         let rest = hm[3] || '', inner = name.slice(2).trim(); if (hm[2]) rest = (inner ? inner + ' | ' : '') + hm[2] + (rest ? ' ' + rest : ''); else if (inner) rest = inner + (rest ? ' ' + rest : '');
-        const [pn, pb] = rest.split('|').map(x => (x || '').trim()); const bars = parseInt((pb || '').replace(/[^\d]/g, ''), 10) || 4;
+        const [pn, pb, pc] = rest.split('|').map(x => (x || '').trim()); const bars = parseInt((pb || '').replace(/[^\d]/g, ''), 10) || 4, color = /색\s*(\d)/.exec(pc || '');
         if (!pn) fail(i, '패턴 이름이 없어요 (예: [패턴] 후렴 | 4마디)');
         if (patByName.has(pn)) fail(i, `"${pn}" 패턴이 두 번 나와요`);
         if (bars > MAX_PAT_BARS) warn(i, `패턴은 ${MAX_PAT_BARS}마디까지 편하게 쓸 수 있어요`);
-        P = newPattern(pn.slice(0, 24), clamp(bars, 1, MAX_BARS)); song.patterns.push(P); patByName.set(pn, P); stepAt.clear(); sec = 'pat'; return;
+        P = newPattern(pn.slice(0, 24), clamp(bars, 1, MAX_BARS)); if (color) P.color = clamp(+color[1], 0, PAT_COLORS.length - 1); song.patterns.push(P); patByName.set(pn, P); stepAt.clear(); sec = 'pat'; return;
       }
       fail(i, `[${name}]은 모르는 칸이에요 ([채널] · [패턴] · [플레이리스트] 중 하나)`);
     }
@@ -185,7 +185,7 @@ function parseScore(text) {
   });
   if (!song.patterns.length) { const e = new Error('[패턴]이 하나도 없어요'); e.line = 0; throw e; }
   if (!song.channels.length) song.channels.push(newChannel('synth', 'piano', '피아노'));
-  for (const c of clipsTodo) { const p = patByName.get(c.name); if (!p) { warn(c.i, `"${c.name}" 패턴이 없어서 건너뛰었어요`); continue; } song.playlist.clips.push({id:newId(), pat:p.id, t:c.t, bar:clamp(c.bar, 0, MAX_BARS - p.bars)}); }
+  for (const c of clipsTodo) { const p = patByName.get(c.name); if (!p) { warn(c.i, `"${c.name}" 패턴이 없어서 건너뛰었어요`); continue; } const o = {id:newId(), pat:p.id, t:c.t, bar:clamp(c.bar, 0, MAX_BARS - 1)}; if (c.len) o.len = c.len; if (c.off) o.off = c.off; song.playlist.clips.push(o); }
   if (!song.playlist.clips.length) song.playlist.clips.push({id:newId(), pat:song.patterns[0].id, t:0, bar:0});
   return {song:normalize(song), title, warnings};
 }

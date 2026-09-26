@@ -45,11 +45,12 @@ function mtrack(events, name) {
 const PROG = {piano:0, epiano:4, strings:48, celesta:8, harp:46, bass:38, timpani:47, supersaw:81, pluck:84, chip:80, bell:14, sample:0};
 // 내보낼 범위: SONG 모드이고 플레이리스트에 조각이 있으면 곡 전체, 아니면 지금 패턴
 function flatten() {
-  const song = S.playMode === 'song' && S.playlist.clips.length, parts = song ? S.playlist.clips.map(c => ({P:patById(c.pat), off:c.bar * 4 * PPQ})) : [{P:curPat(), off:0}];
+  const song = S.playMode === 'song' && S.playlist.clips.length;
+  const parts = song ? S.playlist.clips.flatMap(cl => clipParts(cl, 0, MAX_BARS * BAR_T)) : [{P:curPat(), origin:0, from:0, to:totalTicks()}];
   const notes = {}, chords = [];
-  for (const {P, off} of parts) {
-    for (const c of S.channels) for (const n of P.notes[c.id] || []) (notes[c.id] = notes[c.id] || []).push({...n, s:n.s + off});
-    for (const seg of chordSegments(P)) chords.push({...seg, s:seg.s + off});
+  for (const {P, origin, from, to} of parts) {
+    for (const c of S.channels) for (const n of P.notes[c.id] || []) if (n.s >= from && n.s < to) (notes[c.id] = notes[c.id] || []).push({...n, s:n.s + origin, l:Math.min(n.l, to - n.s)});
+    for (const seg of chordSegments(P)) if (seg.s >= from && seg.s < to) chords.push({...seg, s:seg.s + origin, l:Math.min(seg.l, to - seg.s)});
   }
   return {song:!!song, notes, chords, len:song ? songTicks() : totalTicks()};
 }

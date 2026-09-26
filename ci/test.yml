@@ -1,0 +1,22 @@
+# GitHub에 올릴 때마다 자동 테스트를 돌려요 (원본 src + 웹사이트용 public)
+name: 자동 테스트
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 도구 설치 (Playwright · mido)
+        run: |
+          pip install playwright mido
+          python -m playwright install --with-deps chromium
+      - name: 원본(src) 테스트
+        run: python tests/run_tests.py
+      - name: 웹사이트용(public) 테스트
+        run: python tests/run_tests.py public/index.html

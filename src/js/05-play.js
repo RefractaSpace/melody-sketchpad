@@ -1,7 +1,6 @@
 /* 05-play.js — 재생 (PAT: 지금 패턴 반복 · SONG: 플레이리스트 곡 전체) */
 let startAt = 0, nextTick = 0, timer = 0, raf = 0, st0 = 0, metroOn = false;
 const tickSec = () => 60 / S.bpm / PPQ;
-const BAR_T = 4 * PPQ;
 function click(EE, t, acc) {
   const o = EE.ac.createOscillator(), g = EE.ac.createGain(); o.type = 'sine'; o.frequency.value = acc ? 1760 : 1180;
   g.gain.setValueAtTime(acc ? 0.3 : 0.18, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05); o.connect(g); g.connect(EE.out); o.start(t); o.stop(t + 0.06);
@@ -38,11 +37,7 @@ const playSpan = () => S.playMode === 'song' ? songTicks() : totalTicks();
 function scheduleRange(EE, t0, t1, base, metro) {
   const ts = tickSec();
   if (S.playMode === 'song') {
-    for (const cl of S.playlist.clips) {
-      const P = patById(cl.pat); if (!P) continue;
-      const cs = cl.bar * BAR_T, ce = cs + patTicks(P), a = Math.max(t0, cs), b = Math.min(t1, ce);
-      if (a < b) schedulePattern(EE, P, a - cs, b - cs, base + cs * ts);
-    }
+    for (const cl of S.playlist.clips) for (const q of clipParts(cl, t0, t1)) schedulePattern(EE, q.P, q.from, q.to, base + q.origin * ts);
   } else schedulePattern(EE, curPat(), t0, t1, base);
   if (metro) for (let tt = Math.ceil(t0 / PPQ) * PPQ; tt < t1; tt += PPQ) click(EE, base + tt * ts, tt % BAR_T === 0);
 }
@@ -67,7 +62,7 @@ function drawMeter() {
 }
 // SONG 재생 중 지금 패턴이 울리고 있으면 그 안의 위치 (없으면 -1)
 function localTickInCurPat(t) {
-  for (const cl of S.playlist.clips) { if (cl.pat !== curPat().id) continue; const cs = cl.bar * BAR_T; if (t >= cs && t < cs + totalTicks()) return t - cs; }
+  for (const cl of S.playlist.clips) { if (cl.pat !== curPat().id) continue; const q = clipParts(cl, t, t + 1)[0]; if (q) return q.from; }
   return -1;
 }
 function frame() {

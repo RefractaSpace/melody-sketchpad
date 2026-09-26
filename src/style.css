@@ -116,8 +116,9 @@ button:focus-visible,select:focus-visible,input:focus-visible,canvas:focus-visib
 /* 툴바: 메인 줄 + 설정 */
 .tb{gap:8px 12px}
 .main{flex-wrap:wrap;gap:8px}
-.more{display:contents}
-.more-btn{display:none}
+.more{display:none;width:100%;flex-wrap:wrap;gap:8px;padding-top:6px;border-top:1px solid var(--line)}
+.more.open{display:flex}
+.more-btn{display:grid}
 .ib.sm{width:30px;height:30px;font-size:17px;line-height:1}
 .zoom .lbl{margin-left:2px}
 /* 선택한 음 작업 줄 */
@@ -320,3 +321,10 @@ dialog.wide{width:min(920px,94vw)}
 .smsg ul{margin:6px 0 0;padding-left:18px;color:var(--mute)}
 .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
 .cgrid .tbtn{height:40px}
+
+/* 피아노 롤 제목줄: 한 줄로 (넘치면 옆으로 밀기) */
+#win-roll .wh{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin}
+#win-roll .wh .wsub{flex:0 1 auto;min-width:60px}
+#win-roll .wh .pstat{white-space:nowrap}
+#win-roll .wh > *{flex-shrink:0}
+#win-roll .wh > .wsub{flex-shrink:1}

@@ -13,7 +13,8 @@ const KEYW = 64, RULER = 24;
 const ZX_LEVELS = [0.75, 1, 1.5, 2, 3, 4], RH_LEVELS = [14, 17, 20, 24, 28];
 let zxi = 3, rhi = 2, TICKPX = ZX_LEVELS[zxi], ROWH = RH_LEVELS[rhi];
 const LANE_H = 28, CHORD_H = 34, VEL_H = 60, LANES_H = CHORD_H + VEL_H;
-const MAX_BARS = 128, MAX_PAT_BARS = 32, DRUM_PITCH = 72, PL_TRACKS = 10;
+const MAX_BARS = 128, MAX_PAT_BARS = 32, DRUM_PITCH = 72, PL_TRACKS = 10, BAR_T = 4 * PPQ;
+const PAT_COLORS = ['', '#7b95e0', '#e08476', '#72c79f', '#dcb65e', '#b287e0', '#62bccd', '#dc86b4'];   // 0 = 색 없음
 const NAMES_S = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const NAMES_F = ['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
 const MAJ = [0,2,4,5,7,9,11], MIN = [0,2,3,5,7,8,10];
@@ -101,12 +102,16 @@ function normalize(s) {
   s.patterns = (s.patterns || []).map((p, i) => {
     const bars = clamp(p.bars | 0 || 4, 1, MAX_BARS), lim = bars * 4 * PPQ, notes = {};
     for (const [cid, arr] of Object.entries(p.notes || {})) if (ids.has(cid)) notes[cid] = (arr || []).filter(okNote).map(normNote).filter(n => n.s < lim).map(n => ({...n, l:Math.min(n.l, lim - n.s)}));
-    return {id:p.id || newId(), name:(p.name || 'Pattern ' + (i + 1)).slice(0, 24), bars, notes, chords:Array.from({length:bars * 4}, (_, k) => normChord((p.chords || [])[k]))};
+    return {id:p.id || newId(), name:(p.name || 'Pattern ' + (i + 1)).slice(0, 24), bars, notes, chords:Array.from({length:bars * 4}, (_, k) => normChord((p.chords || [])[k])), color:clamp(p.color | 0, 0, PAT_COLORS.length - 1)};
   });
   if (!s.patterns.length) s.patterns = [newPattern('Pattern 1', 4)];
   const pids = new Set(s.patterns.map(p => p.id));
   const pl = s.playlist || {};
-  s.playlist = {tracks:clamp(pl.tracks | 0 || PL_TRACKS, 4, 20), clips:(pl.clips || []).filter(c => c && pids.has(c.pat)).map(c => ({id:c.id || newId(), pat:c.pat, t:clamp(c.t | 0, 0, 19), bar:clamp(c.bar | 0, 0, MAX_BARS - 1)}))};
+  s.playlist = {tracks:clamp(pl.tracks | 0 || PL_TRACKS, 4, 20), clips:(pl.clips || []).filter(c => c && pids.has(c.pat)).map(c => {
+    const P = s.patterns.find(p => p.id === c.pat), o = {id:c.id || newId(), pat:c.pat, t:clamp(c.t | 0, 0, 19), bar:clamp(c.bar | 0, 0, MAX_BARS - 1)};
+    const off = clamp(c.off | 0, 0, P.bars - 1), len = clamp(c.len | 0 || P.bars - off, 1, MAX_BARS - o.bar);
+    if (off) o.off = off; if (len !== P.bars || off) o.len = len;   // 기본(패턴 그대로)이면 적지 않음
+    return o; })};
   s.pat = clamp(s.pat | 0, 0, s.patterns.length - 1); s.ch = clamp(s.ch | 0, 0, s.channels.length - 1);
   s.playMode = s.playMode === 'song' ? 'song' : 'pat';
   if (![12, 16, 24, 48].includes(+s.snap)) s.snap = 12;
@@ -159,7 +164,20 @@ const totalTicks = () => patTicks(curPat());
 const patById = id => S.patterns.find(p => p.id === id);
 const chById = id => S.channels.find(c => c.id === id);
 // 곡 길이 = 마지막 조각이 끝나는 마디 (조각이 없으면 지금 패턴 길이)
-function songBars() { let e = 0; for (const c of S.playlist.clips) { const p = patById(c.pat); if (p) e = Math.max(e, c.bar + p.bars); } return clamp(e || S.patterns[S.pat].bars, 1, MAX_BARS); }
+function songBars() { let e = 0; for (const c of S.playlist.clips) if (patById(c.pat)) e = Math.max(e, c.bar + clipLen(c)); return clamp(e || S.patterns[S.pat].bars, 1, MAX_BARS); }
+// 조각: 패턴을 off마디부터 len마디 동안 (패턴보다 길면 반복)
+const clipLen = cl => cl.len || (patById(cl.pat) ? patById(cl.pat).bars - (cl.off || 0) : 1);
+// 곡 틱 구간 [a, b)에서 이 조각이 울리는 부분들 → [{P, origin(패턴 0틱이 오는 곡 틱), from, to(패턴 틱)}]
+function clipParts(cl, a, b) {
+  const P = patById(cl.pat); if (!P) return [];
+  const PL = patTicks(P), cs = cl.bar * BAR_T, ce = cs + clipLen(cl) * BAR_T, off = (cl.off || 0) * BAR_T, A = Math.max(a, cs), B = Math.min(b, ce), out = [];
+  if (A >= B) return out;
+  for (let r = Math.floor((A - cs + off) / PL); ; r++) {
+    const origin = cs - off + r * PL; if (origin >= B) break;
+    const from = Math.max(A, origin), to = Math.min(B, origin + PL); if (to > from) out.push({P, origin, from:from - origin, to:to - origin});
+  }
+  return out;
+}
 const songTicks = () => songBars() * 4 * PPQ;
 
 // ---- 음 이름 ----
