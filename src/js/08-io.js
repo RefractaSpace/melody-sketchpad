@@ -102,18 +102,55 @@ function wavBytes(buf) {
   for (let i = 0, o = 44; i < n; i++, o += 4) { out.setInt16(o, clamp(L[i], -1, 1) * 32767, true); out.setInt16(o + 2, clamp(R[i], -1, 1) * 32767, true); }
   return new Uint8Array(out.buffer);
 }
-async function renderWav() {
-  const sr = 44100, secs = playSpan() * tickSec() + 3, oc = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, Math.ceil(sr * secs), sr);
-  const OE = makeEngine(oc, false); applyMix(OE, S.mix); scheduleRange(OE, 0, playSpan(), 0.05, false);
-  return wavBytes(await oc.startRendering());
+// WAV 만들기 (빠르게 하는 방법 두 가지)
+// ① 곡 전체를 한꺼번에 예약하면 아직 소리 나지 않은 부품까지 매 순간 계산에 끼어들어 곡이 길수록 점점 느려져요.
+//    → 1초마다 잠깐 멈추고(suspend) 다음 2초 분량만 예약해요.
+// ② 끝난 음의 부품도 정리되기 전까지 계산에 남아요.
+//    → 조각마다 채널 앞에 "버스"를 따로 두고, 그 조각의 마지막 음이 멈추면 버스를 뽑아요(disconnect).
+const WAV_STEP = 1, WAV_AHEAD = 2, WAV_TAIL = 0.5, WAV_SAFE = 8;   // 초
+async function renderWav(onProgress) {
+  const sr = 44100, span = playSpan(), ts = tickSec(), base = 0.05, secs = span * ts + 3;
+  const oc = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, Math.ceil(sr * secs), sr);
+  const OE = makeEngine(oc, false); applyMix(OE, S.mix);
+  // 소리 부품이 멈추는 시각을 기록해서, 조각이 언제 완전히 끝나는지 알아냄
+  let cur = null, sourceless = false;
+  for (const f of ['createOscillator', 'createBufferSource']) {
+    const make = oc[f].bind(oc);
+    oc[f] = () => { const n = make(), chunk = cur, stop = n.stop.bind(n); let stopped = false; n.stop = (t = 0) => { stopped = true; if (chunk) chunk.end = Math.max(chunk.end, t); stop(t); };
+      if (chunk) chunk.sources.push(() => stopped); return n; };
+  }
+  const chunks = []; let done = 0;
+  const scheduleUntil = sec => {
+    const end = Math.min(span, Math.ceil((sec - base) / ts / 12) * 12); if (end <= done) return;
+    const chunk = {buses:[], sources:[], end:0};
+    for (const ch of Object.values(OE.ch)) { ch.realInp = ch.realInp || ch.inp; const g = oc.createGain(); g.connect(ch.realInp); ch.inp = g; chunk.buses.push(g); }
+    cur = chunk; scheduleRange(OE, done, end, base, false); cur = null;
+    // 멈춤 시각이 없는 부품이 하나라도 있으면 넉넉하게 기다림
+    const rangeEnd = base + end * ts; if (!chunk.sources.every(f => f())) chunk.end = Math.max(chunk.end, rangeEnd + WAV_SAFE);
+    chunk.end = Math.max(chunk.end, rangeEnd) + WAV_TAIL; chunks.push(chunk); done = end;
+  };
+  const unplug = t => { for (const c of chunks) if (!c.gone && c.end < t) { c.buses.forEach(g => g.disconnect()); c.gone = true; } };
+  if (typeof oc.suspend === 'function') {
+    scheduleUntil(WAV_AHEAD);
+    for (let t = WAV_STEP; t < secs - 0.1; t += WAV_STEP) oc.suspend(t).then(() => { unplug(t); scheduleUntil(t + WAV_AHEAD); if (onProgress) onProgress(t / secs); oc.resume(); });
+  } else scheduleUntil(secs);   // suspend를 못 쓰는 브라우저는 예전처럼 한 번에
+  const buf = await oc.startRendering();
+  if (onProgress) onProgress(1);
+  return wavBytes(buf);
 }
 const songEmpty = () => !S.patterns.some(P => Object.values(P.notes).some(a => a.length) || P.chords.some(Boolean));
 $('wav').onclick = async () => {
   if (songEmpty()) { status('저장할 소리가 없어요. 먼저 음을 찍어 주세요.'); return; }
   const b = $('wav'); b.disabled = true; status('오디오를 만드는 중이에요…');
-  try { status(S.playMode === 'song' ? '곡 전체(SONG)를 오디오로 만드는 중이에요…' : '지금 패턴(PAT)을 오디오로 만드는 중이에요…'); const w = await renderWav(), fn = fileName(); if (inClaude) await offer(fn + '-audio.zip', new Blob([zip(fn + '.wav', w)])); else localDownload(fn + '.wav', new Blob([w], {type:'audio/wav'})); }
+  const what = S.playMode === 'song' ? '곡 전체(SONG)' : '지금 패턴(PAT)', t0 = performance.now();
+  try {
+    let last = -1; const w = await renderWav(p => { const pc = Math.floor(p * 100); if (pc !== last) { last = pc; status(`${what}를 오디오로 만드는 중… ${pc}%`); b.textContent = `만드는 중 ${pc}%`; } }), fn = fileName();
+    const took = ((performance.now() - t0) / 1000).toFixed(1);
+    if (inClaude) await offer(fn + '-audio.zip', new Blob([zip(fn + '.wav', w)])); else localDownload(fn + '.wav', new Blob([w], {type:'audio/wav'}));
+    status(`${what} 오디오를 저장했어요 (만드는 데 ${took}초).`);
+  }
   catch (e) { status('오디오를 만들지 못했어요. 브라우저가 이 기능을 지원하지 않을 수 있어요.'); }
-  finally { b.disabled = false; }
+  finally { b.disabled = false; b.textContent = inClaude ? '오디오 저장 (zip)' : '오디오 저장 (WAV)'; }
 };
 
 // ---- MIDI 불러오기 (채널마다 트랙, 10번 채널은 드럼) ----

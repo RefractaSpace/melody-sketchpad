@@ -140,6 +140,19 @@ async def main():
         peak = max(abs(x) for x in a) / 32767 if a else 0; secs = len(a) / 2 / 44100
         check('오디오 저장 (SONG = 곡 전체)', 0.05 < peak < 1.0 and 7 < secs < 12, f'{secs:.1f}초 · 최대 {peak:.2f}')
 
+        # WAV 빠르게 만들기: 예전 방식(한꺼번에 예약)과 같은 소리인지 · 곡 길이의 40% 안에 · 만드는 동안 화면이 안 멈추는지
+        await J("""(()=>{const P=S.patterns[0];P.bars=16;P.notes={};P.chords=Array(64).fill(null);for(let i=0;i<64;i+=4)P.chords[i]={r:5,q:'m'};
+          const m=notesOf(P,S.channels[0]);for(let i=0;i<128;i++)m.push({p:60+(i*7)%24,s:i*24,l:24,v:.8});
+          for(const c of S.channels.slice(1))for(let i=0;i<256;i++)if(c.inst==='hat'||i%4===0)notesOf(P,c).push({p:72,s:i*12,l:12,v:1});
+          S.playlist.clips=[{id:newId(),pat:P.id,t:0,bar:0}];S.pat=0;setPlayMode('pat');refreshAll()})()""")
+        wr = await J("""async()=>{const keep=Math.random;Math.random=()=>0.37;
+          const sr=44100,secs=playSpan()*tickSec()+3,oc=new OfflineAudioContext(2,Math.ceil(sr*secs),sr),OE=makeEngine(oc,false);applyMix(OE,S.mix);scheduleRange(OE,0,playSpan(),0.05,false);const A=await oc.startRendering();
+          Math.random=()=>0.37;let gaps=[],last=performance.now(),run=true;(function f(n){if(!run)return;gaps.push(n-last);last=n;requestAnimationFrame(f)})(last);
+          const prog=[];const t0=performance.now();const w=await renderWav(p=>prog.push(p));const took=(performance.now()-t0)/1000;run=false;Math.random=keep;
+          const dv=new DataView(w.buffer),L=A.getChannelData(0);let ab=0,aa=0,bb=0;for(let i=0;i<A.length;i+=3){const a=L[i],b=dv.getInt16(44+i*4,true)/32767;ab+=a*b;aa+=a*a;bb+=b*b}
+          return {corr:ab/Math.sqrt(aa*bb),took,song:playSpan()*tickSec(),worst:Math.max(...gaps.slice(1)),steps:prog.length}}""")
+        check('WAV 빠르게 만들기: 예전과 같은 소리 · 곡 길이의 40% 안 · 화면 안 멈춤', wr['corr'] > 0.999 and wr['took'] < wr['song'] * 0.4 and wr['worst'] < 500 and wr['steps'] > 10,
+              f"상관 {wr['corr']:.4f} · {wr['song']:.0f}초 곡을 {wr['took']:.1f}초에 · 화면 최대 멈춤 {wr['worst']:.0f}ms · 진행률 {wr['steps']}번")
         async with pg.expect_download() as dl: await pg.click('#midi')
         d = await dl.value; mp = os.path.join(tmp, 'a.mid'); await d.save_as(mp)
         import mido; m = mido.MidiFile(mp)
