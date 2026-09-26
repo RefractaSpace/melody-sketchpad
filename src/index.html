@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="boot" id="boot" role="status"><div class="bootbox"><b>멜로디 스케치패드</b><span>불러오는 중… (피아노 소리가 들어 있어서 처음엔 조금 걸릴 수 있어요)</span><i></i></div></div>
+<div class="boot" id="boot" role="status"><div class="bootbox"><b>멜로디 스케치패드</b><span>불러오는 중…</span><i></i></div></div>
 <a class="skip" href="#rollCanvas">피아노 롤로 바로 가기</a>
 <div class="app">
   <header class="tb" role="toolbar" aria-label="도구 모음">
@@ -42,7 +42,6 @@
       <select id="root" aria-label="조의 으뜸음"></select>
       <select id="mode" aria-label="장조 또는 단조"><option value="minor">단조</option><option value="major">장조</option></select>
       <label class="lbl">마디 <select id="bars"></select></label>
-      <select id="inst" aria-label="멜로디 악기"><option value="piano">피아노</option><option value="epiano">일렉트릭 피아노</option><option value="supersaw">슈퍼소 리드</option><option value="pluck">플럭</option><option value="chip">칩튠</option><option value="bell">벨</option><option value="sample">내 샘플</option></select>
     </div>
       <div class="grp">
       <label class="lbl">스냅 <select id="snap"><option value="12">16분</option><option value="16">셋잇단</option><option value="24">8분</option><option value="48">1박</option></select></label>
@@ -64,12 +63,21 @@
     <button class="tbtn" id="selNone">선택 해제</button>
   </div>
 
+  <div class="trackbar" role="group" aria-label="트랙">
+    <label class="lbl">트랙 <select id="trackSel" aria-label="편집할 트랙"></select></label>
+    <select id="inst" aria-label="이 트랙의 악기"><option value="piano">피아노</option><option value="epiano">일렉트릭 피아노</option><option value="supersaw">슈퍼소 리드</option><option value="pluck">플럭</option><option value="chip">칩튠</option><option value="bell">벨</option><option value="sample">내 샘플</option></select>
+    <button class="tbtn xs" id="trackAdd">+ 트랙</button>
+    <button class="tbtn xs" id="trackRename">이름 바꾸기</button>
+    <button class="tbtn xs" id="trackDel">트랙 삭제</button>
+    <span class="pstat" id="pianoStat" role="status"></span>
+  </div>
+
   <section class="editor" aria-label="피아노 롤">
     <div class="roll" id="rollWrap">
       <div class="corner" id="corner">F 단조</div>
-      <canvas id="ruler" class="ruler" aria-label="마디 눈금자. 누르면 그 위치부터 재생, 두 번 누르면 처음으로"></canvas>
+      <div class="rulerbox" id="rulerBox"><canvas id="ruler" aria-label="마디 눈금자. 누르면 그 위치부터 재생, 두 번 누르면 처음으로"></canvas></div>
       <canvas id="keys" class="keys" aria-label="건반. 누르면 소리가 나요"></canvas>
-      <canvas id="rollCanvas" class="grid" role="img" aria-label="피아노 롤. 칸을 눌러 음을 찍어요"></canvas>
+      <div class="gridbox" id="gridBox"><canvas id="rollCanvas" role="img" aria-label="피아노 롤. 칸을 눌러 음을 찍어요. 다른 트랙의 음은 흐린 테두리로 보여요"></canvas></div>
     </div>
     <div class="empty" id="empty">연필로 칸을 눌러 첫 음을 찍어 보세요</div>
   </section>
@@ -80,8 +88,8 @@
       <span class="copy"><select id="cpFrom" aria-label="복사할 첫 마디"></select>~<select id="cpTo" aria-label="복사할 끝 마디"></select>마디를 <select id="cpDest" aria-label="붙일 마디"></select>마디로 <button class="tbtn" id="cpGo">마디 복사</button></span>
     </div>
     <div class="lanes" id="lanes">
-      <div class="lanekeys"><div class="ch">코드</div><div>킥</div><div>스네어</div><div>하이햇</div><div>박수</div><div class="vel">세기</div></div>
-      <div class="lanebox" id="laneBox"><div class="chordrow" id="chordRow"></div><canvas id="laneCanvas" aria-label="드럼 스텝. 눌러서 켜고 꺼요"></canvas></div>
+      <div class="lanekeys"><div class="ch">코드</div><div>킥</div><div>스네어</div><div>하이햇</div><div>박수</div><div class="vel">세기<select id="velTarget" class="xs" aria-label="세기 줄에서 조절할 대상"><option value="notes">멜로디</option><option value="kick">킥</option><option value="snare">스네어</option><option value="hat">하이햇</option><option value="clap">박수</option></select></div></div>
+      <div class="lanebox" id="laneBox"><div class="chordrow" id="chordRow"></div><canvas id="laneCanvas" aria-label="드럼 스텝과 세기 줄. 눌러서 켜고 끄고, 세기 줄은 끌어서 조절해요"></canvas></div>
     </div>
   </section>
 
@@ -113,8 +121,8 @@
     <p><b>연필</b> 빈칸을 누르면 음이 생기고, 누른 채 옆으로 끌면 길어져요. 음을 끌면 옮겨지고, 오른쪽 끝을 끌면 길이가 바뀌어요. 음을 한 번 누르거나 오른쪽 클릭하면 지워져요.
     <b>지우개</b> 음을 누르거나 문질러서 지워요. <b>선택</b> 네모로 묶어서 여러 음을 고르고, 끌어서 옮기거나 위쪽 버튼으로 복제·반음 이동·삭제해요 (Delete, Ctrl+A/C/V/D, 방향키도 돼요). <b>손</b> 끌어서 화면을 움직여요. <b>확대</b> 설정의 가로·세로 −/＋ 또는 Ctrl+마우스 휠. 휴대폰에서는 두 손가락으로 밀어도 움직여요.
     <b>눈금자</b> 맨 위 마디 번호 줄을 누르면 그 위치부터 재생돼요. 두 번 누르면 처음으로 돌아가요.
-    <b>세기</b> 채널 랙 맨 아래 "세기" 줄에서 막대를 위아래로 끌면 음마다 세기가 바뀌어요 (선택한 음이 있으면 그 음만). 음표가 흐릴수록 약한 음이에요. <b>키보드</b> 피아노 롤을 Tab으로 선택한 뒤 방향키로 이동, Enter로 찍기·지우기, +/−로 길이, [ ]로 세기. <b>채널 랙</b> 코드 칸을 눌러 코드를 고르고, 드럼 칸을 눌러 켜고 꺼요. <b>믹서</b> 채널마다 볼륨·팬·리버브·딜레이·EQ를 조절하고, SC 버튼으로 사이드체인을 받을지 정해요. 멜로디·코드는 밝기·어택·릴리즈로 음색을 다듬고, 킥 칸에서 드럼 키트(EDM·808·하드·어쿠스틱풍)를 골라요. 코드 소리와 자동 베이스 패턴도 여기서 골라요. 마스터의 사이드체인을 올리면 킥에 맞춰 코드·멜로디·베이스가 출렁여요. <b>내 샘플</b> 멜로디나 드럼 칸에 내 소리 파일을 넣을 수 있고, 이 브라우저에 저장돼요. <b>마디 복사</b>로 반복되는 부분을 한 번에 붙여요.
-    건반의 점은 지금 조 안의 음, 큰 점은 으뜸음이에요. 작업은 이 기기에 자동 저장돼요. <b>MIDI 불러오기</b>로 MIDI 파일의 음을 롤로 가져올 수 있어요 (32마디까지).</p>
+    <b>트랙</b> 롤 위의 트랙 줄에서 트랙을 고르고, "+ 트랙"으로 악기별 멜로디를 더해요. 지금 트랙의 음만 편집되고, 다른 트랙의 음은 흐린 테두리로 보여요. 트랙마다 믹서 채널이 생겨요. <b>세기</b> 채널 랙 맨 아래 "세기" 줄에서 대상(멜로디·킥·스네어·하이햇·박수)을 고르고 막대를 위아래로 끌면 세기가 바뀌어요 (멜로디는 선택한 음이 있으면 그 음만). 음표가 흐릴수록 약한 음이에요. <b>키보드</b> 피아노 롤을 Tab으로 선택한 뒤 방향키로 이동, Enter로 찍기·지우기, +/−로 길이, [ ]로 세기. <b>채널 랙</b> 코드 줄은 박마다 칸이 있어서 마디 중간에도 코드를 바꿀 수 있어요. 코드는 다음 코드가 나올 때까지 이어져요. 드럼 칸을 눌러 켜고 꺼요. <b>믹서</b> 채널마다 볼륨·팬·리버브·딜레이·EQ를 조절하고, SC 버튼으로 사이드체인을 받을지 정해요. 멜로디·코드는 밝기·어택·릴리즈로 음색을 다듬고, 킥 칸에서 드럼 키트(EDM·808·하드·어쿠스틱풍)를 골라요. 코드 소리와 자동 베이스 패턴도 여기서 골라요. 마스터의 사이드체인을 올리면 킥에 맞춰 코드·멜로디·베이스가 출렁여요. <b>내 샘플</b> 멜로디나 드럼 칸에 내 소리 파일을 넣을 수 있고, 이 브라우저에 저장돼요. <b>마디 복사</b>로 반복되는 부분을 한 번에 붙여요.
+    건반의 점은 지금 조 안의 음, 큰 점은 으뜸음이에요. 작업은 이 기기에 자동 저장돼요. <b>MIDI 불러오기</b>로 MIDI 파일의 음을 롤로 가져올 수 있어요 (128마디까지, MIDI 채널마다 트랙으로 나뉘어요).</p>
     <p class="credit">피아노 소리: Salamander Grand Piano V3 — Alexander Holm, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC-BY 3.0</a> (잘라서 변환함)</p>
   </details>
 </div>
@@ -128,15 +136,23 @@
 </dialog>
 <dialog id="chordDlg" aria-labelledby="chordTitle">
   <h2 id="chordTitle">코드 고르기</h2>
-  <p class="dsub">점이 있는 음이 지금 조 안의 음이에요.</p>
+  <p class="dsub">점이 있는 음이 지금 조 안의 음이에요. 코드는 다음 코드가 나올 때까지 이어져요.</p>
   <div class="rgrid" id="rootGrid"></div>
   <div class="qgrid" id="qGrid"></div>
   <div class="drow">
-    <button class="tbtn" id="chordNone">코드 없음</button>
+    <span><button class="tbtn" id="chordNone" title="이 박에는 새 코드를 두지 않아요 (앞 코드가 이어져요)">비우기</button> <button class="tbtn" id="chordStop" title="이 박부터 코드 소리를 멈춰요">여기서 멈춤</button></span>
     <span><button class="tbtn" id="chordHear">들어 보기</button> <button class="tbtn solid" id="chordOk">정하기</button></span>
   </div>
 </dialog>
-<script src="piano-samples.js" defer></script>
-<script src="app.js" defer></script>
+<script src="js/01-core.js" defer></script>
+<script src="js/02-view.js" defer></script>
+<script src="js/03-edit.js" defer></script>
+<script src="js/04-audio.js" defer></script>
+<script src="js/05-play.js" defer></script>
+<script src="js/06-mixer.js" defer></script>
+<script src="js/07-assets.js" defer></script>
+<script src="js/08-io.js" defer></script>
+<script src="js/09-app.js" defer></script>
+<script src="piano-samples.js" async></script>
 </body>
 </html>

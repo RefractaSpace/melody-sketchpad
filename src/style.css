@@ -62,9 +62,11 @@ select,input[type=number]{height:34px;padding:0 8px;border-radius:6px;border:1px
   display:grid;grid-template-columns:64px max-content;grid-template-rows:24px max-content}
 .corner{position:sticky;top:0;left:0;z-index:4;grid-row:1;grid-column:1;background:var(--panel2);border-right:1px solid var(--line);border-bottom:1px solid var(--line);
   font-size:11px;color:var(--mute);display:flex;align-items:center;justify-content:center;white-space:nowrap}
-.ruler{position:sticky;top:0;z-index:3;grid-row:1;grid-column:2;display:block;cursor:pointer}
+.rulerbox{position:sticky;top:0;z-index:3;grid-row:1;grid-column:2;height:24px;background:var(--panel2)}
+.rulerbox canvas{position:absolute;top:0;left:0;display:block;cursor:pointer}
 .keys{position:sticky;left:0;z-index:2;grid-row:2;grid-column:1;display:block;cursor:pointer}
-.grid{grid-row:2;grid-column:2;display:block}
+.gridbox{grid-row:2;grid-column:2;position:relative}
+.gridbox canvas{position:absolute;top:0;left:0;display:block;will-change:transform}
 .editor{position:relative}
 .empty{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none;color:var(--mute);background:var(--panel);border:1px dashed var(--line2);border-radius:6px;padding:6px 10px;font-size:13px}
 
@@ -78,9 +80,9 @@ select,input[type=number]{height:34px;padding:0 8px;border-radius:6px;border:1px
 .lanekeys{position:sticky;left:0;z-index:2;flex:0 0 64px;width:64px;background:var(--panel);box-shadow:inset -1px 0 var(--line)}
 .lanekeys div{height:28px;display:flex;align-items:center;padding:0 8px;font-size:12px;color:var(--mute);border-bottom:1px solid var(--line)}
 .lanekeys div.ch{height:34px;color:var(--ink);font-weight:600}
-.lanebox{position:relative;flex:0 0 auto}
-#laneCanvas{display:block}
-.chordrow{position:absolute;left:0;top:0;height:34px;display:flex}
+.lanebox{position:relative;flex:0 0 auto;height:206px}
+#laneCanvas{position:absolute;top:0;left:0;display:block}
+.chordrow{position:absolute;left:0;top:0;height:34px;display:flex;z-index:1}
 .cell{height:34px;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel2);font-size:13px;font-weight:600;text-align:left;padding:0 8px}
 .cell.none{color:var(--mute);font-weight:400}
 .cell:hover{background:var(--row-root)}
@@ -192,3 +194,14 @@ select.xs{height:26px;font-size:12px;padding:0 4px}
 .pn{display:flex;flex-direction:column;min-width:0}.pn b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pn span{font-size:12px;color:var(--mute)}
 .pb{display:flex;gap:4px;flex:0 0 auto}
 canvas:focus-visible{outline:2px dashed var(--ink);outline-offset:-2px}
+
+/* 트랙 줄 */
+.trackbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 8px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.trackbar select{height:30px}
+.pstat{margin-left:auto;font-size:12px;color:var(--mute)}
+.lanekeys div.vel{flex-direction:column;align-items:flex-start;gap:4px}
+.lanekeys div.vel select{width:58px;height:24px;padding:0 1px;font-size:11px}
+.cell.cont{color:var(--mute);font-weight:400;border-left:0}
+.cell.beat{background:var(--panel)}
+
+.strip.trk .sh b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70px}

@@ -4,10 +4,14 @@
 
 ## 파일
 - `public/` — **웹사이트에 나가는 파일** (Vercel이 이 폴더를 그대로 배포해요)
-  - `index.html` 화면 · `style.css` 디자인 · `app.js` 동작 + 피아노 소리 (압축됨)
+  - `index.html` 화면 · `style.css` 디자인 · `app.js` 동작 (압축됨)
+  - `piano.js` 녹음 피아노 소리 — 화면이 먼저 뜨고, 이 파일은 뒤에서 따로 불러와요 (그동안은 합성 피아노)
   - `og.png` 링크 공유 미리보기 그림 · `apple-touch-icon.png` 휴대폰 홈 화면 아이콘
-- `src/` — 고칠 때 보는 **읽기 쉬운 원본** (`src/index.html`을 열면 원본으로 바로 실행돼요)
-  - `build.py` — 원본을 고친 뒤 `python build.py`를 실행하면 `public/`의 세 파일이 다시 만들어져요
+- `src/` — 고칠 때 보는 **읽기 쉬운 원본** (`src/index.html`을 열면 원본 코드로 바로 실행돼요)
+  - `js/01-core.js` 곡 데이터·저장 · `02-view.js` 그리기 · `03-edit.js` 편집 · `04-audio.js` 소리 엔진
+  - `js/05-play.js` 재생 · `06-mixer.js` 믹서 · `07-assets.js` 내 샘플 · `08-io.js` 저장·MIDI·WAV · `09-app.js` 설정·시작
+  - `piano-samples.js` 피아노 소리 원본 · `build.py` 원본 → `public/` 만들기
+- `tests/run_tests.py` — 브라우저 자동 테스트 (19가지)
 - `vercel.json` — "빌드 없이 public 폴더를 배포" 설정
 
 ## 배포
@@ -23,6 +27,7 @@
 - 피아노 소리: **Salamander Grand Piano V3** — Alexander Holm, [CC-BY 3.0](https://creativecommons.org/licenses/by/3.0/). 원본: https://archive.org/details/SalamanderGrandPianoV3 (21음을 최대 8초로 자르고 56kbps mp3로 변환함)
 
 ## 원본을 고친 뒤
-1. `src/` 안의 파일을 고쳐요 (`src/index.html`을 열면 고친 원본으로 바로 실행돼요)
-2. `src` 폴더에서 `python build.py` 실행 → `public/`의 세 파일이 다시 만들어져요 (압축은 안 해요)
-3. GitHub에 올리면 사이트가 자동으로 바뀌어요
+1. `src/` 안의 파일을 고쳐요 (`src/index.html`을 열어 바로 확인)
+2. `python src/build.py` 실행 → `public/`이 다시 만들어져요 (`--min`을 붙이면 terser로 압축)
+3. `python tests/run_tests.py public/index.html`로 자동 테스트 (19가지)
+4. GitHub에 올리면 사이트가 자동으로 바뀌어요
