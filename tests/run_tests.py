@@ -26,9 +26,9 @@ async def main():
         await pg.goto(URL); await pg.wait_for_timeout(2500)
         J = pg.evaluate
         async def roll_click(tick, pitch, drag_ticks=0, button='left'):
-            await J(f"(()=>{{const v=view(),y=(96-{pitch})*ROWH;if(y<v.st||y>v.st+v.vh-ROWH)wrap.scrollTop=Math.max(0,y-v.vh/2)}})()"); await pg.wait_for_timeout(60)
-            v = await J("(()=>{const r=rollCanvas.getBoundingClientRect(),v=view();return {x:r.left,y:r.top,sl:v.sl,st:v.st,tp:TICKPX,rh:ROWH}})()")
-            x = v['x'] + tick * v['tp'] - v['sl'] + 3; y = v['y'] + (96 - pitch) * v['rh'] - v['st'] + v['rh'] / 2
+            await J(f"(()=>{{const v=view(),y=(HIGH-{pitch})*ROWH;if(y<v.st||y>v.st+v.vh-ROWH)wrap.scrollTop=Math.max(0,y-v.vh/2)}})()"); await pg.wait_for_timeout(60)
+            v = await J("(()=>{const r=rollCanvas.getBoundingClientRect(),v=view();return {x:r.left,y:r.top,sl:v.sl,st:v.st,tp:TICKPX,rh:ROWH,hi:HIGH}})()")
+            x = v['x'] + tick * v['tp'] - v['sl'] + 3; y = v['y'] + (v['hi'] - pitch) * v['rh'] - v['st'] + v['rh'] / 2
             await pg.mouse.move(x, y); await pg.mouse.down(button=button); await pg.mouse.move(x + drag_ticks * v['tp'], y); await pg.mouse.up(button=button)
         async def pl_click(bar, track, button='left', dbl=False):
             r = await J("(()=>{const r=plCanvas.getBoundingClientRect();return {x:r.left,y:r.top}})()")
@@ -59,9 +59,10 @@ async def main():
         await J("wrap.scrollLeft=0"); await pg.select_option('#bars', '4'); await pg.wait_for_timeout(150)
 
         await pg.keyboard.press('e')
-        v = await J("(()=>{const r=rollCanvas.getBoundingClientRect();return {x:r.left,y:r.top,st:view().st,rh:ROWH,tp:TICKPX}})()")
-        await pg.mouse.move(v['x'] + 2, v['y'] + (96 - 80) * v['rh'] - v['st']); await pg.mouse.down()
-        await pg.mouse.move(v['x'] + 190 * v['tp'], v['y'] + (96 - 75) * v['rh'] - v['st']); await pg.mouse.up()
+        await J("wrap.scrollTop=(HIGH-82)*ROWH"); await pg.wait_for_timeout(60)
+        v = await J("(()=>{const r=rollCanvas.getBoundingClientRect();return {x:r.left,y:r.top,st:view().st,rh:ROWH,tp:TICKPX,hi:HIGH}})()")
+        await pg.mouse.move(v['x'] + 2, v['y'] + (v['hi'] - 80) * v['rh'] - v['st']); await pg.mouse.down()
+        await pg.mouse.move(v['x'] + 190 * v['tp'], v['y'] + (v['hi'] - 75) * v['rh'] - v['st']); await pg.mouse.up()
         n_sel = await J("sel.size"); await pg.click('#selDup'); await pg.wait_for_timeout(100)
         check('선택 도구: 네모 선택 → 복제', n_sel == 4 and await J("curNotes().length") == 8, f'선택 {n_sel}개 → 음 {await J("curNotes().length")}개')
         await pg.keyboard.press('p')
@@ -224,6 +225,31 @@ async def main():
         d = await dl.value; ct = os.path.join(tmp, 'back.txt'); await d.save_as(ct); back = open(ct).read()
         await pg.click('#convClose')
         check('파일 변환기: 악보 → MIDI → 악보 (지금 곡은 그대로)', round(mm.length, 1) == 7.5 and 'BPM: 128' in back and 'A4 2 v90' in back and await J("lib.list[lib.current].name") == '테스트 곡', f'MIDI {mm.length:.1f}초')
+        # 넓힌 음역(C1~C8) · 새 악기 · MIDI 구간·겹친 음·드럼 롤·템포
+        tm = mido.MidiFile(ticks_per_beat=480, charset='utf-8'); T0 = mido.MidiTrack(); tm.tracks.append(T0)
+        T0 += [mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(120), time=0), mido.MetaMessage('marker', text='A', time=0),
+               mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(132), time=1920), mido.MetaMessage('marker', text='B', time=1920)]
+        def trk(name, prog, ch, notes):
+            tr = mido.MidiTrack(); tm.tracks.append(tr); tr.append(mido.MetaMessage('track_name', name=name, time=0))
+            if prog is not None: tr.append(mido.Message('program_change', program=prog, channel=ch, time=0))
+            ev = sorted([(a, 1, n, v) for a, d, n, v in notes] + [(a + d, 0, n, 0) for a, d, n, v in notes], key=lambda e: (e[0], e[1])); cur = 0
+            for tk, on, n, v in ev: tr.append(mido.Message('note_on' if on else 'note_off', note=n, velocity=v, channel=ch, time=tk - cur)); cur = tk
+        trk('피아노', 0, 0, [(0, 960, 60, 90), (480, 960, 60, 70), (1920 * 3, 480, 64, 80)])
+        trk('첼로', 42, 1, [(0, 1920, 28, 80)]); trk('베이스', 38, 2, [(1920, 960, 31, 90)]); trk('첼레스타', 8, 3, [(1920 * 2, 240, 108, 70)])
+        trk('드럼', None, 9, [(1920 * 2 + i * 60, 30, 38, 60 + i * 5) for i in range(8)] + [(0, 60, 49, 100), (0, 60, 36, 110)])
+        mp2 = os.path.join(tmp, 'edge.mid'); tm.save(mp2)
+        await pg.locator('#fileIn').set_input_files(mp2); await pg.wait_for_timeout(500)
+        eg = await J("""(()=>{const all=c=>S.patterns.flatMap(p=>(p.notes[c.id]||[]).map(n=>({...n,pat:p.name})));const by=n=>S.channels.find(c=>c.name===n);
+          return {bpm:S.bpm,pats:S.patterns.map(p=>p.name+':'+p.bars),insts:S.channels.map(c=>c.kind==='drum'?'drum:'+c.inst:c.inst),
+            c4:all(by('피아노')).filter(n=>n.p===60).length,low:all(by('첼로')).map(n=>n.p),high:all(by('첼레스타')).map(n=>n.p),
+            roll:all(S.channels.find(c=>c.inst==='snare')).length,crash:all(S.channels.find(c=>c.inst==='crash')).length}})()""")
+        rt2 = await J("(async()=>{const d=(await decodeMSK(await encodeMSK(S,'x',{}))).song;return d.patterns.flatMap(p=>Object.values(p.notes).flat()).map(n=>n.p).filter(p=>p<36||p>100).sort((a,b)=>a-b)})()")
+        check('MIDI: 구간→패턴 · 겹친 음 · 드럼 롤 · 대표 템포 · 새 악기 · C1~C8', eg['bpm'] == 132 and eg['pats'] == ['A:2', 'B:2'] and eg['c4'] == 2 and eg['low'] == [28] and eg['high'] == [108]
+              and eg['roll'] == 8 and eg['crash'] == 1 and 'strings' in eg['insts'] and 'bass' in eg['insts'] and 'celesta' in eg['insts'] and rt2 == [28, 31, 108], f"{eg} MSK왕복 {rt2}")
+        snd = await J("""(async()=>{const s=normalize(blank());s.channels=['bass','celesta','harp','timpani','strings'].map(i=>newChannel('synth',i)).concat([newChannel('drum','crash')]);fillMix(s);
+          const P=s.patterns[0];s.channels.forEach((c,i)=>P.notes[c.id]=[{p:c.inst==='bass'?28:c.inst==='celesta'?100:55+i*3,s:i*48,l:48,v:.9}]);s.playlist.clips=[{id:newId(),pat:P.id,t:0,bar:0}];s.pat=0;s.ch=0;
+          const w=await withSongAsync(normalize(s),()=>renderWav());const dv=new DataView(w.buffer);const out=[];for(let k=0;k<6;k++){let pk=0;const a=Math.floor((0.05+k*60/120)*44100),b=a+Math.floor(0.3*44100);for(let i=a;i<b;i++)pk=Math.max(pk,Math.abs(dv.getInt16(44+i*4,true)));out.push(+(pk/32767).toFixed(3))}return out})()""")
+        check('새 악기 4개 + 크래시가 소리를 냄', all(0.01 < x < 1 for x in snd), f'베이스·첼레스타·하프·팀파니·스트링·크래시 최대 {snd}')
         v3 = {'v': 3, 'bpm': 128, 'root': 0, 'mode': 'major', 'bars': 2, 'tracks': [{'id': 'a', 'name': '리드', 'inst': 'pluck', 'notes': [{'p': 60, 's': 0, 'l': 24}]}], 'chords': [{'r': 0, 'q': ''}, None, None, None, {'r': 7, 'q': ''}], 'drums': {'kick': [1, 0, 0, 0, 0.5]}}
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v3)}));openProject(id)}})()")
         conv = await J("[S.channels.map(c=>c.name), S.patterns.length, S.playlist.clips.length, chordName(S.patterns[0].chords[4]), notesOf(S.patterns[0],S.channels[1]).map(n=>n.v)]")

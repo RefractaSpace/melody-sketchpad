@@ -69,7 +69,8 @@ str 이름 · varint 마디 수
 | 목록 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
 |---|---|---|---|---|---|---|---|---|
 | 악기 | piano | epiano | supersaw | pluck | chip | bell | sample | strings |
-| 드럼 | kick | snare | hat | clap | | | | |
+| 악기 (8~11) | bass | celesta | harp | timpani | | | | |
+| 드럼 | kick | snare | hat | clap | crash | | | |
 | 코드 종류 | (장) | m | 7 | maj7 | m7 | sus4 | dim | aug |
 | 코드 소리 | pad | supersaw | piano | epiano | pluck | | | |
 | 베이스 패턴 | off | sustain | 8th | offbeat | | | | |
@@ -86,7 +87,7 @@ str 이름 · varint 마디 수
 | 모르는 청크 | 건너뜀 |
 | 음 32,768개 곡 | 6 KB, 쓰기·읽기 0.04초 |
 
-**아직 안 되는 것**: 박자는 4/4만, 음높이는 앱이 C3~C7만 써요 (형식은 0~127 모두 저장 가능).
+**아직 안 되는 것**: 박자는 4/4만, **곡 중간 템포 변화**는 못 담아요 (BPM 하나). 음높이는 앱이 C1~C8을 써요 (형식은 0~127 모두 저장 가능).
 
 ## 6. 곡 코드 (글자로 주고받기)
 `MSK1.` + (MSK 파일 바이트를 base64url로 바꾼 글자). 메시지로 보내고 앱의 **붙여넣기**에 넣으면 열려요. 내 샘플은 빠져요.

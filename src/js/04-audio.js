@@ -125,6 +125,23 @@ function noiseBurst(E,t,d,type,f,q,v,dest){const s=E.ac.createBufferSource();s.b
 
 function voice(E,inst,m,t,d,vel=1,dest,tone,slot){const ac=E.ac,f=hz(m),end=t+d;dest=dest||getCh(E,trackKey(curTrack())).inp;const T=tone||toneDefault(),br=T.br,rel=Math.max(0.03,T.rel),atk=T.atk;
   if(inst==='sample'){if(playSample(E,slot||'melody',m,t,d,vel*0.9,dest)||playSample(E,'melody',m,t,d,vel*0.9,dest))return;inst='piano'}
+  if(inst==='bass'){   // 서브 베이스: 사인파 + 약한 찌그러짐(배음) + 낮은 필터
+    const g=ac.createGain(),sh=ac.createWaveShaper(),lp=ac.createBiquadFilter(),cv=new Float32Array(256);for(let i=0;i<256;i++){const x=i/127.5-1;cv[i]=Math.tanh(1.8*x)/Math.tanh(1.8)}sh.curve=cv;
+    lp.type='lowpass';lp.frequency.value=Math.min(4000,420*br);sh.connect(lp);lp.connect(g);g.connect(dest);const st=end+rel+0.1;
+    osc(ac,'sine',f,0,t,st,sh);const o2=ac.createGain();o2.gain.value=0.25;o2.connect(sh);osc(ac,'triangle',f,0,t,st,o2);
+    g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(0.55*vel,t+0.006+atk);g.gain.setValueAtTime(0.55*vel,Math.max(end,t+0.01));g.gain.setTargetAtTime(0.0001,Math.max(end,t+0.01),rel/4);return}
+  if(inst==='celesta'){   // 첼레스타: 맑은 사인파 + 4배 배음(금속 막대), 빨리 사라짐
+    const g=ac.createGain();g.connect(dest);const st=t+2.2+rel;osc(ac,'sine',f,0,t,st,g);
+    const h=ac.createGain();h.gain.setValueAtTime(0.35,t);h.gain.exponentialRampToValueAtTime(0.001,t+0.25);h.connect(g);osc(ac,'sine',f*4,0,t,st,h);
+    const lv=0.22*vel;g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(lv,t+0.003+atk);g.gain.setTargetAtTime(0.0001,t+0.01,0.45*br);return}
+  if(inst==='harp'){   // 하프: 삼각파 + 짧은 줄 튕김 잡음, 부드럽게 사라짐
+    const g=ac.createGain(),lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.setValueAtTime(Math.min(16000,f*8*br),t);lp.frequency.setTargetAtTime(Math.max(600,f*2),t,0.3);lp.connect(g);g.connect(dest);
+    const st=t+Math.max(2,d+rel+1);osc(ac,'triangle',f,0,t,st,lp);const s2=ac.createGain();s2.gain.value=0.3;s2.connect(lp);osc(ac,'sine',f*2,0,t,st,s2);
+    g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(0.32*vel,t+0.004);g.gain.setTargetAtTime(0.0001,t+0.01,0.6);noiseBurst(E,t,0.015,'bandpass',Math.min(9000,f*6),1.5,0.04*vel,dest);return}
+  if(inst==='timpani'){   // 팀파니: 낮은 사인파(살짝 내려가는 음) + 둥 하는 잡음
+    const g=ac.createGain();g.connect(dest);const st=t+2.2;const o=osc(ac,'sine',f*1.02,0,t,st,g);o.frequency.setTargetAtTime(f,t,0.05);
+    const o2=ac.createGain();o2.gain.value=0.3;o2.connect(g);osc(ac,'sine',f*1.5,0,t,st,o2);
+    g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(0.6*vel,t+0.005);g.gain.setTargetAtTime(0.0001,t+0.02,0.5);noiseBurst(E,t,0.08,'lowpass',400,0.7,0.25*vel,dest);return}
   if(inst==='strings'){   // 스트링 패드: 톱니파 4개를 조금씩 어긋나게 + 부드러운 필터 + 느린 비브라토 + 천천히 켜지고 꺼짐
     const g=ac.createGain(),lp=ac.createBiquadFilter(),hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=160;lp.type='lowpass';lp.frequency.value=Math.min(12000,(1500+f*1.1)*br);lp.Q.value=0.3;
     hp.connect(lp);lp.connect(g);g.connect(dest);const a=Math.max(0.22,atk),r=Math.max(0.7,rel*3),hold=Math.max(end,t+a),st=hold+r*2.5;
@@ -190,4 +207,8 @@ function drumHit(d,t,EE,vel,key){EE=EE||E;vel=vel==null?1:vel;const ac=EE.ac,des
     if(!mul){noiseBurst(EE,t,dec,'highpass',8000,0.7,lv*vel,dest);return}
     const bp=ac.createBiquadFilter(),hp=ac.createBiquadFilter();bp.type='bandpass';bp.frequency.value=10000;bp.Q.value=0.8;hp.type='highpass';hp.frequency.value=7000;
     bp.connect(hp);hp.connect(g);[2,3,4.16,5.43,6.79,8.21].forEach(r=>osc(ac,'square',40*r*4*mul,0,t,t+dec+0.08,bp));g.gain.setValueAtTime(lv*vel,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dec)}
+  else if(d==='crash'){   // 크래시 심벌: 금속성 사각파 여러 개 + 밝은 잡음, 길게 사라짐
+    const g=ac.createGain(),hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=4200;hp.connect(g);g.connect(dest);
+    [2,3,4.16,5.43,6.79,8.21,9.6].forEach(r=>osc(ac,'square',40*r*3.1,0,t,t+2.2,hp));g.gain.setValueAtTime(0.16*vel,t);g.gain.exponentialRampToValueAtTime(0.0001,t+1.9);
+    noiseBurst(EE,t,1.6,'highpass',5500,0.5,0.55*vel,dest)}
   else{const[tail,lv]=K.c;for(let k=0;k<3;k++)noiseBurst(EE,t+k*0.009,0.02,'bandpass',1500,1.5,0.5*vel,dest);noiseBurst(EE,t+0.027,tail,'bandpass',1400,1.2,lv*vel,dest)}}

@@ -8,7 +8,7 @@
    - mode: 'pat'(패턴 반복) | 'song'(플레이리스트 재생), pat/ch: 편집 중인 패턴·채널 번호
    - mix: 채널 키('ch:<id>', 'chords', 'bass')마다 설정 + master */
 const $ = id => document.getElementById(id);
-const PPQ = 48, LOW = 48, HIGH = 96;                 // 한 박 = 48틱, 건반 C3~C7
+const PPQ = 48, LOW = 24, HIGH = 108;                // 한 박 = 48틱, 건반 C1~C8 (서브 베이스부터 첼레스타까지)
 const KEYW = 64, RULER = 24;
 const ZX_LEVELS = [0.75, 1, 1.5, 2, 3, 4], RH_LEVELS = [14, 17, 20, 24, 28];
 let zxi = 3, rhi = 2, TICKPX = ZX_LEVELS[zxi], ROWH = RH_LEVELS[rhi];
@@ -19,14 +19,14 @@ const NAMES_F = ['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B']
 const MAJ = [0,2,4,5,7,9,11], MIN = [0,2,3,5,7,8,10];
 const QUAL = {'':[0,4,7], 'm':[0,3,7], '7':[0,4,7,10], 'maj7':[0,4,7,11], 'm7':[0,3,7,10], 'sus4':[0,5,7], 'dim':[0,3,6], 'aug':[0,4,8]};
 const QNAME = {'':'장', 'm':'단', '7':'7', 'maj7':'maj7', 'm7':'m7', 'sus4':'sus4', 'dim':'dim', 'aug':'aug'};
-const DRUMS = ['kick', 'snare', 'hat', 'clap'];
-const DRUM_NAME = {kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수'};
-const INSTS = {piano:'피아노', epiano:'일렉트릭 피아노', strings:'스트링 패드', supersaw:'슈퍼소', pluck:'플럭', chip:'칩튠', bell:'벨', sample:'내 샘플'};
+const DRUMS = ['kick', 'snare', 'hat', 'clap', 'crash'];   // 뒤에만 덧붙이기 (MSK 번호표)
+const DRUM_NAME = {kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수', crash:'크래시'};
+const INSTS = {piano:'피아노', epiano:'일렉트릭 피아노', strings:'스트링 패드', celesta:'첼레스타', harp:'하프', bass:'서브 베이스', timpani:'팀파니', supersaw:'슈퍼소', pluck:'플럭', chip:'칩튠', bell:'벨', sample:'내 샘플'};
 const KITS_OK = ['edm', '808', 'hard', 'acoustic'];
 const FIXED_CH = ['chords', 'bass'];
 const CH_NAME = {chords:'코드', bass:'베이스', kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수'};
 const MIX_DEF = {chords:{v:.85,pan:0,rev:.3,dly:0,sc:true}, bass:{v:.45,pan:0,rev:0,dly:0,sc:true}};
-const DRUM_MIX = {kick:{v:.6,pan:0,rev:0,dly:0,sc:false}, snare:{v:.7,pan:0,rev:.18,dly:0,sc:false}, hat:{v:.45,pan:.15,rev:.05,dly:0,sc:false}, clap:{v:.6,pan:-.1,rev:.25,dly:0,sc:false}};
+const DRUM_MIX = {kick:{v:.6,pan:0,rev:0,dly:0,sc:false}, snare:{v:.7,pan:0,rev:.18,dly:0,sc:false}, hat:{v:.45,pan:.15,rev:.05,dly:0,sc:false}, clap:{v:.6,pan:-.1,rev:.25,dly:0,sc:false}, crash:{v:.4,pan:.2,rev:.3,dly:0,sc:false}};
 const TRACK_MIX_DEF = {v:1, pan:0, rev:.22, dly:.18, sc:true};
 const MASTER_DEF = {v:.85, sc:.5, size:2};
 const STORE = 'melody-sketchpad-v1', LIB = 'melody-sketchpad-library', PK = id => 'melody-sketchpad-proj-' + id;
@@ -85,6 +85,7 @@ function toV4(s) {
     playlist:{tracks:PL_TRACKS, clips:[{id:newId(), pat:p.id, t:0, bar:0}]},
     chordInst:s.chordInst, chordTone:s.chordTone, bassMode:s.bassMode, bassInst:s.bassInst, kit:s.kit, mix};
 }
+const NOTE_RANGE = () => `${NAMES_S[LOW % 12]}${Math.floor(LOW / 12) - 1}~${NAMES_S[HIGH % 12]}${Math.floor(HIGH / 12) - 1}`;
 function normalize(s) {
   s = s && s.v >= 4 ? {...s} : toV4(s || {});
   const b = blank();

@@ -142,7 +142,7 @@ function parseScore(text) {
       const tk = part.split(/\s+/), s = parsePos(tk[0] || ''), p0 = parsePitch(tk[1] || ''), l = parseLen(tk[2] || '');
       if (s == null || p0 == null || !l) { warn(i, `음 "${part}"를 읽을 수 없어요 (예: 1.2.3 G5 2 v90)`); continue; }
       if (s >= lim) { warn(i, `음 "${part}"가 패턴 밖(${P.bars}마디 뒤)이라 버렸어요`); continue; }
-      let p = p0; while (p < LOW) p += 12; while (p > HIGH) p -= 12; if (p !== p0) warn(i, `${tk[1]}는 건반(C3~C7) 밖이라 ${NAMES_S[p % 12]}${Math.floor(p / 12) - 1}로 옮겼어요`);
+      let p = p0; while (p < LOW) p += 12; while (p > HIGH) p -= 12; if (p !== p0) warn(i, `${tk[1]}는 건반(${NOTE_RANGE()}) 밖이라 ${NAMES_S[p % 12]}${Math.floor(p / 12) - 1}로 옮겼어요`);
       let v = 0.8; const vt = tk.find(x => /^v\d+$/i.test(x)); if (vt) v = clamp(+vt.slice(1) / 100, 0.05, 1);
       arr.push({p, s, l:Math.min(l, lim - s), v});
     }

@@ -30,7 +30,7 @@
 - `docs/msk-format.md` — MSK 형식 설명서 (바이트 구조)
 - `docs/score-format.md` — 악보 텍스트 형식 설명서
 - `songs/` — 예제 곡 (악보 형식)
-- `tests/run_tests.py` — 브라우저 자동 테스트 (40가지)
+- `tests/run_tests.py` — 브라우저 자동 테스트 (43가지)
 - `vercel.json` — "빌드 없이 public 폴더를 배포" 설정
 
 ## 배포
@@ -48,5 +48,5 @@
 ## 원본을 고친 뒤
 1. `src/` 안의 파일을 고쳐요 (`src/index.html`을 열어 바로 확인)
 2. `python src/build.py` 실행 → `public/`이 다시 만들어져요 (`--min`을 붙이면 terser로 압축)
-3. `python tests/run_tests.py public/index.html`로 자동 테스트 (40가지)
+3. `python tests/run_tests.py public/index.html`로 자동 테스트 (43가지)
 4. GitHub에 올리면 사이트가 자동으로 바뀌어요

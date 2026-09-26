@@ -12,7 +12,7 @@
    자세한 설명: docs/msk-format.md */
 const MSK_VERSION = 1;
 // 번호표 (뒤에만 덧붙여야 옛 파일이 그대로 읽혀요)
-const MSK_INST = ['piano', 'epiano', 'supersaw', 'pluck', 'chip', 'bell', 'sample', 'strings'];
+const MSK_INST = ['piano', 'epiano', 'supersaw', 'pluck', 'chip', 'bell', 'sample', 'strings', 'bass', 'celesta', 'harp', 'timpani'];
 const MSK_CHORD = ['pad', 'supersaw', 'piano', 'epiano', 'pluck'];
 const MSK_BMODE = ['off', 'sustain', '8th', 'offbeat'];
 const MSK_BINST = ['reese', 'sub', 'saw'];
