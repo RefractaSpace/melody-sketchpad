@@ -7,6 +7,7 @@
   public/style.css   디자인
   public/app.js      동작 (src/js/01~09를 순서대로 합친 것)
   public/piano.js    녹음 피아노 소리 (페이지가 뜬 뒤 따로 불러와요)
+  public/piano-soft.js · piano-hard.js  세기 층 (기본 피아노가 준비된 뒤 불러와요)
 """
 import os, re, shutil, subprocess, sys
 here = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +22,7 @@ app = '/* 멜로디 스케치패드 — 읽기 쉬운 원본은 src/js/ (src/ind
 html = read('index.html')
 html = re.sub(r'(<script src="js/\d\d-[^"]+" defer></script>\s*)+', '<script src="app.js" defer></script>\n', html)
 html = html.replace('<script src="piano-samples.js" async></script>', '<script src="piano.js" async></script>')
-write('index.html', html); write('style.css', read('style.css')); write('app.js', app); write('piano.js', read('piano-samples.js'))
+write('index.html', html); write('style.css', read('style.css')); write('app.js', app); write('piano.js', read('piano-samples.js')); write('piano-soft.js', read('piano-soft.js')); write('piano-hard.js', read('piano-hard.js'))
 
 if '--min' in sys.argv:
     for tool, args in (('terser', ['--compress', 'passes=2', '--mangle', '-o']), ('cleancss', ['-O2', '-o'])):

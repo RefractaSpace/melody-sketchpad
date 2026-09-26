@@ -339,6 +339,17 @@ async def main():
           const d=(await decodeMSK(await encodeMSK(S,'x',{}))).song,t=parseScore(withSong(S,()=>scoreText('x'))).song,k=s=>JSON.stringify([s.channels.map(c=>(s.mix[chKey(c)].fx||[]).map(f=>[f.type,Math.round(f.a*100),Math.round(f.b*100)])),s.patterns.map(p=>s.channels.map(c=>{const A=(p.auto||{})[c.id]||{};return ['vol','cut'].map(q=>(A[q]||[]).map(x=>[x.s,Math.round(x.v*100)]))}))]);
           return [k(S)===k(d),k(S)===k(t).replace(/\[\[\["[a-z]+",\d+,\d+\](,\["[a-z]+",\d+,\d+\])*\]/g,'')||true, (a=>JSON.stringify(a))(t.channels.map(c=>['vol','cut'].map(q=>(((t.patterns[0].auto||{})[c.id]||{})[q]||[]).map(x=>[x.s,Math.round(x.v*100)]))))===(a=>JSON.stringify(a))(S.channels.map(c=>['vol','cut'].map(q=>(((S.patterns[0].auto||{})[c.id]||{})[q]||[]).map(x=>[x.s,Math.round(x.v*100)]))))]})()""")
         check('자동화 줄 편집(점 찍기·두 번 눌러 지우기) · 믹서에서 이펙트 끼우기 · MSK·악보 저장', pts.count('[') == 3 and left == 1 and fxs == '["comp"]' and rt4[0] and rt4[2], f'점 {pts} → 지운 뒤 {left}개 · 이펙트 {fxs} · 저장 {rt4}')
+        # 피아노 세기 층
+        await pg.wait_for_function("layerState==='ready'", timeout=30000)
+        lay = await J("""(async()=>{const one=async(v)=>{const s=normalize(blank());s.bpm=120;s.channels=[newChannel('synth','piano','피아노')];s.mix={};fillMix(s);const k='ch:'+s.channels[0].id;s.mix[k].rev=0;s.mix[k].dly=0;
+            const P=s.patterns[0];P.bars=1;P.chords=Array(4).fill(null);P.notes={[s.channels[0].id]:[{p:60,s:0,l:96,v}]};s.pat=0;s.ch=0;s.playMode='pat';
+            const w=await withSongAsync(normalize(s),()=>renderWav()),dv=new DataView(w.buffer),n=22050;let e=0,d=0,prev=0;for(let i=0;i<n;i++){const x=dv.getInt16(44+(i+2205)*4,true)/32767;e+=x*x;d+=Math.abs(x-prev);prev=x}return [Math.sqrt(e/n),d/n/Math.sqrt(e/n)]};
+          const r={on:[],off:[]};for(const v of [.15,.6,.98])r.on.push(await one(v));const keep={soft:PIANO_L.soft,hard:PIANO_L.hard};PIANO_L.soft={};PIANO_L.hard={};
+          for(const v of [.15,.6,.98])r.off.push(await one(v));PIANO_L.soft=keep.soft;PIANO_L.hard=keep.hard;return {n:[Object.keys(PIANO_L.soft).length,Object.keys(PIANO_L.hard).length],on:r.on.map(x=>x.map(y=>+y.toFixed(4))),off:r.off.map(x=>x.map(y=>+y.toFixed(4)))}})()""")
+        on, off = lay['on'], lay['off']
+        spread_on = on[2][1] / on[0][1]; spread_off = off[2][1] / off[0][1]
+        check('피아노 세기 층: 약하게·세게 친 녹음이 뒤에서 도착 · 세게 칠수록 밝아짐', lay['n'] == [21, 21] and on[0][0] < on[1][0] < on[2][0] and on[0][1] < on[1][1] < on[2][1] and spread_on > spread_off * 1.1,
+              f"층 {lay['n']}음 · 밝기 약→세 {on[0][1]}→{on[2][1]} (×{spread_on:.2f}, 층 없을 때 ×{spread_off:.2f}) · 크기 {on[0][0]}→{on[2][0]}")
         v3 = {'v': 3, 'bpm': 128, 'root': 0, 'mode': 'major', 'bars': 2, 'tracks': [{'id': 'a', 'name': '리드', 'inst': 'pluck', 'notes': [{'p': 60, 's': 0, 'l': 24}]}], 'chords': [{'r': 0, 'q': ''}, None, None, None, {'r': 7, 'q': ''}], 'drums': {'kick': [1, 0, 0, 0, 0.5]}}
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v3)}));openProject(id)}})()")
         conv = await J("[S.channels.map(c=>c.name), S.patterns.length, S.playlist.clips.length, chordName(S.patterns[0].chords[4]), notesOf(S.patterns[0],S.channels[1]).map(n=>n.v)]")

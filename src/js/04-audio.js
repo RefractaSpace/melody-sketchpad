@@ -4,14 +4,29 @@ const hz = m => 440 * Math.pow(2, (m - 69) / 12);
 const SAMPLES = {};            // 샘플 칸 → {buf, root, name}
 const PIANO = {};              // 건반 번호 → AudioBuffer (Salamander Grand Piano, CC-BY 3.0)
 const PIANO_CDN = 'https://cdn.jsdelivr.net/gh/Tonejs/audio@master/salamander/';
+const PIANO_L = {soft:{}, hard:{}}, PIANO_LG = {soft:{}, hard:{}};   // 세기 층: 약하게(v4)·세게(v14) 녹음과 크기 맞춤 배수
 let ctx = null, E = null, pianoState = 'wait';
 
 // ---- 피아노 소리: piano.js가 뒤에서 도착하면 그때 준비 (그동안은 합성 피아노) ----
 function pianoStat(t) { const el = $('pianoStat'); if (el) el.textContent = t; }
-async function decodePianoB64(src) {
+async function decodePianoB64(src, into = PIANO) {
   for (const [k, b64] of Object.entries(src)) {
-    try { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); PIANO[+k] = await decode(u.buffer); } catch (e) {}
+    try { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); into[+k] = await decode(u.buffer); } catch (e) {}
   }
+}
+// 세기 층은 기본 피아노가 준비된 뒤에 뒤에서 불러와요 (한 파일 버전은 이미 들어 있음)
+let layerState = 'wait';
+async function decodeLayers() {
+  const L = window.PIANO_LAYERS || {};
+  for (const n of ['soft', 'hard']) if (L[n] && !Object.keys(PIANO_L[n]).length) { Object.assign(PIANO_LG[n], L[n].gain); await decodePianoB64(L[n].s, PIANO_L[n]); delete L[n].s; }
+  if (Object.keys(PIANO_L.soft).length && Object.keys(PIANO_L.hard).length && layerState !== 'ready') { layerState = 'ready'; pianoStat('피아노 세기 층 준비됨 (약하게·세게 친 녹음)'); setTimeout(() => pianoStat(''), 3000); }
+}
+function loadLayers() {
+  if (layerState !== 'wait') return; layerState = 'loading';
+  window.addEventListener('piano-layer-ready', () => decodeLayers());
+  const L = window.PIANO_LAYERS || {};
+  for (const n of ['soft', 'hard']) if (!L[n]) { const sc = document.createElement('script'); sc.src = `piano-${n}.js`; sc.async = true; document.head.appendChild(sc); }
+  decodeLayers();
 }
 async function loadPianoCDN() {
   const pc = {C:0, Ds:3, Fs:6, A:9}, list = [[96, 'C7']];
@@ -23,7 +38,8 @@ async function preparePiano() {
   if (window.PIANO_SAMPLES) await decodePianoB64(window.PIANO_SAMPLES); else await loadPianoCDN();
   pianoState = Object.keys(PIANO).length ? 'ready' : 'fail';
   pianoStat(pianoState === 'ready' ? '녹음 피아노 준비됨' : '녹음 피아노를 못 불러와서 합성 피아노를 써요');
-  setTimeout(() => { if (pianoState === 'ready') pianoStat(''); }, 3000);
+  setTimeout(() => { if (pianoState === 'ready' && layerState !== 'ready') pianoStat(''); }, 3000);
+  if (pianoState === 'ready' && window.PIANO_SAMPLES) loadLayers();
 }
 function watchPiano() {
   if (window.PIANO_SAMPLES) { preparePiano(); return; }
@@ -34,13 +50,20 @@ function watchPiano() {
 function pianoSample(E, m, t, d, vel, dest, T) {
   T = T || toneDefault(); const keys = Object.keys(PIANO).map(Number); if (!keys.length) return false;
   let r = keys[0]; for (const k of keys) if (Math.abs(k - m) < Math.abs(r - m)) r = k;
-  const ac = E.ac, src = ac.createBufferSource(); src.buffer = PIANO[r]; src.playbackRate.value = Math.pow(2, (m - r) / 12);
-  const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(18000, (2200 + 11000 * vel) * T.br); lp.Q.value = 0.5;
+  const ac = E.ac, rate = Math.pow(2, (m - r) / 12);
+  // 세기 층 섞기: 약하게 ~0.3 | 섞음 | 0.55~0.75 기본 | 섞음 | 0.95~ 세게 (소리 크기가 같게 섞는 코사인 곡선)
+  const hasL = PIANO_L.soft[r] && PIANO_L.hard[r], ramp = (x, a, b) => clamp((x - a) / (b - a), 0, 1), cf = x => [Math.cos(x * Math.PI / 2), Math.sin(x * Math.PI / 2)];
+  let layers = [[PIANO[r], 1]];
+  if (hasL) { if (vel < 0.55) { const [a, b] = cf(ramp(vel, 0.3, 0.55)); layers = [[PIANO_L.soft[r], a * (PIANO_LG.soft[r] || 1)], [PIANO[r], b]]; }
+    else if (vel > 0.75) { const [a, b] = cf(ramp(vel, 0.75, 0.95)); layers = [[PIANO[r], a], [PIANO_L.hard[r], b * (PIANO_LG.hard[r] || 1)]]; } }
+  const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(18000, ((hasL ? 5000 : 2200) + (hasL ? 11000 : 11000) * vel) * T.br); lp.Q.value = 0.5;
+  let longest = 0; const srcs = [];
+  for (const [buf, w] of layers) { if (!buf || w < 0.01) continue; const src = ac.createBufferSource(), lg = ac.createGain(); src.buffer = buf; src.playbackRate.value = rate; lg.gain.value = w; src.connect(lg); lg.connect(lp); srcs.push(src); longest = Math.max(longest, buf.duration); }
   const g = ac.createGain(), lv = (0.45 + 0.55 * vel) * 0.9;
   if (T.atk > 0) { g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(lv, t + T.atk); } else g.gain.setValueAtTime(lv, t);
   const off = Math.max(t + d, t + 0.08 + T.atk); g.gain.setValueAtTime(lv, off); g.gain.setTargetAtTime(0.0001, off, Math.max(0.03, T.rel) / 3);
-  src.connect(lp); lp.connect(g); g.connect(dest); src.start(t);
-  src.stop(Math.min(off + Math.max(0.6, T.rel * 2), t + src.buffer.duration / src.playbackRate.value + 0.05)); return true;
+  lp.connect(g); g.connect(dest);
+  for (const src of srcs) { src.start(t); src.stop(Math.min(off + Math.max(0.6, T.rel * 2), t + longest / rate + 0.05)); } return true;
 }
 
 // ---- 엔진 ----

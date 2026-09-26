@@ -2,6 +2,12 @@
 
 브라우저에서 쓰는 **FL Studio식 작곡 도구**예요. 채널 랙·피아노 롤로 패턴을 만들고, 플레이리스트에 패턴을 놓아 곡을 구성해요.
 
+## 새로 들어간 것 (v5)
+- 템포 지도 · 믹서 이펙트 칸(압축기·디스토션·로우패스·하이패스·코러스) · 볼륨·필터 자동화
+- MIDI 건반 · 자판 건반 · 음 녹음 · 마이크 녹음
+- 플레이리스트 조각 늘리기/잘라내기/색 · 노트북 화면 배치
+- 피아노 세기 층 (Salamander V3 velocity 4·기본·14)
+
 ## 작업 흐름
 | 창 | 단축키 | 하는 일 |
 |---|---|---|
@@ -30,7 +36,7 @@
 - `docs/msk-format.md` — MSK 형식 설명서 (바이트 구조)
 - `docs/score-format.md` — 악보 텍스트 형식 설명서
 - `songs/` — 예제 곡 (악보 형식)
-- `tests/run_tests.py` — 브라우저 자동 테스트 (43가지)
+- `tests/run_tests.py` — 브라우저 자동 테스트 (55가지)
 - `vercel.json` — "빌드 없이 public 폴더를 배포" 설정
 
 ## 배포
@@ -48,5 +54,5 @@
 ## 원본을 고친 뒤
 1. `src/` 안의 파일을 고쳐요 (`src/index.html`을 열어 바로 확인)
 2. `python src/build.py` 실행 → `public/`이 다시 만들어져요 (`--min`을 붙이면 terser로 압축)
-3. `python tests/run_tests.py public/index.html`로 자동 테스트 (43가지)
+3. `python tests/run_tests.py public/index.html`로 자동 테스트 (55가지)
 4. GitHub에 올리면 사이트가 자동으로 바뀌어요
