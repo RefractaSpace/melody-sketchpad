@@ -11,5 +11,7 @@ open(p,'w',encoding='utf-8').write(h)
 PY
 grep -q 'MSK_SERVER' app/index.html
 [ -d node_modules/electron-builder ] || npm install --no-audit --no-fund --loglevel=error
-npx electron-builder --win nsis --x64 --publish never
+npx electron-builder --win dir --x64 --publish never   # 앱 묶음(win-unpacked)만 — 설치 프로그램은 아래 NSIS로 (wine 없이)
+N=~/.cache/electron-builder/nsis/nsis-3.0.4.1; NSISDIR=$N $N/linux/makensis -V2 -DVERSION=$(node -p "require('./package.json').version") installer.nsi
+python3 make_latest.py
 ls -la dist/*.exe dist/latest.yml
