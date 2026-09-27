@@ -1,14 +1,24 @@
 /* 23-cloud.js — 서버에 곡 저장·열기 (/api/songs, 저장소 키) */
-const CLOUD_API = (window.MSK_SERVER || '') + '/api/songs', CK = 'msk-cloud-key', CA = 'msk-cloud-auto';
+const CLOUD_API = (window.MSK_SERVER || '') + '/api/songs', AUTH_API = (window.MSK_SERVER || '') + '/api/auth', CK = 'msk-cloud-key', CA = 'msk-cloud-auto', AK = 'msk-auth';
+// 로그인 정보 {token, username} — 30일 동안 유지 (서버가 서명한 토큰)
+const authInfo = () => { try { return JSON.parse(lsGet(AK) || 'null'); } catch (e) { return null; } };
+function setAuth(a) { lsSet(AK, a ? JSON.stringify(a) : ''); authUI(); }
+function authUI() { const a = authInfo(); $('authOut').hidden = !!a; $('authIn').hidden = !a; $('authName').textContent = a ? `${a.username} 계정으로 로그인됨` : ''; $('authMove').hidden = !(a && cloudKey()); $('cloudBtn').textContent = a ? '☁ ' + a.username : '☁ 로그인'; }
+async function authCall(action, body, token) {
+  const r = await fetch(`${AUTH_API}?action=${action}`, {method:body ? 'POST' : 'GET', headers:{'content-type':'application/json', ...(token ? {authorization:'Bearer ' + token} : {})}, body:body ? JSON.stringify(body) : undefined});
+  let j = {}; try { j = await r.json(); } catch (e) {} if (!r.ok) throw Object.assign(new Error(j.message || j.error || 'HTTP ' + r.status), {status:r.status}); return j;
+}
 const cloudKey = () => lsGet(CK) || '';
 function newCloudKey() { const a = new Uint8Array(18); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 async function cloudFetch(q, opt = {}) {
-  const r = await fetch(CLOUD_API + q, {...opt, headers:{'x-msk-key':cloudKey(), ...(opt.headers || {})}});
+  const a = authInfo(), useKey = opt.useKey, h = {...(opt.headers || {})}; if (a && !useKey) h.authorization = 'Bearer ' + a.token; else h['x-msk-key'] = cloudKey();
+  const r = await fetch(CLOUD_API + q, {...opt, headers:h});
+  if (r.status === 401 && a && !useKey) setAuth(null);   // 토큰이 만료되면 로그아웃 상태로
   if (!r.ok) { let m = 'HTTP ' + r.status; try { const j = await r.json(); m = j.message || j.error || m; } catch (e) {} throw Object.assign(new Error(m), {status:r.status}); }
   return r;
 }
 async function cloudUpload(quiet) {
-  if (!cloudKey()) { lsSet(CK, newCloudKey()); }
+  if (!authInfo() && !cloudKey()) lsSet(CK, newCloudKey());
   const u = await encodeMSK(S, lib.list[lib.current].name, await songSamples(S)), name = lib.list[lib.current].name;
   if (u.length > 4 * 1024 * 1024) throw new Error(`곡이 ${(u.length / 1e6).toFixed(1)}MB라 서버 한도(4MB)를 넘어요 (내 샘플·오디오 클립이 크면 생겨요)`);
   const r = await (await cloudFetch(`?id=${encodeURIComponent(lib.current)}&name=${encodeURIComponent(name)}`, {method:'PUT', headers:{'content-type':'application/octet-stream'}, body:u})).json();
@@ -16,15 +26,15 @@ async function cloudUpload(quiet) {
 }
 let cloudT = 0, cloudFailed = false;
 function cloudOnSave() {   // 저장할 때마다(3초 모아서) 자동으로 서버에
-  if (lsGet(CA) !== '1' || !cloudKey()) return; clearTimeout(cloudT);
+  if (lsGet(CA) !== '1' || !(authInfo() || cloudKey())) return; clearTimeout(cloudT);
   cloudT = setTimeout(() => cloudUpload(true).then(() => { cloudFailed = false; }).catch(e => { if (!cloudFailed) status('서버 자동 저장 실패: ' + e.message + ' (내 컴퓨터에는 저장돼 있어요)'); cloudFailed = true; }), 3000);
 }
 async function cloudRefresh() {
   const box = $('cloudList'); box.innerHTML = ''; $('cloudKey').value = cloudKey(); $('cloudAuto').checked = lsGet(CA) === '1';
-  if (!cloudKey()) { $('cloudState').textContent = '아직 저장소 키가 없어요. "지금 곡 올리기"를 누르면 키가 만들어져요.'; return; }
+  authUI(); if (!authInfo() && !cloudKey()) { $('cloudState').textContent = '로그인하면 곡을 계정에 저장해요. 로그인 없이 쓰려면 아래 "저장소 키"를 쓰세요.'; return; }
   try {
     const {songs} = await (await cloudFetch('')).json();
-    $('cloudState').textContent = `서버 연결됨 · 곡 ${songs.length}개`;
+    $('cloudState').textContent = `서버 연결됨 · ${authInfo() ? authInfo().username + ' 계정' : '저장소 키'} · 곡 ${songs.length}개`;
     for (const s of songs) {
       const row = document.createElement('div'); row.className = 'trow';
       const nm = document.createElement('span'); nm.style.flex = '1'; nm.textContent = `${s.name} · ${(s.size / 1024).toFixed(0)}KB · ${new Date(s.uploadedAt).toLocaleString('ko-KR')}`;
@@ -39,6 +49,26 @@ async function cloudRefresh() {
   }
 }
 $('cloudBtn').onclick = () => { cloudRefresh(); openDlg($('cloudDlg')); };
+async function authGo(action) {
+  const username = $('authUser').value.trim().toLowerCase(), password = $('authPass').value;
+  try { const j = await authCall(action, {username, password}); $('authPass').value = ''; setAuth({token:j.token, username:j.username}); status(action === 'signup' ? `${j.username} 계정을 만들었어요.` : `${j.username}(으)로 로그인했어요.`); cloudRefresh(); }
+  catch (e) { $('cloudState').textContent = (action === 'signup' ? '회원가입 실패: ' : '로그인 실패: ') + e.message; }
+}
+$('authLogin').onclick = () => authGo('login'); $('authSignup').onclick = () => authGo('signup');
+$('authPass').onkeydown = e => { if (e.key === 'Enter') authGo('login'); };
+$('authLogout').onclick = () => { setAuth(null); status('로그아웃했어요. 내 컴퓨터의 곡은 그대로예요.'); cloudRefresh(); };
+$('authDelete').onclick = async () => {
+  const pw = prompt('계정과 서버의 곡을 모두 지워요 (내 컴퓨터의 곡은 그대로). 계속하려면 비밀번호를 넣어 주세요.'); if (!pw) return;
+  try { await authCall('delete', {password:pw}, authInfo().token); setAuth(null); status('계정을 삭제했어요.'); cloudRefresh(); } catch (e) { $('cloudState').textContent = '계정 삭제 실패: ' + e.message; }
+};
+// 저장소 키로 올린 곡을 로그인한 계정으로 복사
+$('authMove').onclick = async () => {
+  try { const {songs} = await (await cloudFetch('', {useKey:true})).json(); let n = 0;
+    for (const s of songs) { const u = new Uint8Array(await (await cloudFetch('?id=' + encodeURIComponent(s.id), {useKey:true})).arrayBuffer());
+      await cloudFetch(`?id=${encodeURIComponent(s.id)}&name=${encodeURIComponent(s.name)}`, {method:'PUT', headers:{'content-type':'application/octet-stream'}, body:u}); n++; $('cloudState').textContent = `옮기는 중 ${n}/${songs.length}`; }
+    status(`저장소 키의 곡 ${n}개를 계정으로 복사했어요 (키 쪽에도 남아 있어요).`); cloudRefresh(); } catch (e) { $('cloudState').textContent = '옮기기 실패: ' + e.message; }
+};
+setTimeout(authUI, 0);
 $('cloudClose').onclick = () => $('cloudDlg').close();
 $('cloudRefresh').onclick = cloudRefresh;
 $('cloudKey').onchange = () => { const v = $('cloudKey').value.trim(); if (v && !/^[A-Za-z0-9_-]{16,64}$/.test(v)) { status('저장소 키는 16~64글자(영문·숫자·-·_)예요.'); return; } lsSet(CK, v); cloudRefresh(); };
