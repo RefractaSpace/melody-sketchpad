@@ -178,6 +178,26 @@
   </div>
   <div class="drow"><button class="tbtn" id="convOpen" disabled>이 곡을 새 프로젝트로 열기</button><button class="tbtn solid" id="convClose">닫기</button></div>
 </dialog>
+<section id="myPage" class="mypage" hidden aria-labelledby="mpTitle">
+  <div class="mp-wrap">
+    <header class="mp-top"><button class="tbtn" id="mpBack">← 작업 화면으로</button><h2 id="mpTitle">내 페이지</h2><span></span></header>
+    <div class="mp-card mp-profile">
+      <div class="mp-avatar" id="mpAvatar" aria-hidden="true">?</div>
+      <div class="mp-who"><h3 id="mpName"></h3><p class="dsub" id="mpMeta"></p><div class="mp-bar" aria-hidden="true"><i id="mpBarFill"></i></div><p class="dsub" id="mpUse"></p></div>
+      <div class="mp-stats"><div><b id="mpSongs">–</b><span>서버의 곡</span></div><div><b id="mpLocal">–</b><span>내 컴퓨터의 곡</span></div><div><b id="mpSize">–</b><span>서버 사용량</span></div></div>
+    </div>
+    <div class="mp-card">
+      <div class="mp-head"><h3>내 곡</h3><span><label class="xs"><input type="checkbox" id="mpAuto"> 저장할 때 자동으로 올리기</label> <button class="tbtn solid" id="mpUp">지금 곡 올리기</button></span></div>
+      <div class="mp-grid" id="mpGrid"><p class="dsub">불러오는 중…</p></div>
+    </div>
+    <div class="mp-card">
+      <h3>계정</h3>
+      <div class="drow"><input type="password" id="mpOld" class="xs" placeholder="지금 비밀번호" autocomplete="current-password" aria-label="지금 비밀번호"><input type="password" id="mpNew" class="xs" placeholder="새 비밀번호 (8글자 이상)" autocomplete="new-password" aria-label="새 비밀번호"><button class="tbtn" id="mpPw">비밀번호 바꾸기</button></div>
+      <div class="drow"><button class="tbtn" id="mpKeys">저장소 키 · 서버 설정</button><span><button class="tbtn" id="mpLogout">로그아웃</button> <button class="tbtn" id="mpDelete">계정 삭제</button></span></div>
+      <p class="dsub" id="mpMsg" role="status"></p>
+    </div>
+  </div>
+</section>
 <dialog id="cloudDlg" aria-labelledby="cloudTitle">
   <h2 id="cloudTitle">계정 · 서버 저장소</h2>
   <div id="authOut">
@@ -185,7 +205,7 @@
     <label class="xs" style="flex:1">비밀번호 <input id="authPass" type="password" class="xs" style="width:100%" autocomplete="current-password" placeholder="8글자 이상"></label></div>
     <div class="drow"><span><button class="tbtn solid" id="authLogin">로그인</button> <button class="tbtn" id="authSignup">회원가입</button></span></div>
   </div>
-  <div id="authIn" hidden><div class="drow"><b id="authName"></b><span><button class="tbtn xs" id="authMove" hidden>저장소 키 곡을 계정으로 옮기기</button> <button class="tbtn xs" id="authLogout">로그아웃</button> <button class="tbtn xs" id="authDelete">계정 삭제</button></span></div></div>
+  <div id="authIn" hidden><div class="drow"><b id="authName"></b><span><button class="tbtn xs" id="authPage">내 페이지</button> <button class="tbtn xs" id="authMove" hidden>저장소 키 곡을 계정으로 옮기기</button> <button class="tbtn xs" id="authLogout">로그아웃</button> <button class="tbtn xs" id="authDelete">계정 삭제</button></span></div></div>
   <p class="dsub" id="cloudState" role="status">확인 중…</p>
   <details id="keyBox"><summary class="xs">로그인 없이 저장소 키로 쓰기</summary>
   <div class="drow"><label class="xs" style="flex:1">저장소 키 <input id="cloudKey" class="xs" style="width:100%" spellcheck="false" autocomplete="off" aria-describedby="cloudKeyHelp"></label><button class="tbtn xs" id="cloudKeyCopy">복사</button><button class="tbtn xs" id="cloudKeyNew">새 키</button></div>

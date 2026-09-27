@@ -2,6 +2,7 @@
 //   POST /api/auth?action=signup  {username, password} → {token, username}
 //   POST /api/auth?action=login   {username, password} → {token, username}
 //   GET  /api/auth?action=me      (Authorization: Bearer 토큰) → {username}
+//   POST /api/auth?action=password {old, password} + 토큰 → 비밀번호 바꾸기
 //   POST /api/auth?action=delete  {password} + 토큰 → 계정과 곡 모두 삭제
 import { put, list, del } from '@vercel/blob';
 import crypto from 'node:crypto';
@@ -16,7 +17,11 @@ export default async function handler(req, res) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return res.status(503).json({error:'no-store', message:'서버 저장소가 연결되지 않았어요'});
   const action = String(req.query.action || '');
   try {
-    if (action === 'me') { const u = readToken(String(req.headers.authorization || '').replace(/^Bearer /, '')); return u ? res.status(200).json({username:u}) : res.status(401).json({error:'bad-token', message:'로그인이 필요해요'}); }
+    if (action === 'me') {   // 내 정보: 아이디 · 가입일 · 곡 수 · 사용량
+      const u = readToken(String(req.headers.authorization || '').replace(/^Bearer /, '')); if (!u) return res.status(401).json({error:'bad-token', message:'로그인이 필요해요'});
+      const found = await findUser(u), songs = (await list({prefix:userDir(u) + 'songs/', limit:1000})).blobs;
+      return res.status(200).json({username:u, created:found ? found.rec.created : null, songs:songs.length, bytes:songs.reduce((a, b) => a + b.size, 0), limitBytes:4 * 1024 * 1024});
+    }
     if (req.method !== 'POST') return res.status(405).json({error:'method'});
     const body = await readJson(req);
     if (action === 'signup' || action === 'login') {
@@ -34,6 +39,16 @@ export default async function handler(req, res) {
       const ok = found && crypto.timingSafeEqual(await scrypt(password, Buffer.from(found.rec.salt, 'base64')), Buffer.from(found.rec.hash, 'base64'));
       if (!ok) { tries.set(username, {n:t.n + 1, at:Date.now()}); return res.status(401).json({error:'wrong', message:'아이디나 비밀번호가 틀렸어요'}); }
       tries.delete(username); return res.status(200).json({token:makeToken(username), username});
+    }
+    if (action === 'password') {   // 비밀번호 바꾸기 {old, password}
+      const u = readToken(String(req.headers.authorization || '').replace(/^Bearer /, '')); if (!u) return res.status(401).json({error:'bad-token', message:'로그인이 필요해요'});
+      const np = String(body.password || ''); if (np.length < 8 || np.length > 200) return res.status(400).json({error:'bad-password', message:'새 비밀번호는 8글자 이상이에요'});
+      const found = await findUser(u); if (!found) return res.status(404).json({error:'not-found'});
+      if (!crypto.timingSafeEqual(await scrypt(String(body.old || ''), Buffer.from(found.rec.salt, 'base64')), Buffer.from(found.rec.hash, 'base64'))) return res.status(401).json({error:'wrong', message:'지금 비밀번호가 틀렸어요'});
+      const salt = crypto.randomBytes(16), hash = await scrypt(np, salt);
+      await put(userDir(u) + 'account.json', JSON.stringify({...found.rec, salt:salt.toString('base64'), hash:hash.toString('base64'), changed:new Date().toISOString()}), {access:'public', addRandomSuffix:true, contentType:'application/json'});
+      await del(found.blobs.map(b => b.url));   // 예전 계정 파일은 새 파일을 쓴 뒤 지움
+      return res.status(200).json({ok:true, token:makeToken(u)});
     }
     if (action === 'delete') {
       const u = readToken(String(req.headers.authorization || '').replace(/^Bearer /, '')); if (!u) return res.status(401).json({error:'bad-token', message:'로그인이 필요해요'});
