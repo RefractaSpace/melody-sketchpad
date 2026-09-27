@@ -17,8 +17,8 @@ Shape: {"title":"short name","channels":[{"name":"Lead","inst":"<inst>","notes":
   feedback:`You are a friendly composition teacher for a middle-school student. Reply in Korean, plain text, at most 8 short lines starting with "• ". Be specific about the given song data (structure, harmony, rhythm, instruments, mix). Mention 1-2 strengths, then concrete suggestions.`
 };
 function parseJson(t) { const s = String(t).replace(/```(json)?/g, ''), i = s.indexOf('{'), j = s.lastIndexOf('}'); return JSON.parse(s.slice(i, j + 1)); }
-async function callAI(system, user, maxTokens) {
-  const key = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN; if (!key) throw Object.assign(new Error('AI 연결 정보가 없어요'), {status:503});
+async function callAI(req, system, user, maxTokens) {
+  const key = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || req.headers['x-vercel-oidc-token'];   // Vercel이 함수에 넘겨주는 OIDC 토큰 if (!key) throw Object.assign(new Error('AI 연결 정보가 없어요'), {status:503});
   let last = null;
   for (const model of MODELS) {
     const r = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {method:'POST', headers:{'content-type':'application/json', authorization:'Bearer ' + key},
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
   else if (task === 'chords') user = `${ctx} Bars: ${Math.min(16, Math.max(1, b.bars | 0 || 4))}. Melody as [bar,beat,step,pitch,lenSteps]: ${JSON.stringify((b.melody || []).slice(0, 300))}`;
   else user = `Song data (JSON): ${JSON.stringify(b.song || {}).slice(0, 12000)}`;
   try {
-    const {text, model} = await callAI(SYS[task], user, task === 'feedback' ? 700 : 3000);
+    const {text, model} = await callAI(req, SYS[task], user, task === 'feedback' ? 700 : 3000);
     used.set(k, n + 1);
     if (task === 'feedback') return res.status(200).json({text:text.slice(0, 2000), model, left:LIMIT - n - 1});
     const data = parseJson(text); return res.status(200).json({data, model, left:LIMIT - n - 1});
