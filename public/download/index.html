@@ -280,14 +280,13 @@ footer{padding:40px 0 56px;color:var(--ink2);font-size:14px}
   document.fonts && document.fonts.ready.then(draw); draw();
   if (!reduce) setTimeout(() => { sweepStart = performance.now(); requestAnimationFrame(loop); }, 500);
 })();
-// 최신 릴리스 정보 (버전 · 크기 · 날짜)
-fetch('https://api.github.com/repos/RefractaSpace/melody-sketchpad/releases/latest').then(r => r.ok ? r.json() : null).then(rel => {
-  if (!rel) return; const a = (rel.assets || []).find(x => /Setup\.exe$/.test(x.name)) || (rel.assets || []).find(x => /Setup.*\.exe$/.test(x.name)); if (!a) return;
-  const v = rel.tag_name.replace(/^v/, ''), mb = Math.round(a.size / 1048576), d = new Date(rel.published_at).toLocaleDateString('ko-KR');
-  document.getElementById('dlMeta').textContent = `버전 ${v}, ${mb}MB, ${d}에 나옴. Windows 10, 11 (64비트)`;
-  document.getElementById('dlSize').textContent = `${a.name} (${mb}MB)`;
-  document.getElementById('verLine').textContent = `멜로디 스케치패드 ${v}`;
-  document.getElementById('notesLink').href = rel.html_url;
+// 최신 앱 정보 — 우리 서버가 릴리스 파일을 읽어 10분마다 새로 알려 줘요 (GitHub API 호출 한도를 피하려고)
+fetch('/api/release').then(r => r.ok ? r.json() : null).then(rel => {
+  if (!rel || !rel.version) return; const mb = Math.round(rel.size / 1048576), d = new Date(rel.date).toLocaleDateString('ko-KR');
+  document.getElementById('dlMeta').textContent = `버전 ${rel.version}, ${mb}MB, ${d}에 나옴. Windows 10, 11 (64비트)`;
+  document.getElementById('dlSize').textContent = `MelodySketchpad-Setup.exe (${mb}MB)`;
+  document.getElementById('verLine').textContent = `멜로디 스케치패드 ${rel.version}`;
+  document.getElementById('notesLink').href = rel.notes;
 }).catch(() => {});
 </script>
 </body>
