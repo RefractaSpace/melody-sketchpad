@@ -55,9 +55,10 @@ async function musicCompose({prompt, bars, seed, tries}) {
     const aHead = copy(A.notes, 0, H, 0), rel = (ns, sh) => ns.map(n => [n.p, n.s - sh, n.e - sh]);
     const A2 = await genBest(imp, {seed:rel(copy(A.notes, 0, H, L), L), seedLen:H, gen:H, chords:chordsFrom(L + H, H), off:L, temp, tries, fix, score:scoreSec(L, L)});
     const aM = mean(A.notes), bSeed = seedP + (hi ? 5 : 3) + ((chordAt(2 * L)[0] - seedP) % 12 + 12) % 12 % 5;
-    const B = await genBest(imp, {seed:[[Math.min(88, bSeed), 0, 2]], seedLen:2, gen:L - 2, chords:chordsFrom(2 * L + 2, L - 2), off:2 * L, temp:temp + .05, tries, fix, score:scoreSec(2 * L, L, r => mean(r) > aM + 1.5 ? 1 : -.5)});
+    const B = await genBest(imp, {seed:[[Math.min(88, bSeed), 0, 2]], seedLen:2, gen:L - 2, chords:chordsFrom(2 * L + 2, L - 2), off:2 * L, temp:temp + .05, tries, fix, score:scoreSec(2 * L, L, r => mean(r) > aM + 1.5 ? 1.5 : -3)});   // B는 A보다 높아야 대비가 생김 — 어기면 크게 감점
     const A3 = await genBest(imp, {seed:rel(copy(A.notes, 0, H, 3 * L), 3 * L), seedLen:H, gen:H, chords:chordsFrom(3 * L + H, H), off:3 * L, temp:temp - .05, tries, fix, score:scoreSec(3 * L, L)});
     mel = [...A.notes, ...A2.notes, ...B.notes, ...A3.notes].sort((a, b) => a.s - b.s); form = ' · 구조 A–A′–B–A';
+    const last = mel[mel.length - 1], ton = [-24, -12, 0, 12, 24].map(k => last.p - ((last.p - root) % 12 + 12) % 12 + k).filter(p => p >= 55 && p <= 90).sort((x, y) => Math.abs(x - last.p) - Math.abs(y - last.p))[0]; if (ton != null) last.p = ton;   // 끝음은 으뜸음 (마침)
     mel.score = (A.score + A2.score + B.score + A3.score) / 4; void aHead;
   } else {
     const r = await genBest(imp, {seed:[[seedP, 0, 2]], seedLen:2, gen:steps - 2, chords:perStep.slice(2), off:0, temp, tries, fix, score:scoreSec(0, steps)});

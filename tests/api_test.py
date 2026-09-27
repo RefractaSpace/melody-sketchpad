@@ -29,7 +29,8 @@ try:
     check('옛 비밀번호 거절 · 새 비밀번호 로그인', req('POST', '/auth?action=login', {'username': U1, 'password': PW})[0] == 401 and req('POST', '/auth?action=login', {'username': U1, 'password': 'new_pass_456'})[0] == 200)
     for u in (U2, U3): toks[u] = req('POST', '/auth?action=signup', {'username': u, 'password': PW})[1]['token']
     # 곡 저장
-    c, j = req('PUT', '/songs?id=t1&name=test', MSK, tok=toks[U1], raw=True, ctype='application/octet-stream'); check('계정에 곡 올리기', c == 200)
+    check('곡 id가 짧으면 거절 (4~40글자)', req('PUT', '/songs?id=t1&name=test', MSK, tok=toks[U1], raw=True, ctype='application/octet-stream')[0] == 400)
+    c, j = req('PUT', '/songs?id=test01&name=test', MSK, tok=toks[U1], raw=True, ctype='application/octet-stream'); check('계정에 곡 올리기', c == 200)
     c, j = req('GET', '/songs', tok=toks[U1]); check('계정 곡 목록', c == 200 and len(j['songs']) == 1)
     c, j = req('GET', '/songs', tok=toks[U2]); check('다른 계정에는 안 보임', c == 200 and len(j['songs']) == 0)
     # 커뮤니티
