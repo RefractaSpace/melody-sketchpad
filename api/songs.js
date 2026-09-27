@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   try {
     const mine = async prefix => (await list({prefix, limit:1000})).blobs;
     if (req.method === 'GET' && !id) {
-      const songs = (await mine(dir)).map(b => { const m = /\/([A-Za-z0-9_-]+)--([A-Za-z0-9_-]*)(?:-[A-Za-z0-9]+)?\.msk$/.exec(b.pathname); return m && {id:m[1], name:unb64u(m[2]), size:b.size, uploadedAt:b.uploadedAt}; }).filter(Boolean);
+      const songs = (await mine(dir)).map(b => { const m = /\/([A-Za-z0-9_-]+)--([A-Za-z0-9_-]*)\.n[^/]*\.msk$/.exec(b.pathname);   // 이름(base64url) 뒤 '.n' 다음은 Blob이 붙인 임의 글자 return m && {id:m[1], name:unb64u(m[2]), size:b.size, uploadedAt:b.uploadedAt}; }).filter(Boolean);
       return res.status(200).json({songs:songs.sort((a, b) => String(b.uploadedAt).localeCompare(String(a.uploadedAt)))});
     }
     const found = id ? await mine(dir + id + '--') : [];
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     if (req.method === 'PUT') {
       const body = await rawBody(req); if (body.length < 8 || body.subarray(0, 3).toString() !== 'MSK') return res.status(400).json({error:'not-msk', message:'MSK 파일이 아니에요'});
       const name = String(req.query.name || '곡').slice(0, 60);
-      const b = await put(dir + id + '--' + b64u(name) + '.msk', body, {access:'public', addRandomSuffix:true, contentType:'application/octet-stream'});
+      const b = await put(dir + id + '--' + b64u(name) + '.n.msk', body, {access:'public', addRandomSuffix:true, contentType:'application/octet-stream'});
       if (found.length) await del(found.map(x => x.url));   // 예전 판은 지움 (새 판을 먼저 올린 뒤)
       return res.status(200).json({ok:true, id, name, size:body.length, uploadedAt:b.uploadedAt || new Date().toISOString()});
     }
