@@ -24,7 +24,7 @@ function click(EE, t, acc) {
 }
 // 코드 구간: 코드가 나온 박부터 다음 코드(또는 멈춤·패턴 끝)까지
 function chordSegments(P) {
-  P = P || curPat(); const out = [], n = P.bars * 4; let cur = null, start = 0;
+  P = P || curPat(); const out = [], n = P.bars * BEATS; let cur = null, start = 0;
   for (let i = 0; i <= n; i++) {
     const c = i < n ? P.chords[i] : {x:1};
     if (c) { if (cur) out.push({c:cur, s:start * PPQ, l:(i - start) * PPQ}); cur = c.x ? null : c; start = i; }
@@ -53,15 +53,15 @@ function scheduleAuto(EE, P, t0, t1, at) {
 function schedulePattern(EE, P, t0, t1, at) {
   const dur = (a, l) => at(a + l) - at(a);
   scheduleAuto(EE, P, t0, t1, at);
-  for (const c of S.channels) { const arr = P.notes[c.id]; if (arr) for (const n of arr) if (n.s >= t0 && n.s < t1) playTrackNote(EE, c, n.p, at(n.s), dur(n.s, n.l) * 0.98, n.v, n.b); }
+  for (const c of S.channels) { const arr = P.notes[c.id]; if (arr) for (const n of arr) if (n.s >= t0 && n.s < t1) playTrackNote(EE, c, n.p, at(n.s + (S.swing && n.s % 24 === 12 ? S.swing * 6 : 0)), dur(n.s, n.l) * 0.98, n.v, n.b); }
   for (const seg of chordSegments(P)) if (seg.s >= t0 && seg.s < t1) chordPlay(EE, S.chordInst, chordVoices(seg.c), at(seg.s), dur(seg.s, seg.l) * 0.98);
   if (S.bassMode !== 'off') {
-    const nb = P.bars * 4;
+    const nb = P.bars * BEATS;
     for (let i = Math.floor(t0 / PPQ); i < Math.min(nb, Math.ceil(t1 / PPQ)); i++) {
       const c = chordAtBeat(i, P); if (!c) continue;
       const root = 36 + c.r, bt = i * PPQ, prev = i > 0 ? chordAtBeat(i - 1, P) : null, changed = !prev || prev.r !== c.r || prev.q !== c.q;
       let hits;
-      if (S.bassMode === 'sustain') { if (!(changed || i % 4 === 0)) continue; let j = i + 1; while (j < nb && j % 4 !== 0 && chordAtBeat(j, P) === c) j++; hits = [[0, (j - i) * PPQ]]; }
+      if (S.bassMode === 'sustain') { if (!(changed || i % BEATS === 0)) continue; let j = i + 1; while (j < nb && j % BEATS !== 0 && chordAtBeat(j, P) === c) j++; hits = [[0, (j - i) * PPQ]]; }
       else if (S.bassMode === '8th') hits = [[0, 22], [24, 22]];
       else hits = [[24, 20]];
       for (const [o, l] of hits) { const tt = bt + o; if (tt >= t0 && tt < t1) bassPlay(EE, S.bassInst, root, at(tt), dur(tt, l) * 0.95); }

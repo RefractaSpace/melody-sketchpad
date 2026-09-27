@@ -32,9 +32,9 @@ function drawPlaylistBase() {
   x.font = '600 10px "IBM Plex Mono",monospace'; x.textBaseline = 'middle';
   const endBar = songBars();
   for (let b = 0; b <= MAX_BARS; b++) { const X = b * PL_BAR + .5, big = b % 4 === 0; x.fillStyle = big ? CS.ink : CS.line2; x.fillRect(X, big ? 3 : 13, 1, big ? PL_RULER - 4 : PL_RULER - 14); if (big && b < MAX_BARS) { x.fillStyle = CS.ink; x.fillText(String(b + 1), X + 4, 8); } }
-  const ss = songStart / (4 * PPQ) * PL_BAR; x.fillStyle = CS.ink; x.beginPath(); x.moveTo(ss, PL_RULER - 1); x.lineTo(ss + 7, PL_RULER - 8); x.lineTo(ss, PL_RULER - 8); x.closePath(); x.fill();
+  const ss = songStart / BAR_T * PL_BAR; x.fillStyle = CS.ink; x.beginPath(); x.moveTo(ss, PL_RULER - 1); x.lineTo(ss + 7, PL_RULER - 8); x.lineTo(ss, PL_RULER - 8); x.closePath(); x.fill();
   drawTempoCurve(x, w, PL_RULER);
-  if (songTick >= 0) { x.fillStyle = CS.ink; x.fillRect(songTick / (4 * PPQ) * PL_BAR - 1, 0, 2, PL_RULER); }
+  if (songTick >= 0) { x.fillStyle = CS.ink; x.fillRect(songTick / BAR_T * PL_BAR - 1, 0, 2, PL_RULER); }
   // 격자
   x = sizeCanvas(plc, w, h);
   for (let t = 0; t < tracks; t++) { x.fillStyle = t % 2 ? CS['row-out'] : CS['row-in']; x.fillRect(0, t * PL_ROW, w, PL_ROW); x.fillStyle = CS.line; x.fillRect(0, (t + 1) * PL_ROW - 1, w, 1); }
@@ -62,12 +62,12 @@ function drawPlaylistBase() {
     x.save(); x.beginPath(); x.rect(X + 2, Y, W - 4, PL_ROW); x.clip(); x.fillStyle = ink; x.fillText(P.name + (cl.off ? ` (${cl.off + 1}마디부터)` : ''), X + 7, Y + 4); x.restore();
   }
   if (document.activeElement === plc) { x.strokeStyle = CS.ink; x.lineWidth = 2; x.setLineDash([4, 3]); x.strokeRect(plCur.bar * PL_BAR + 1, plCur.t * PL_ROW + 1, PL_BAR - 2, PL_ROW - 3); x.setLineDash([]); }
-  if (songTick >= 0) { x.fillStyle = CS.ink; x.fillRect(songTick / (4 * PPQ) * PL_BAR - 1, 0, 2, h); }
+  if (songTick >= 0) { x.fillStyle = CS.ink; x.fillRect(songTick / BAR_T * PL_BAR - 1, 0, 2, h); }
   drawAudioClips(x);
   drawSongAutoLane(x);
 }
 function followPlaylist() {
-  if (!winOpen('playlist')) return; const X = songTick / (4 * PPQ) * PL_BAR, vw = plWrap.clientWidth - 78;
+  if (!winOpen('playlist')) return; const X = songTick / BAR_T * PL_BAR, vw = plWrap.clientWidth - 78;
   if (X < plWrap.scrollLeft || X > plWrap.scrollLeft + vw - 30) plWrap.scrollLeft = Math.max(0, X - 30);
 }
 function plPos(e) { const r = plc.getBoundingClientRect(); const x = e.clientX - r.left, y = e.clientY - r.top; return {bar:clamp(Math.floor(x / PL_BAR), 0, MAX_BARS - 1), t:clamp(Math.floor(y / PL_ROW), 0, S.playlist.tracks - 1), x}; }
@@ -112,7 +112,7 @@ function plUp() {
 plc.addEventListener('pointerup', plUp); plc.addEventListener('pointercancel', plUp);
 plc.addEventListener('dblclick', e => { const q = plPos(e), cl = clipAt(q.bar, q.t); if (!cl) return; selectPattern(S.patterns.findIndex(p => p.id === cl.pat)); openWin('roll'); });
 plr.addEventListener('click', e => {
-  const r = plr.getBoundingClientRect(); songStart = clamp(Math.floor((e.clientX - r.left) / PL_BAR), 0, MAX_BARS - 1) * 4 * PPQ;
+  const r = plr.getBoundingClientRect(); songStart = clamp(Math.floor((e.clientX - r.left) / PL_BAR), 0, MAX_BARS - 1) * BAR_T;
   if (S.playMode !== 'song') setPlayMode('song');
   updatePos(songStart); drawPlaylist(); if (playing) { stop(); play(); }
 });

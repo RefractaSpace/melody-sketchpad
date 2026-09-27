@@ -6,10 +6,10 @@ let rackSteps = [], rackHot = -1;
 
 // 이 채널의 음이 모두 16분 칸에 딱 맞으면 스텝으로 보여 줄 수 있음
 const stepFriendly = (c, arr) => arr.every(n => n.s % 12 === 0 && n.l === 12 && (c.kind === 'drum' || n.p === arr[0].p));
-function stepLabel(c, k, on, v) { const bar = Math.floor(k / 16) + 1, beat = Math.floor((k % 16) / 4) + 1, sub = k % 4 + 1; return `${c.name} ${bar}마디 ${beat}박 ${sub}번째 칸 ` + (on ? `켜짐, 세기 ${Math.round(v * 100)}` : '꺼짐'); }
+function stepLabel(c, k, on, v) { const bar = Math.floor(k / STEPS) + 1, beat = Math.floor((k % STEPS) / 4) + 1, sub = k % 4 + 1; return `${c.name} ${bar}마디 ${beat}박 ${sub}번째 칸 ` + (on ? `켜짐, 세기 ${Math.round(v * 100)}` : '꺼짐'); }
 
 function buildRack() {
-  const P = curPat(), nSteps = P.bars * 16, keepFocus = document.activeElement && rackBody.contains(document.activeElement) ? document.activeElement.dataset : null;
+  const P = curPat(), nSteps = P.bars * STEPS, keepFocus = document.activeElement && rackBody.contains(document.activeElement) ? document.activeElement.dataset : null;
   rackBody.innerHTML = ''; rackSteps = []; rackHot = -1;
   $('rackTitle').textContent = P.name + ` · ${P.bars}마디 (두 번 누르면 이름 바꾸기)`;
   S.channels.forEach((c, ci) => {
@@ -36,7 +36,7 @@ function buildRack() {
       const on = new Map(arr.map(n => [n.s / 12, n]));
       for (let k = 0; k < nSteps; k++) {
         const n = on.get(k), b = document.createElement('button');
-        b.className = 'st' + (Math.floor(k / 4) % 2 ? ' b' : '') + (k % 16 === 0 && k ? ' bar' : '') + (n ? ' on' : '');
+        b.className = 'st' + (Math.floor(k / 4) % 2 ? ' b' : '') + (k % STEPS === 0 && k ? ' bar' : '') + (n ? ' on' : '');
         if (n) b.style.opacity = 0.4 + 0.6 * n.v;
         b.dataset.ci = ci; b.dataset.k = k; b.tabIndex = (ci === S.ch && k === 0) ? 0 : -1;
         b.setAttribute('aria-pressed', !!n); b.setAttribute('aria-label', stepLabel(c, k, !!n, n ? n.v : 0));
@@ -66,7 +66,7 @@ rackBody.addEventListener('keydown', e => {
   let ci = +b.dataset.ci, k = +b.dataset.k; const k0 = k, c0 = ci;
   if (e.key === 'ArrowRight') k++; else if (e.key === 'ArrowLeft') k--;
   else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { const d = e.key === 'ArrowDown' ? 1 : -1; do { ci += d; } while (rackSteps[ci] === null); }
-  else if (e.key === 'Home') k = 0; else if (e.key === 'End') k = curPat().bars * 16 - 1;
+  else if (e.key === 'Home') k = 0; else if (e.key === 'End') k = curPat().bars * STEPS - 1;
   else return;
   e.preventDefault();
   const r = rackSteps[ci]; if (!r) return; k = clamp(k, 0, r.length - 1);

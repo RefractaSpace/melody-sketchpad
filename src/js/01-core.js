@@ -13,7 +13,15 @@ const KEYW = 64, RULER = 24;
 const ZX_LEVELS = [0.75, 1, 1.5, 2, 3, 4], RH_LEVELS = [14, 17, 20, 24, 28];
 let zxi = 3, rhi = 2, TICKPX = ZX_LEVELS[zxi], ROWH = RH_LEVELS[rhi];
 const LANE_H = 28, CHORD_H = 34, VEL_H = 60, LANES_H = CHORD_H + VEL_H;
-const MAX_BARS = 128, MAX_PAT_BARS = 32, DRUM_PITCH = 72, PL_TRACKS = 10, BAR_T = 4 * PPQ;
+const MAX_BARS = 128, MAX_PAT_BARS = 32, DRUM_PITCH = 72, PL_TRACKS = 10;
+// 박자표: 한 마디 틱 BAR_T · 코드 칸 BEATS(4분음표) · 스텝 STEPS(16분음표). 정리·불러오기 중에는 METER_OV로 그 곡 박자를 씀
+const METERS = [[2, 4], [3, 4], [4, 4], [5, 4], [6, 4], [7, 4], [6, 8], [12, 8]];
+let METER_OV = null;
+const meterOf = s => { const m = (s && s.meter) || [4, 4]; return METERS.some(x => x[0] === m[0] && x[1] === m[1]) ? m : [4, 4]; };
+const barTicksOf = m => m[0] * PPQ * 4 / m[1];
+Object.defineProperty(window, 'BAR_T', {get:() => barTicksOf(METER_OV || meterOf(typeof S !== 'undefined' ? S : null))});
+Object.defineProperty(window, 'BEATS', {get:() => BAR_T / PPQ});
+Object.defineProperty(window, 'STEPS', {get:() => BAR_T / 12});
 const SA_PARAMS = ['vol', 'cut', 'pan', 'rev', 'dly', 'fx1', 'fx2', 'fx3'];
 const PAT_COLORS = ['', '#7b95e0', '#e08476', '#72c79f', '#dcb65e', '#b287e0', '#62bccd', '#dc86b4'];   // 0 = 색 없음
 const NAMES_S = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -76,7 +84,7 @@ function toV4(s) {
   const bars = clamp(s.bars | 0 || 8, 1, MAX_BARS), old = s.mix || {};
   const oldBar = !s.v || s.v < 3, ch = s.chords || [];
   const p = newPattern('Pattern 1', bars);
-  p.chords = Array.from({length:bars * 4}, (_, i) => normChord(oldBar ? (i % 4 === 0 ? ch[i / 4] : null) : ch[i]));
+  p.chords = Array.from({length:bars * BEATS}, (_, i) => normChord(oldBar ? (i % 4 === 0 ? ch[i / 4] : null) : ch[i]));
   const channels = [], mix = {};
   for (const t of s.tracks) { const c = {id:t.id || newId(), kind:'synth', inst:INSTS[t.inst] ? t.inst : 'piano', name:t.name || '멜로디', tone:{...toneDefault(), ...(t.tone || {})}}; channels.push(c); p.notes[c.id] = t.notes || []; if (old['trk:' + t.id]) mix[chKey(c)] = old['trk:' + t.id]; }
   for (const d of DRUMS) {
@@ -91,7 +99,8 @@ function toV4(s) {
     chordInst:s.chordInst, chordTone:s.chordTone, bassMode:s.bassMode, bassInst:s.bassInst, kit:s.kit, mix};
 }
 const NOTE_RANGE = () => `${NAMES_S[LOW % 12]}${Math.floor(LOW / 12) - 1}~${NAMES_S[HIGH % 12]}${Math.floor(HIGH / 12) - 1}`;
-function normalize(s) {
+function normalize(s) { const keep = METER_OV; METER_OV = meterOf(s); try { const r = normalizeRaw(s) || s; r.meter = METER_OV.slice(); r.swing = clamp(+r.swing || 0, 0, 1); return r; } finally { METER_OV = keep; } }
+function normalizeRaw(s) {
   s = s && s.v >= 4 ? {...s} : toV4(s || {});
   const b = blank();
   s = {...b, ...s, v:4};
@@ -104,13 +113,13 @@ function normalize(s) {
   if (!s.channels.length) s.channels = b.channels;
   const ids = new Set(s.channels.map(c => c.id));
   s.patterns = (s.patterns || []).map((p, i) => {
-    const bars = clamp(p.bars | 0 || 4, 1, MAX_BARS), lim = bars * 4 * PPQ, notes = {};
+    const bars = clamp(p.bars | 0 || 4, 1, MAX_BARS), lim = bars * BAR_T, notes = {};
     for (const [cid, arr] of Object.entries(p.notes || {})) if (ids.has(cid)) notes[cid] = (arr || []).filter(okNote).map(normNote).filter(n => n.s < lim).map(n => ({...n, l:Math.min(n.l, lim - n.s)}));
     const auto = {};   // 자동화: {채널id: {vol:[{s,v}], cut:[{s,v}]}} — 점은 패턴 끝(lim)까지 허용
     for (const [cid, A] of Object.entries(p.auto || {})) { if (!ids.has(cid) || !A) continue; const o = {};
       for (const k of ['vol', 'cut']) { const mp = new Map(); for (const x of A[k] || []) { const t = Math.round(+x.s || 0); if (t >= 0 && t <= lim) mp.set(t, clamp(+x.v || 0, 0, 1)); } if (mp.size) o[k] = [...mp].sort((a, b) => a[0] - b[0]).map(([s, v]) => ({s, v})); }
       if (Object.keys(o).length) auto[cid] = o; }
-    return {id:p.id || newId(), name:(p.name || 'Pattern ' + (i + 1)).slice(0, 24), bars, notes, auto, chords:Array.from({length:bars * 4}, (_, k) => normChord((p.chords || [])[k])), color:clamp(p.color | 0, 0, PAT_COLORS.length - 1)};
+    return {id:p.id || newId(), name:(p.name || 'Pattern ' + (i + 1)).slice(0, 24), bars, notes, auto, chords:Array.from({length:bars * BEATS}, (_, k) => normChord((p.chords || [])[k])), color:clamp(p.color | 0, 0, PAT_COLORS.length - 1)};
   });
   if (!s.patterns.length) s.patterns = [newPattern('Pattern 1', 4)];
   const pids = new Set(s.patterns.map(p => p.id));
@@ -153,10 +162,10 @@ function loadSong() {
     try { const old = JSON.parse(lsGet(STORE) || 'null'); if (old && old.notes) first = normalize(old); } catch (e) {}
     const id = newId();
     lib.list[id] = {name:first ? '내 첫 곡' : '새 곡', updated:Date.now()}; lib.current = id;
-    lsSet(PK(id), songToStore(first || blank())); saveLib();
+    lsSet(PK(id), songToStore(first || normalize(blank()))); saveLib();
   }
   try { const d = songFromStore(lsGet(PK(lib.current))); if (d) return d; } catch (e) {}
-  return blank();
+  return normalize(blank());   // 비상 경로도 늘 정리된 곡으로
 }
 let S = loadSong(), undoStack = [], saveT = 0;
 function save() {
@@ -177,7 +186,7 @@ const curCh = () => S.channels[S.ch];
 const curTrack = curCh;   // 예전 이름 호환
 function notesOf(p, c) { return p.notes[c.id] || (p.notes[c.id] = []); }
 const curNotes = () => notesOf(curPat(), curCh());
-const patTicks = p => p.bars * 4 * PPQ;
+const patTicks = p => p.bars * BAR_T;
 const totalTicks = () => patTicks(curPat());
 const patById = id => S.patterns.find(p => p.id === id);
 const chById = id => S.channels.find(c => c.id === id);
@@ -196,7 +205,7 @@ function clipParts(cl, a, b) {
   }
   return out;
 }
-const songTicks = () => songBars() * 4 * PPQ;
+const songTicks = () => songBars() * BAR_T;
 
 // ---- 음 이름 ----
 function names() { const f = S.mode === 'major' ? [5,10,3,8,1,6].includes(S.root) : [2,7,0,5,10,3].includes(S.root); return f ? NAMES_F : NAMES_S; }

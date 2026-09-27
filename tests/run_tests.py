@@ -428,6 +428,24 @@ async def main():
         sa = await J("JSON.stringify(S.sauto)")
         await pg.select_option('#saTarget', ''); 
         check('피치 줄 끌기 · 곡 자동화 줄에 점 찍기', bend > 3 and '"master|vol"' in sa and '"s":384' in sa, f'벤드 {bend}반음 · {sa}')
+        # 박자표 · 스윙
+        await J("""(()=>{const s=normalize(blank());s.bpm=120;const P=s.patterns[0];P.bars=4;P.chords=Array(16).fill(null);P.chords[5]={r:0,q:''};P.notes={[s.channels[0].id]:[{p:60,s:0,l:48,v:.8},{p:62,s:700,l:48,v:.8}]};s.ch=0;s.pat=0;s.playMode='pat';S=s;refreshAll()})()""")
+        await pg.click('.more-btn'); await pg.select_option('#meterSel', '3/4'); await pg.wait_for_timeout(150)
+        m1 = await J("({bar:BAR_T,beats:BEATS,bars:curPat().bars,notes:curNotes().map(n=>n.s),chord:curPat().chords.findIndex(Boolean),steps:document.querySelectorAll('#rackBody .rrow')[1].querySelectorAll('.st').length,slots:document.querySelectorAll('#chordRow > *').length})")
+        rt = await J("""(async()=>{S.swing=.4;const d=normalize((await decodeMSK(await encodeMSK(S,'x',{}))).song),t=parseScore(withSong(S,()=>scoreText('x'))).song;return [d.meter.join('/'),d.swing,t.meter.join('/'),t.swing,t.patterns[0].notes[t.channels[0].id].map(n=>n.s).join(',')]})()""")
+        async with pg.expect_download() as dl: await pg.click('#midi')
+        d = await dl.value; mp3 = os.path.join(tmp, 'm34.mid'); await d.save_as(mp3)
+        ts = [(m.numerator, m.denominator) for m in mido.MidiFile(mp3).tracks[0] if m.type == 'time_signature']
+        mm = mido.MidiFile(ticks_per_beat=480); tr = mido.MidiTrack(); mm.tracks.append(tr)
+        tr += [mido.MetaMessage('time_signature', numerator=6, denominator=8, time=0), mido.Message('note_on', note=60, velocity=90, time=0), mido.Message('note_off', note=60, velocity=0, time=480 * 6)]
+        p68 = os.path.join(tmp, 'm68.mid'); mm.save(p68); await pg.locator('#fileIn').set_input_files(p68); await pg.wait_for_timeout(400)
+        m2 = await J("({m:S.meter.join('/'),bar:BAR_T,bars:curPat().bars})")
+        sw = await J("""(()=>{const s=normalize(blank());s.bpm=120;s.swing=.5;const c=s.channels[0];s.patterns[0].bars=1;s.patterns[0].chords=Array(4).fill(null);s.patterns[0].notes={[c.id]:[{p:60,s:0,l:12,v:.8},{p:62,s:12,l:12,v:.8},{p:64,s:24,l:12,v:.8}]};s.ch=0;s.pat=0;s.playMode='pat';S=normalize(s);
+          const T=[],o=playTrackNote;playTrackNote=function(E2,ch,p,t){T.push([p,t]);return o.apply(this,arguments)};ensureCtx();scheduleRange(E,0,48,10,false);playTrackNote=o;const ts=tickSec();return T.sort((a,b)=>a[0]-b[0]).map(x=>+((x[1]-10)/ts).toFixed(2))})()""")
+        check('박자표: 4/4→3/4 (음 위치 그대로 · 마디·스텝·코드 칸 다시 계산) · 6/8 MIDI 불러오기', m1 == {'bar': 144, 'beats': 3, 'bars': 6, 'notes': [0, 700], 'chord': 5, 'steps': 72, 'slots': 18} and m2 == {'m': '6/8', 'bar': 144, 'bars': 2} and ts[:1] == [(3, 4)],
+              f'3/4 {m1} · MIDI 박자 {ts[:1]} · 6/8 불러오기 {m2}')
+        check('박자·스윙이 MSK·악보에 저장 · 스윙은 16분 뒷박만 늦춤', rt == ['3/4', 0.4, '3/4', 0.4, '0,700'] and sw == [0, 15, 24], f'저장 {rt} · 스윙 50% 틱 {sw}')
+        await J("S.meter=[4,4];S.swing=0;S=normalize(S);refreshAll()")
         v3 = {'v': 3, 'bpm': 128, 'root': 0, 'mode': 'major', 'bars': 2, 'tracks': [{'id': 'a', 'name': '리드', 'inst': 'pluck', 'notes': [{'p': 60, 's': 0, 'l': 24}]}], 'chords': [{'r': 0, 'q': ''}, None, None, None, {'r': 7, 'q': ''}], 'drums': {'kick': [1, 0, 0, 0, 0.5]}}
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v3)}));openProject(id)}})()")
         conv = await J("[S.channels.map(c=>c.name), S.patterns.length, S.playlist.clips.length, chordName(S.patterns[0].chords[4]), notesOf(S.patterns[0],S.channels[1]).map(n=>n.v)]")

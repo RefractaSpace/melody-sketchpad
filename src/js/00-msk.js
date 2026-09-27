@@ -57,6 +57,7 @@ async function mskDeflate(u, inflate) {
 // 곡 → 몸통 바이트 (압축 전). samples: {칸이름: {ab, root, name}}, keepIds: 번호표도 저장
 function encodeMskBody(song, name, samples, keepIds) {
   const w = new MskW();
+  if (meterOf(song).join('/') !== '4/4' || song.swing) w.chunk('METR', p => { const m = meterOf(song); p.u8(m[0]); p.u8(m[1]); p.u8(Math.round((song.swing || 0) * 100)); });
   w.chunk('INFO', p => { p.str(name || ''); p.vu(Math.round(song.bpm)); p.u8(song.root); p.u8(song.mode === 'minor' ? 1 : 0); p.u8(song.snap); p.u8(song.len); p.u8(song.playMode === 'song' ? 1 : 0);
     p.u8(mskIdx(MSK_CHORD, song.chordInst)); p.u8(mskIdx(MSK_BMODE, song.bassMode)); p.u8(mskIdx(MSK_BINST, song.bassInst)); p.u8(mskIdx(MSK_KIT, song.kit)); p.vu(song.pat); p.vu(song.ch); wTone(p, song.chordTone); });
   w.chunk('CHAN', p => { p.vu(song.channels.length); for (const c of song.channels) { p.u8(c.kind === 'drum' ? 1 : 0); p.u8(c.kind === 'drum' ? DRUMS.indexOf(c.inst) : mskIdx(MSK_INST, c.inst)); p.str(c.name); wTone(p, c.tone); wMix(p, song.mix[chKey(c)]); } });
@@ -137,6 +138,7 @@ function decodeMskBody(body, needCrc) {
     while (!r.end()) {
       const at = r.i, type = MSK_TD.decode(r.raw(4)), p = new MskR(r.raw(r.vu()));
       if (type === 'CRC ') { const want = (p.u8() | p.u8() << 8 | p.u8() << 16 | p.u8() << 24) >>> 0; if (mskCrc(body.subarray(0, at)) !== want) throw new Error('검사 값이 안 맞아요 — 파일 일부가 바뀌었어요'); crcOk = true; continue; }
+      if (type === 'METR') { song.meter = [p.u8(), p.u8()]; song.swing = p.u8() / 100; continue; }
       if (type === 'TEMP') { song.bpm = p.vu() / 100; continue; }
       if (type === 'FXSL') { for (let k = p.vu(); k > 0; k--) { const kind = p.u8(), i = p.vu(), fx = []; for (let n = p.vu(); n > 0; n--) fx.push({type:MSK_FX[p.u8()] || '', a:p.u8() / 250, b:p.u8() / 250}); (song._fx = song._fx || []).push([kind, i, fx]); } continue; }
       if (type === 'AUTO') { for (let k = p.vu(); k > 0; k--) { const pi = p.vu(), ent = []; for (let n = p.vu(); n > 0; n--) { const ci = p.vu(), A = {}; for (const key of ['vol', 'cut']) { const pts = []; let s = 0; for (let j = p.vu(); j > 0; j--) { s += p.vu(); pts.push({s, v:p.u8() / 250}); } if (pts.length) A[key] = pts; } ent.push([ci, A]); } (song._auto = song._auto || []).push([pi, ent]); } continue; }
@@ -156,7 +158,7 @@ function decodeMskBody(body, needCrc) {
       } else if (type === 'FXCH') {
         song.mix.chords = rMix(p); song.mix.bass = rMix(p); song.mix.master = {v:p.u8() / 200, sc:p.u8() / 200, size:p.u8()};
       } else if (type === 'PATN') {
-        const P = newPattern(p.str(), p.vu()); P.chords = Array(P.bars * 4).fill(null);
+        const P = newPattern(p.str(), p.vu()); P.chords = Array(P.bars * BEATS).fill(null);
         let i = -1; for (let k = p.vu(); k > 0; k--) { i += p.vu() + 1; const b = p.u8(); if (i < P.chords.length) P.chords[i] = b === 255 ? {x:1} : {r:b >> 4, q:MSK_Q[b & 15] || ''}; }
         for (let k = p.vu(); k > 0; k--) {
           const c = song.channels[p.vu()], arr = []; let s = 0;

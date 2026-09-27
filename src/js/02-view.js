@@ -60,7 +60,7 @@ function drawRuler() {
   const t0 = Math.floor(v.sl / TICKPX / PPQ) * PPQ, t1 = Math.min(totalTicks(), (v.sl + v.vw) / TICKPX + PPQ);
   const labelEvery = TICKPX < 1 ? 2 : 1;
   for (let t = t0; t <= t1; t += PPQ) {
-    const X = Math.round(t * TICKPX) + .5, bar = t % (4 * PPQ) === 0, b = t / (4 * PPQ);
+    const X = Math.round(t * TICKPX) + .5, bar = t % BAR_T === 0, b = t / BAR_T;
     x.fillStyle = bar ? CS.ink : CS.line2; x.fillRect(X, bar ? 4 : 14, 1, bar ? RULER - 5 : RULER - 15);
     if (bar && t < totalTicks() && b % labelEvery === 0) { x.fillStyle = CS.ink; x.fillText(String(b + 1), X + 5, 9); }
   }
@@ -81,7 +81,7 @@ function drawRoll() {
   }
   const t0 = Math.floor(x0 / TICKPX / S.snap) * S.snap, t1 = Math.min(totalTicks(), x1 / TICKPX + S.snap);
   for (let t = t0; t <= t1; t += S.snap) {
-    const X = Math.round(t * TICKPX) + .5, bar = t % (4 * PPQ) === 0, beat = t % PPQ === 0;
+    const X = Math.round(t * TICKPX) + .5, bar = t % BAR_T === 0, beat = t % PPQ === 0;
     x.fillStyle = bar ? CS.mute : (beat ? CS.line2 : CS.line); x.globalAlpha = bar ? .8 : 1; x.fillRect(X - .5, v.st, bar ? 1.5 : 1, v.vh);
   }
   x.globalAlpha = 1;
@@ -117,7 +117,7 @@ function drawLanes() {
   lc.style.transform = `translateX(${v.sl}px)`;
   x.fillStyle = CS.panel; x.fillRect(0, 0, v.vw, LANES_H);
   x.save(); x.translate(-v.sl, 0);
-  const vy = CHORD_H, bw = 4 * PPQ * TICKPX;
+  const vy = CHORD_H, bw = BAR_T * TICKPX;
   x.fillStyle = CS.panel2; x.fillRect(v.sl, vy, v.vw, VEL_H); x.fillStyle = CS.line; x.fillRect(v.sl, vy, v.vw, 1);
   for (let b = Math.floor(v.sl / bw); b <= Math.ceil((v.sl + v.vw) / bw); b++) { x.fillStyle = CS.mute; x.globalAlpha = .6; x.fillRect(b * bw, CHORD_H, 1, VEL_H); x.globalAlpha = 1; }
   if (laneMode === 'bend') drawBendLane(x, v, vy);
@@ -143,11 +143,11 @@ let chordSig = '';
 function drawChordRow() {
   const row = $('chordRow'), bw = PPQ * TICKPX;
   const P = curPat(), sig = JSON.stringify([P.id, P.chords, bw, names()[1], S.root, S.mode]);
-  if (sig === chordSig && row.childElementCount === P.bars * 4) return;
+  if (sig === chordSig && row.childElementCount === P.bars * BEATS) return;
   chordSig = sig; row.innerHTML = '';
   let cur = null;
-  for (let i = 0; i < P.bars * 4; i++) {
-    const c = P.chords[i], bar = Math.floor(i / 4) + 1, beat = i % 4 + 1;
+  for (let i = 0; i < P.bars * BEATS; i++) {
+    const c = P.chords[i], bar = Math.floor(i / BEATS) + 1, beat = i % BEATS + 1;
     if (c) cur = c.x ? null : c;
     const el = document.createElement('button');
     el.className = 'cell' + (c && !c.x ? '' : cur ? ' cont' : ' none') + (beat === 1 ? '' : ' beat');

@@ -30,7 +30,20 @@ function syncControls() {
   $('modePat').setAttribute('aria-checked', S.playMode === 'pat'); $('modeSong').setAttribute('aria-checked', S.playMode === 'song');
 }
 // 화면 전체를 곡 데이터에 맞춰 다시 그림
+// ---- 박자표 · 스윙 ----
+$('meterSel').innerHTML = METERS.map(m => `<option value="${m.join('/')}">${m.join('/')}박자</option>`).join('');
+function syncMeterUI() { $('meterSel').value = meterOf(S).join('/'); $('swingSel').value = String(Math.round((S.swing || 0) * 5) / 5); }
+// 박자를 바꿔도 음·자동화·템포 위치(틱)는 그대로. 패턴 마디 수와 조각 위치만 새 마디 길이로 다시 계산
+function setMeter(m) {
+  const old = BAR_T, nb = barTicksOf(m); if (meterOf(S).join('/') === m.join('/')) return; pushUndo();
+  for (const P of S.patterns) P.bars = clamp(Math.ceil(P.bars * old / nb), 1, MAX_BARS);
+  for (const c of S.playlist.clips) { c.bar = clamp(Math.round(c.bar * old / nb), 0, MAX_BARS - 1); if (c.len) c.len = Math.max(1, Math.round(c.len * old / nb)); if (c.off) c.off = Math.round(c.off * old / nb); }
+  S.meter = m.slice(); S = normalize(S); save(); refreshAll(); status(`${m.join('/')}박자로 바꿨어요. 음 위치는 그대로이고 마디 수만 다시 셌어요.`);
+}
+$('meterSel').onchange = () => setMeter($('meterSel').value.split('/').map(Number));
+$('swingSel').onchange = () => { pushUndo(); S.swing = +$('swingSel').value; save(); announce('스윙 ' + Math.round(S.swing * 100) + '%'); };
 function refreshAll() {
+  syncMeterUI();
   const ns = new Set(curNotes()); for (const n of [...sel]) if (!ns.has(n)) sel.delete(n);
   $('selBar').hidden = sel.size === 0;
   syncControls(); refreshTitles(); drawAll(); buildRack(); buildMixer(); drawPlaylist(); buildBrowser();
@@ -41,11 +54,11 @@ $('mode').onchange = () => { S.mode = $('mode').value; save(); drawAll(); };
 $('snap').onchange = () => { S.snap = +$('snap').value; save(); drawRoll(); drawRuler(); };
 $('len').onchange = () => { S.len = +$('len').value; save(); };
 barsSel.onchange = () => {
-  pushUndo(); const P = curPat(), nb = +barsSel.value, lim = nb * 4 * PPQ; P.bars = nb;
+  pushUndo(); const P = curPat(), nb = +barsSel.value, lim = nb * BAR_T; P.bars = nb;
   P.chords = Array.from({length:nb * 4}, (_, i) => P.chords[i] || null);
   for (const cid of Object.keys(P.notes)) P.notes[cid] = P.notes[cid].filter(n => n.s < lim).map(n => ({...n, l:Math.min(n.l, lim - n.s)}));
   for (const cl of S.playlist.clips) if (cl.pat === P.id) cl.bar = Math.min(cl.bar, MAX_BARS - nb);
-  startTick = Math.min(startTick, (nb - 1) * 4 * PPQ); save(); refreshAll();
+  startTick = Math.min(startTick, (nb - 1) * BAR_T); save(); refreshAll();
 };
 $('undo').onclick = () => {
   const s = undoStack.pop(); if (!s) return;

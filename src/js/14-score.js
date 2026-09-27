@@ -22,6 +22,7 @@ function scoreText(title) {
     '# 위치 = 마디.박.칸 (칸 1~4 = 16분, t1~t3 = 셋잇단) · 길이 = 16분 개수 (t = 셋잇단 개수) · v = 세기 % (없으면 80)',
     '# 드럼 줄은 16칸 = 1마디 · X = 100% · 1~9 = 10~90% · . = 쉼 · 줄 앞이 공백이면 앞 줄에 이어짐', ''];
   if (title) L.push('제목: ' + String(title).replace(/[\r\n]/g, ' '));
+  if (meterOf(S).join('/') !== '4/4') L.push('박자: ' + meterOf(S).join('/')); if (S.swing) L.push('스윙: ' + Math.round(S.swing * 100) + '%');
   L.push('BPM: ' + S.bpm, '조: ' + names()[S.root] + (S.mode === 'minor' ? ' 단조' : ' 장조'), '재생: ' + (S.playMode === 'song' ? 'SONG' : 'PAT'),
     ...(S.tempo.length ? ['템포 변화: ' + S.tempo.map(x => `${posText(x.t)} ${x.bpm}`).join(' | ')] : []),
     '코드 소리: ' + CHORD_SOUND[S.chordInst], '베이스: ' + BASS_MODE[S.bassMode] + (S.bassMode === 'off' ? '' : ' ' + BASS_INST[S.bassInst]), '드럼 키트: ' + KIT_NAME[S.kit], '');
@@ -40,13 +41,13 @@ function scoreText(title) {
   for (const P of S.patterns) { let n = safeName(P.name), k = 2; while (pused.has(n)) n = safeName(P.name) + ' ' + k++; pused.add(n); pname.set(P.id, n); }
   for (const P of S.patterns) {
     L.push('', `[패턴] ${pname.get(P.id)} | ${P.bars}마디` + (P.color ? ` | 색 ${P.color}` : ''));
-    const cs = []; P.chords.forEach((c, i) => { if (c) cs.push(`${Math.floor(i / 4) + 1}.${i % 4 + 1} ${c.x ? '멈춤' : chordName(c)}`); });
+    const cs = []; P.chords.forEach((c, i) => { if (c) cs.push(`${Math.floor(i / BEATS) + 1}.${i % BEATS + 1} ${c.x ? '멈춤' : chordName(c)}`); });
     if (cs.length) L.push('코드: ' + cs.join(' | '));
     for (const c of S.channels) {
       const arr = (P.notes[c.id] || []).slice().sort((a, b) => a.s - b.s || b.p - a.p); if (!arr.length) continue;
       const head = cname.get(c.id) + ': ';
       if (c.kind === 'drum' && arr.every(n => n.s % 12 === 0)) {
-        const bars = []; for (let b = 0; b < P.bars; b++) { let t = ''; for (let i = 0; i < 16; i++) { const n = arr.find(x => x.s === (b * 16 + i) * 12); t += n ? velChar(n.v) : '.'; } bars.push(t); }
+        const bars = []; for (let b = 0; b < P.bars; b++) { let t = ''; for (let i = 0; i < STEPS; i++) { const n = arr.find(x => x.s === (b * STEPS + i) * 12); t += n ? velChar(n.v) : '.'; } bars.push(t); }
         for (let b = 0; b < bars.length; b += 4) L.push((b ? '  ' : head) + bars.slice(b, b + 4).join(' '));
         continue;
       }
@@ -70,7 +71,7 @@ function parsePos(tok) {
   const m = /^(\d+)\.(\d+)(?:\.(t?)(\d+)|\+(\d+)\/48)?$/.exec(tok); if (!m) return null;
   const bar = +m[1], beat = +m[2]; if (bar < 1 || beat < 1 || beat > 4) return null;
   let off = 0; if (m[4] != null) { const k = +m[4]; if (m[3] ? k < 1 || k > 3 : k < 1 || k > 4) return null; off = (k - 1) * (m[3] ? 16 : 12); } else if (m[5] != null) off = +m[5];
-  return (bar - 1) * 4 * PPQ + (beat - 1) * PPQ + off;
+  return (bar - 1) * BAR_T + (beat - 1) * PPQ + off;
 }
 function parseLen(tok) { let m = /^(t?)(\d+)$/.exec(tok); if (m) return +m[2] * (m[1] ? 16 : 12); m = /^(\d+)\/48$/.exec(tok); return m ? +m[1] : null; }
 const CHORD_Q = {'':'', 'm':'m', 'min':'m', '7':'7', 'maj7':'maj7', 'M7':'maj7', 'Δ7':'maj7', 'm7':'m7', 'min7':'m7', 'sus4':'sus4', 'sus':'sus4', 'dim':'dim', '°':'dim', 'aug':'aug', '+':'aug'};
@@ -82,7 +83,8 @@ function parseChord(tok) {
   const q = /^m(?!aj)/.test(m[3]) ? (/7/.test(m[3]) ? 'm7' : 'm') : /^maj/.test(m[3]) ? 'maj7' : /^7|^9|^13/.test(m[3]) ? '7' : '';
   return {c:{r, q}, warn:`"${tok}"는 코드 줄에 없는 코드라서 "${NAMES_S[r]}${q}"로 바꿨어요 (복잡한 코드는 채널에 음으로 찍어 주세요)`};
 }
-function parseScore(text) {
+function parseScore(text) { const keep = METER_OV; METER_OV = [4, 4]; try { return parseScoreRaw(text); } finally { METER_OV = keep; } }
+function parseScoreRaw(text) {
   const lines = String(text).replace(/\r/g, '').split('\n'), warnings = [];
   const song = {v:4, bpm:120, root:0, mode:'major', snap:12, len:24, channels:[], patterns:[], pat:0, ch:0, playMode:'pat',
     playlist:{tracks:PL_TRACKS, clips:[]}, chordInst:'pad', bassMode:'off', bassInst:'reese', kit:'edm', mix:{}};
@@ -104,6 +106,8 @@ function parseScore(text) {
         const m = /^([A-G])([#♯b♭]?)\s*(장조|단조|major|minor|maj|min|m)?/i.exec(val); if (!m) fail(i, `조 "${val}"를 읽을 수 없어요 (예: C 장조, F# 단조)`);
         song.root = (PC_OF[m[1].toUpperCase()] + ACC[m[2]] + 12) % 12; song.mode = /단조|minor|min|^m$/i.test(m[3] || '') ? 'minor' : 'major';
       }
+      else if (k === '박자') { const mm = /(\d+)\s*\/\s*(\d+)/.exec(val), m2 = mm && [+mm[1], +mm[2]]; if (m2 && METERS.some(x => x[0] === m2[0] && x[1] === m2[1])) { song.meter = m2; METER_OV = m2; } else warn(i, `박자 "${val}"는 쓸 수 없어요 (${METERS.map(x => x.join('/')).join(' ')})`); }
+      else if (k === '스윙') song.swing = clamp((parseFloat(val) || 0) / 100, 0, 1);
       else if (k === '재생') song.playMode = /song/i.test(val) ? 'song' : 'pat';
       else if (k === '템포변화' || k === '템포지도') {
         song.tempo = song.tempo || [];
@@ -124,12 +128,12 @@ function parseScore(text) {
       return;
     }
     if (!P) fail(i, '음이나 코드는 [패턴] 아래에 써 주세요');
-    const lim = P.bars * 4 * PPQ;
+    const lim = P.bars * BAR_T;
     if (key === '코드') {
       for (const part of val.split('|').map(x => x.trim()).filter(Boolean)) {
         const [pt, ct] = part.split(/\s+/), m = /^(\d+)\.(\d+)$/.exec(pt || ''), r = ct ? parseChord(ct) : null;
         if (!m || !r) { warn(i, `코드 "${part}"를 읽을 수 없어요 (예: 1.1 Fm)`); continue; }
-        const beat = (+m[1] - 1) * 4 + (+m[2] - 1); if (beat < 0 || beat >= P.bars * 4 || +m[2] > 4) { warn(i, `코드 위치 ${pt}가 패턴 밖이에요`); continue; }
+        const beat = (+m[1] - 1) * BEATS + (+m[2] - 1); if (beat < 0 || beat >= P.bars * BEATS || +m[2] > BEATS) { warn(i, `코드 위치 ${pt}가 패턴 밖이에요`); continue; }
         P.chords[beat] = r.c; if (r.warn) warn(i, r.warn);
       }
       return;
@@ -144,7 +148,7 @@ function parseScore(text) {
     if (/^[Xxo1-9.\-\s|]+$/.test(val)) {   // 드럼(스텝) 줄
       let k = stepAt.get(c.id) || 0;
       for (const ch of val.replace(/[\s|]/g, '')) {
-        if (k >= P.bars * 16) { warn(i, `${c.name} 스텝이 패턴 길이(${P.bars}마디)보다 길어서 뒤는 버렸어요`); break; }
+        if (k >= P.bars * STEPS) { warn(i, `${c.name} 스텝이 패턴 길이(${P.bars}마디)보다 길어서 뒤는 버렸어요`); break; }
         const v = ch === 'X' ? 1 : ch === 'x' ? 0.6 : ch === 'o' ? 0.3 : /\d/.test(ch) ? +ch / 10 : 0;
         if (v) arr.push({p:c.kind === 'drum' ? DRUM_PITCH : 72, s:k * 12, l:12, v}); k++;
       }

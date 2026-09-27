@@ -140,7 +140,7 @@ lc.addEventListener('pointerup', () => { if (velDrag) { velDrag = false; save();
 lc.addEventListener('pointercancel', () => { velDrag = false; });
 
 // ---- 키보드로 작곡 (접근성) ----
-function posName(t) { const bar = Math.floor(t / (4 * PPQ)) + 1, beat = Math.floor((t % (4 * PPQ)) / PPQ) + 1, sub = Math.floor((t % PPQ) / S.snap) + 1; return `${bar}마디 ${beat}박` + (sub > 1 ? ` ${sub}번째 칸` : ''); }
+function posName(t) { const bar = Math.floor(t / BAR_T) + 1, beat = Math.floor((t % BAR_T) / PPQ) + 1, sub = Math.floor((t % PPQ) / S.snap) + 1; return `${bar}마디 ${beat}박` + (sub > 1 ? ` ${sub}번째 칸` : ''); }
 function noteAtCursor() { return curNotes().find(n => n.p === kb.p && kb.t >= n.s && kb.t < n.s + n.l); }
 function showCursor() {
   const X = kb.t * TICKPX, Y = (HIGH - kb.p) * ROWH, v = view();
@@ -154,7 +154,7 @@ rc.addEventListener('focus', () => { kb.t = Math.min(kb.t, totalTicks() - S.snap
 rc.addEventListener('blur', () => drawRoll());
 rc.addEventListener('keydown', e => {
   const k = e.key; let used = true, msg = null;
-  if (k === 'ArrowLeft' || k === 'ArrowRight') { const st = e.shiftKey ? 4 * PPQ : S.snap; kb.t = clamp(kb.t + (k === 'ArrowLeft' ? -st : st), 0, totalTicks() - S.snap); kb.t = Math.floor(kb.t / S.snap) * S.snap; msg = describe(); }
+  if (k === 'ArrowLeft' || k === 'ArrowRight') { const st = e.shiftKey ? BAR_T : S.snap; kb.t = clamp(kb.t + (k === 'ArrowLeft' ? -st : st), 0, totalTicks() - S.snap); kb.t = Math.floor(kb.t / S.snap) * S.snap; msg = describe(); }
   else if (k === 'ArrowUp' || k === 'ArrowDown') { kb.p = clamp(kb.p + (k === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1), LOW, HIGH); preview(kb.p, lastVel); msg = describe(); }
   else if (k === 'Enter') {
     const n = noteAtCursor(); pushUndo();
@@ -170,7 +170,7 @@ rc.addEventListener('keydown', e => {
 });
 lc.tabIndex = 0; lc.setAttribute('aria-describedby', 'kbHelp');
 function laneDesc() {
-  const bar = Math.floor(kbStep / 16) + 1, beat = Math.floor((kbStep % 16) / 4) + 1, sub = kbStep % 4 + 1;
+  const bar = Math.floor(kbStep / STEPS) + 1, beat = Math.floor((kbStep % STEPS) / 4) + 1, sub = kbStep % 4 + 1;
   const ns = curNotes().filter(n => Math.floor(n.s / 12) === kbStep);
   return `세기 줄, ${bar}마디 ${beat}박 ${sub}번째 칸, ` + (ns.length ? `음 ${ns.length}개, 세기 ${Math.round(ns[0].v * 100)}` : '음 없음');
 }
@@ -178,7 +178,7 @@ lc.addEventListener('focus', () => { drawLanes(); announce(laneDesc()); });
 lc.addEventListener('blur', () => drawLanes());
 lc.addEventListener('keydown', e => {
   const k = e.key; let used = true;
-  if (k === 'ArrowLeft' || k === 'ArrowRight') kbStep = clamp(kbStep + (k === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 16 : 1), 0, curPat().bars * 16 - 1);
+  if (k === 'ArrowLeft' || k === 'ArrowRight') kbStep = clamp(kbStep + (k === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? STEPS : 1), 0, curPat().bars * STEPS - 1);
   else if (k === '[' || k === ']') {
     const ns = curNotes().filter(n => Math.floor(n.s / 12) === kbStep);
     if (ns.length) { pushUndo(); ns.forEach(n => n.v = clamp(Math.round((n.v + (k === ']' ? .1 : -.1)) * 20) / 20, .05, 1)); save(); drawRoll(); }
@@ -221,7 +221,7 @@ function renderChordDlg() {
   for (let i = 0; i < 12; i++) { const r = (S.root + i) % 12, b = document.createElement('button'); b.className = 'tbtn' + (inKey(r) ? ' inkey' : ''); b.textContent = N[r]; b.setAttribute('aria-pressed', pick.r === r); b.onclick = () => { pick.r = r; renderChordDlg(); }; g.appendChild(b); }
   const q = $('qGrid'); q.innerHTML = '';
   for (const k of Object.keys(QUAL)) { const b = document.createElement('button'); b.className = 'tbtn'; b.textContent = QNAME[k]; b.setAttribute('aria-pressed', pick.q === k); b.onclick = () => { pick.q = k; renderChordDlg(); }; q.appendChild(b); }
-  $('chordTitle').textContent = `${Math.floor(chordSlot / 4) + 1}마디 ${chordSlot % 4 + 1}박 코드 · ${chordName(pick)}`;
+  $('chordTitle').textContent = `${Math.floor(chordSlot / BEATS) + 1}마디 ${chordSlot % BEATS + 1}박 코드 · ${chordName(pick)}`;
 }
 $('chordOk').onclick = () => { pushUndo(); curPat().chords[chordSlot] = {...pick}; save(); dlg.close(); drawChordRow(); drawPlaylist(); };
 $('chordNone').onclick = () => { pushUndo(); curPat().chords[chordSlot] = null; save(); dlg.close(); drawChordRow(); };
@@ -234,12 +234,12 @@ $('cpGo').onclick = () => {
   const n = b - a + 1;
   if (c + n - 1 > P.bars) { status(`붙일 자리가 모자라요. ${c}마디부터 ${n}마디를 붙이려면 패턴이 ${c + n - 1}마디 이상이어야 해요.`); return; }
   pushUndo();
-  const BT = 4 * PPQ, s0 = (a - 1) * BT, s1 = b * BT, d0 = (c - 1) * BT, d1 = d0 + n * BT, shift = d0 - s0;
+  const BT = BAR_T, s0 = (a - 1) * BT, s1 = b * BT, d0 = (c - 1) * BT, d1 = d0 + n * BT, shift = d0 - s0;
   for (const cid of Object.keys(P.notes)) {
     const arr = P.notes[cid], src = arr.filter(x => x.s >= s0 && x.s < s1).map(x => ({p:x.p, s:x.s + shift, l:Math.min(x.l, s1 - x.s), v:x.v}));
     P.notes[cid] = arr.filter(x => !(x.s >= d0 && x.s < d1)).concat(src);
   }
-  const ch = P.chords.slice((a - 1) * 4, b * 4); for (let i = 0; i < ch.length; i++) P.chords[(c - 1) * 4 + i] = ch[i] ? {...ch[i]} : null;
+  const ch = P.chords.slice((a - 1) * BEATS, b * BEATS); for (let i = 0; i < ch.length; i++) P.chords[(c - 1) * BEATS + i] = ch[i] ? {...ch[i]} : null;
   sel.clear(); save(); refreshAll(); status(`${a}~${b}마디를 ${c}~${c + n - 1}마디에 복사했어요 (이 패턴의 모든 채널·코드).`);
 };
 
