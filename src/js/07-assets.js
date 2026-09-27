@@ -2,6 +2,7 @@
 const DB_NAME = 'melody-sketchpad-assets';
 function idb() { return new Promise((res, rej) => { if (!window.indexedDB) return rej(new Error('no idb')); const r = indexedDB.open(DB_NAME, 1); r.onupgradeneeded = () => r.result.createObjectStore('s'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function idbPut(k, v) { try { const db = await idb(); await new Promise((res, rej) => { const tx = db.transaction('s', 'readwrite'); tx.objectStore('s').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); } catch (e) {} }
+async function idbGet(k) { try { const db = await idb(); return await new Promise(res => { const rq = db.transaction('s', 'readonly').objectStore('s').get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); } catch (e) { return null; } }
 async function idbDel(k) { try { const db = await idb(); await new Promise(res => { const tx = db.transaction('s', 'readwrite'); tx.objectStore('s').delete(k); tx.oncomplete = res; tx.onerror = res; }); } catch (e) {} }
 async function idbAll() { try { const db = await idb(); return await new Promise(res => { const out = {}, rq = db.transaction('s', 'readonly').objectStore('s').openCursor(); rq.onsuccess = () => { const c = rq.result; if (c) { out[c.key] = c.value; c.continue(); } else res(out); }; rq.onerror = () => res(out); }); } catch (e) { return {}; } }
 const decoder = () => ctx || new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100);
@@ -24,7 +25,8 @@ function sampleCtl(slot, label) {
   };
   const mc = document.createElement('button'), recNow = typeof mic !== 'undefined' && mic && mic.slot === slot; mc.className = 'tbtn xs' + (recNow ? ' micon' : ''); mc.textContent = recNow ? '■ 멈춤' : '🎤 녹음';
   mc.setAttribute('aria-label', label + (recNow ? ' 마이크 녹음 멈추기' : ' 마이크로 녹음')); mc.onclick = () => micToggle(slot, label);
-  w.append(nm, up, mc, fi);
+  const ed = document.createElement('button'); ed.className = 'tbtn xs'; ed.textContent = '✂ 편집'; ed.hidden = !SAMPLES[slot]; ed.setAttribute('aria-label', label + ' 샘플 편집'); ed.onclick = () => openSampleEditor(slot, label);
+  w.append(nm, up, mc, ed, fi);
   if (s) {
     if (isTrack) {
       const rs = document.createElement('select'); rs.className = 'xs'; rs.setAttribute('aria-label', '샘플의 기준음');
@@ -38,4 +40,4 @@ function sampleCtl(slot, label) {
   }
   return w;
 }
-async function loadSamples() { const all = await idbAll(); for (const [k, v] of Object.entries(all)) { try { SAMPLES[k] = {buf:await decode(v.ab), root:v.root || 60, name:v.name}; } catch (e) {} } buildMixer(); }
+async function loadSamples() { const all = await idbAll(); for (const [k, v] of Object.entries(all)) { if (k.endsWith(':orig')) continue; try { SAMPLES[k] = {buf:await decode(v.ab), root:v.root || 60, name:v.name}; } catch (e) {} } buildMixer(); }

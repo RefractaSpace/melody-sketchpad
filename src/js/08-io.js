@@ -42,7 +42,7 @@ function mtrack(events, name) {
   d.push(0, 0xff, 0x2f, 0);
   return [0x4d, 0x54, 0x72, 0x6b, (d.length >>> 24) & 255, (d.length >>> 16) & 255, (d.length >>> 8) & 255, d.length & 255, ...d];
 }
-const PROG = {piano:0, epiano:4, strings:48, celesta:8, harp:46, bass:38, timpani:47, supersaw:81, pluck:84, chip:80, bell:14, sample:0};
+const PROG = {synth:81, piano:0, epiano:4, strings:48, celesta:8, harp:46, bass:38, timpani:47, supersaw:81, pluck:84, chip:80, bell:14, sample:0};
 // 내보낼 범위: SONG 모드이고 플레이리스트에 조각이 있으면 곡 전체, 아니면 지금 패턴
 function flatten() {
   const song = S.playMode === 'song' && S.playlist.clips.length;

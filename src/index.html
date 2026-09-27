@@ -69,7 +69,7 @@
 
     <section class="win" id="win-rack" data-win="rack" aria-label="채널 랙">
       <header class="wh"><b>채널 랙</b><span class="wsub" id="rackTitle">Pattern 1</span>
-        <select id="chAdd" class="xs" aria-label="채널 추가"><option value="">+ 채널 추가</option><option value="synth:piano">악기: 피아노</option><option value="synth:epiano">악기: 일렉트릭 피아노</option><option value="synth:strings">악기: 스트링 패드</option><option value="synth:celesta">악기: 첼레스타</option><option value="synth:harp">악기: 하프</option><option value="synth:bass">악기: 서브 베이스</option><option value="synth:timpani">악기: 팀파니</option><option value="synth:supersaw">악기: 슈퍼소</option><option value="synth:pluck">악기: 플럭</option><option value="synth:chip">악기: 칩튠</option><option value="synth:bell">악기: 벨</option><option value="drum:kick">드럼: 킥</option><option value="drum:snare">드럼: 스네어</option><option value="drum:hat">드럼: 하이햇</option><option value="drum:clap">드럼: 박수</option><option value="drum:crash">드럼: 크래시</option></select>
+        <select id="chAdd" class="xs" aria-label="채널 추가"><option value="">+ 채널 추가</option><option value="synth:piano">악기: 피아노</option><option value="synth:epiano">악기: 일렉트릭 피아노</option><option value="synth:strings">악기: 스트링 패드</option><option value="synth:synth">악기: 신스</option><option value="synth:celesta">악기: 첼레스타</option><option value="synth:harp">악기: 하프</option><option value="synth:bass">악기: 서브 베이스</option><option value="synth:timpani">악기: 팀파니</option><option value="synth:supersaw">악기: 슈퍼소</option><option value="synth:pluck">악기: 플럭</option><option value="synth:chip">악기: 칩튠</option><option value="synth:bell">악기: 벨</option><option value="drum:kick">드럼: 킥</option><option value="drum:snare">드럼: 스네어</option><option value="drum:hat">드럼: 하이햇</option><option value="drum:clap">드럼: 박수</option><option value="drum:crash">드럼: 크래시</option></select>
         <button class="wx" data-close="rack" aria-label="채널 랙 닫기">×</button></header>
       <div class="wb" id="rackBody"></div>
     </section>
@@ -176,6 +176,15 @@
   </div>
   <div class="drow"><button class="tbtn" id="convOpen" disabled>이 곡을 새 프로젝트로 열기</button><button class="tbtn solid" id="convClose">닫기</button></div>
 </dialog>
+<dialog id="seDlg" aria-labelledby="seTitle">
+  <h2 id="seTitle">샘플 편집</h2>
+  <p class="dsub" id="seName"></p>
+  <canvas id="seWave" width="560" height="140" style="width:100%;height:140px;border-radius:6px" aria-label="파형. 어두운 부분은 잘려 나가요"></canvas>
+  <div class="drow"><label class="xs">시작 <input type="range" id="seStart" min="0" max="1000" value="0" aria-label="남길 부분 시작"></label><label class="xs">끝 <input type="range" id="seEnd" min="0" max="1000" value="1000" aria-label="남길 부분 끝"></label></div>
+  <div class="drow"><span><button class="tbtn xs" id="seRev">뒤집기</button> <button class="tbtn xs" id="seFin">페이드 인</button> <button class="tbtn xs" id="seFout">페이드 아웃</button> <button class="tbtn xs" id="seNorm">노멀라이즈</button> <button class="tbtn xs" id="sePlay">▶ 들어보기</button></span></div>
+  <p class="dsub" id="seInfo" role="status"></p>
+  <div class="drow"><span><button class="tbtn" id="seReset">열었을 때로</button> <button class="tbtn" id="seRestore">원본으로</button></span><span><button class="tbtn" id="seCancel">취소</button> <button class="tbtn solid" id="seApply">적용</button></span></div>
+</dialog>
 <dialog id="tempoDlg" aria-labelledby="tempoTitle">
   <h2 id="tempoTitle">템포 지도</h2>
   <p class="dsub">곡 중간에 템포가 바뀌는 곳이에요. SONG 재생·WAV·MIDI에 적용되고, PAT 모드는 기본 BPM으로 반복해요.</p>
@@ -212,6 +221,8 @@
 <script src="js/18-tempo.js" defer></script>
 <script src="js/19-audio.js" defer></script>
 <script src="js/20-sauto.js" defer></script>
+<script src="js/21-synth.js" defer></script>
+<script src="js/22-sampedit.js" defer></script>
 <script src="js/99-app.js" defer></script>
 <script>window.PIANO_SRC = "piano-samples.js";   // 녹음 피아노: 앱이 뜬 뒤에 불러와요 (먼저 받으면 app.js와 속도를 나눠 먹어서)</script>
 </body>

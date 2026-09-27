@@ -10,6 +10,10 @@ function mixSlider(label, val, min, max, step, on, fmt) {
 const pct = v => Math.round(v * 100), eqf = v => (v > 0 ? '+' : '') + v.toFixed(0) + 'dB';
 const hzf = v => { const h = cutHz(v); return h >= 1000 ? (h / 1000).toFixed(1) + 'k' : Math.round(h) + ''; };
 function fxFmt(type, j) {
+  if (type === 'reverb') return j ? pct : v => (0.4 + v * 4).toFixed(1) + '초';
+  if (type === 'delay') return j ? pct : v => DELAY_NOTES[Math.min(5, Math.floor(v * 6))][1];
+  if (type === 'eq') return j ? v => ((v - 0.5) * 24 > 0 ? '+' : '') + ((v - 0.5) * 24).toFixed(1) + 'dB' : hzf;
+  if (type === 'width') return j ? v => Math.round(v * 150) + '%' : v => Math.round(v * 200) + '%';
   if (type === 'comp') return j ? v => (1 + v * 19).toFixed(1) + ':1' : v => Math.round(-60 + v * 60) + 'dB';
   if (type === 'lpf' || type === 'hpf') return j ? v => (0.5 + v * 15).toFixed(1) : hzf;
   return pct;
@@ -42,7 +46,7 @@ function channelStrip(key, label) {
   st.appendChild(mixSlider('고음', m.hi, -12, 12, 1, v => { m.hi = v; remix(); }, eqf));
   // 이펙트 칸: 채운 칸 + 빈 칸 하나 (최대 3칸)
   subTitle(st, '이펙트'); m.fx = m.fx || [];
-  for (let k = 0; k < 3; k++) {
+  for (let k = 0; k < FX_SLOTS; k++) {
     const f = m.fx[k];
     st.appendChild(selectEl(`${label} 이펙트 ${k + 1}`, Object.entries(FX_NAME), f ? f.type : '', v => {
       pushUndo(); const a = m.fx.slice(); if (!v) a.splice(k, 1); else a[k] = {type:v, a:FX_DEF[v][0], b:FX_DEF[v][1]}; m.fx = a.filter(Boolean); remix(); buildMixer(); }));
@@ -55,7 +59,7 @@ function channelStrip(key, label) {
 // 마스터 이펙트 칸 (채널과 같은 방식)
 function fxSection(st, m, label) {
   subTitle(st, '이펙트'); m.fx = m.fx || [];
-  for (let k = 0; k < 3; k++) {
+  for (let k = 0; k < FX_SLOTS; k++) {
     const f = m.fx[k];
     st.appendChild(selectEl(`${label} 이펙트 ${k + 1}`, Object.entries(FX_NAME), f ? f.type : '', v => { pushUndo(); const a = m.fx.slice(); if (!v) a.splice(k, 1); else a[k] = {type:v, a:FX_DEF[v][0], b:FX_DEF[v][1]}; m.fx = a.filter(Boolean); remix(); buildMixer(); }));
     if (!f) break;
@@ -74,7 +78,8 @@ function buildMixer() {
     const ex = document.createElement('div'); ex.className = 'sx';
     if (c.kind === 'synth') {
       toneKnobs(st, c.tone);
-      ex.appendChild(selectEl(c.name + ' 악기', Object.entries(INSTS), c.inst, v => { c.inst = v; buildRack(); refreshTitles(); }));
+      ex.appendChild(selectEl(c.name + ' 악기', Object.entries(INSTS), c.inst, v => { c.inst = v; if (v === 'synth') c.syn = normSyn(c.syn); buildRack(); refreshTitles(); buildMixer(); }));
+      if (c.inst === 'synth') synthPanel(ex, c);
     } else ex.appendChild(selectEl(c.name + ' 드럼 소리', Object.entries(DRUM_NAME), c.inst, v => { c.inst = v; buildRack(); ensureCtx(); applyMix(E, S.mix); drumHit(v, ctx.currentTime + 0.02, E, 1, chKey(c)); }));
     ex.appendChild(sampleCtl(chKey(c), c.name));
     st.appendChild(ex); box.appendChild(st);

@@ -112,10 +112,12 @@ function getCh(E, key) {
 const BUSES = ['bus1', 'bus2'], outKey = (key, m) => !BUSES.includes(key) && key !== 'master' && m && BUSES.includes(m.out) ? m.out : 'master';
 function outDest(E, key, m) { const o = outKey(key, m); return o === 'master' ? E.in : getCh(E, o).inp; }
 // ---- 이펙트 칸 (채널마다 3칸) — a·b는 0~1 손잡이 ----
-const FX_TYPES = ['', 'comp', 'dist', 'lpf', 'hpf', 'chorus'];   // 뒤에만 덧붙이기 (MSK 번호표)
-const FX_NAME = {'':'비어 있음', comp:'압축기', dist:'디스토션', lpf:'로우패스', hpf:'하이패스', chorus:'코러스'};
-const FX_KNOBS = {comp:['임계값', '비율'], dist:['세기', '밝기'], lpf:['주파수', '공명'], hpf:['주파수', '공명'], chorus:['깊이', '섞기']};
-const FX_DEF = {comp:[0.7, 0.16], dist:[0.3, 0.5], lpf:[0.7, 0.1], hpf:[0.2, 0.1], chorus:[0.5, 0.4]};
+const FX_TYPES = ['', 'comp', 'dist', 'lpf', 'hpf', 'chorus', 'reverb', 'delay', 'eq', 'width'], FX_SLOTS = 5;   // 뒤에만 덧붙이기 (MSK 번호표)
+const FX_NAME = {'':'비어 있음', comp:'압축기', dist:'디스토션', lpf:'로우패스', hpf:'하이패스', chorus:'코러스', reverb:'리버브', delay:'딜레이', eq:'EQ (한 밴드)', width:'스테레오 폭'};
+const FX_KNOBS = {comp:['임계값', '비율'], dist:['세기', '밝기'], lpf:['주파수', '공명'], hpf:['주파수', '공명'], chorus:['깊이', '섞기'], reverb:['길이', '섞기'], delay:['시간', '섞기'], eq:['주파수', '증감'], width:['폭', '출력']};
+const FX_AUTOK = {comp:0, dist:1, lpf:0, hpf:0, chorus:1, reverb:1, delay:1, eq:1, width:0};   // 곡 자동화가 움직이는 손잡이
+const DELAY_NOTES = [[0.25, '1/16'], [0.5, '1/8'], [0.75, '3/16'], [1, '1/4'], [1.5, '3/8'], [2, '1/2']];
+const FX_DEF = {comp:[0.7, 0.16], dist:[0.3, 0.5], lpf:[0.7, 0.1], hpf:[0.2, 0.1], chorus:[0.5, 0.4], reverb:[0.35, 0.3], delay:[0.55, 0.3], eq:[0.5, 0.65], width:[0.75, 0.67]};
 const AUTO_CUT_MAX = 18000, cutHz = v => 40 * Math.pow(AUTO_CUT_MAX / 40, clamp(v, 0, 1));   // 0~1 → 40Hz~18kHz (귀에 고르게)
 function makeFx(ac, f) {
   const g = () => ac.createGain(), a = f.a, b = f.b;
@@ -138,6 +140,26 @@ function makeFx(ac, f) {
     p1.pan.value = -0.6; p2.pan.value = 0.6; dry.gain.value = 1 - b * 0.4; wet.gain.value = b * 0.8;
     inp.connect(dry); dry.connect(out); inp.connect(d1); inp.connect(d2); d1.connect(p1); d2.connect(p2); p1.connect(wet); p2.connect(wet); wet.connect(out);
     return {inp, out, pa:wet.gain, map:v => v * 0.8, stop:() => { try { lfo.stop(); } catch (e) {} }};
+  }
+  if (f.type === 'reverb') {   // 리버브: 잡음을 지수로 줄인 울림(IR)을 합성
+    const inp = g(), out = g(), dry = g(), wet = g(), cv = ac.createConvolver(), sec = 0.4 + a * 4, n = Math.floor(ac.sampleRate * sec), ir = ac.createBuffer(2, n, ac.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3); }
+    cv.buffer = ir; dry.gain.value = 1 - b * 0.5; wet.gain.value = b; inp.connect(dry); dry.connect(out); inp.connect(cv); cv.connect(wet); wet.connect(out);
+    return {inp, out, pa:wet.gain, map:v => v};
+  }
+  if (f.type === 'delay') {   // 딜레이: 템포에 맞춘 시간, 되먹임 40%, 되먹임은 점점 어둡게
+    const inp = g(), out = g(), wet = g(), dl = ac.createDelay(4), fb = g(), lp = ac.createBiquadFilter(), beats = DELAY_NOTES[Math.min(5, Math.floor(a * 6))][0];
+    dl.delayTime.value = Math.min(3.9, beats * 60 / S.bpm); fb.gain.value = 0.4; lp.type = 'lowpass'; lp.frequency.value = 5000; wet.gain.value = b;
+    inp.connect(out); inp.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(wet); wet.connect(out);
+    return {inp, out, pa:wet.gain, map:v => v};
+  }
+  if (f.type === 'eq') { const q = ac.createBiquadFilter(); q.type = 'peaking'; q.frequency.value = cutHz(a); q.Q.value = 1.2; q.gain.value = (b - 0.5) * 24; return {inp:q, out:q, pa:q.gain, map:v => (v - 0.5) * 24}; }
+  if (f.type === 'width') {   // 스테레오 폭: 가운데(L+R)는 그대로, 옆(L−R)을 w배
+    const inp = g(), out = g(), sp = ac.createChannelSplitter(2), mg = ac.createChannelMerger(2), w = a * 2;
+    inp.channelCount = 2; inp.channelCountMode = 'explicit'; inp.channelInterpretation = 'speakers'; inp.connect(sp);
+    const link = (from, to, v) => { const k = g(); k.gain.value = v; sp.connect(k, from); k.connect(mg, 0, to); };
+    link(0, 0, 0.5 + w / 2); link(1, 0, 0.5 - w / 2); link(0, 1, 0.5 - w / 2); link(1, 1, 0.5 + w / 2);
+    out.gain.value = b * 1.5; mg.connect(out); return {inp, out};
   }
   return null;
 }
@@ -200,7 +222,7 @@ function osc(ac,type,f,det,t,stop,dest){const o=ac.createOscillator();if(typeof 
 function noiseBurst(E,t,d,type,f,q,v,dest){const s=E.ac.createBufferSource();s.buffer=E.noise;s.loop=true;const fl=E.ac.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=q;const g=E.ac.createGain();
   g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.0001,t+d);s.connect(fl);fl.connect(g);g.connect(dest);s.start(t,Math.random()*0.5);s.stop(t+d+0.05)}
 
-function voice(E,inst,m,t,d,vel=1,dest,tone,slot){const ac=E.ac,f=hz(m),end=t+d;dest=dest||getCh(E,trackKey(curTrack())).inp;const T=tone||toneDefault(),br=T.br,rel=Math.max(0.03,T.rel),atk=T.atk;
+function voice(E,inst,m,t,d,vel=1,dest,tone,slot){const ac=E.ac,f=hz(m),end=t+d;dest=dest||getCh(E,trackKey(curTrack())).inp;const T=tone||toneDefault(),br=T.br,rel=Math.max(0.03,T.rel),atk=T.atk;if(inst==='synth'){synthVoice(E,f,t,d,vel,dest,slot);return}
   if(inst==='sample'){if(playSample(E,slot||'melody',m,t,d,vel*0.9,dest)||playSample(E,'melody',m,t,d,vel*0.9,dest))return;inst='piano'}
   if(inst==='bass'){   // 서브 베이스: 사인파 + 약한 찌그러짐(배음) + 낮은 필터
     const g=ac.createGain(),sh=ac.createWaveShaper(),lp=ac.createBiquadFilter(),cv=new Float32Array(256);for(let i=0;i<256;i++){const x=i/127.5-1;cv[i]=Math.tanh(1.8*x)/Math.tanh(1.8)}sh.curve=cv;

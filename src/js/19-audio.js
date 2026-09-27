@@ -61,6 +61,7 @@ function initAudioClips() {
   }, true);
   plc.addEventListener('pointerup', () => { if (!auDrag) return; const d = auDrag; auDrag = null; if (d.moved) { save(); announce(`오디오 클립 ${d.a.name}: ${Math.floor(d.a.s / BAR_T) + 1}마디, ${d.a.len.toFixed(1)}초`); } }, true);
   plc.addEventListener('contextmenu', e => { const q = auPos(e), a = audioAt(q.x, q.t); if (!a) return; e.preventDefault(); e.stopImmediatePropagation(); pushUndo(); S.audio = S.audio.filter(x => x !== a); save(); drawPlaylist(); buildMixer(); announce(`오디오 클립 ${a.name}을 지웠어요.`); }, true);
+  plc.addEventListener('dblclick', e => { const q = auPos(e), a = audioAt(q.x, q.t); if (!a) return; e.stopImmediatePropagation(); openSampleEditor(a.slot, '오디오 클립 ' + a.name); }, true);
   plc.addEventListener('dragover', e => { if ([...e.dataTransfer.items].some(i => i.kind === 'file')) e.preventDefault(); });
   plc.addEventListener('drop', async e => {
     const f = [...e.dataTransfer.files].find(f => /^audio\//.test(f.type) || /\.(wav|mp3|ogg|m4a|flac|webm)$/i.test(f.name)); if (!f) return; e.preventDefault();

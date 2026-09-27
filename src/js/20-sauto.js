@@ -1,5 +1,5 @@
 /* 20-sauto.js — 곡 전체 자동화: 플레이리스트 아래 줄 하나에 곡 처음~끝 선 (SONG 재생·WAV에 적용) */
-const SA_H = 84, SA_NAME = {vol:'볼륨', cut:'필터', pan:'팬', rev:'리버브 보내기', dly:'딜레이 보내기', fx1:'이펙트 1', fx2:'이펙트 2', fx3:'이펙트 3'};
+const SA_H = 84, SA_NAME = {vol:'볼륨', cut:'필터', pan:'팬', rev:'리버브 보내기', dly:'딜레이 보내기', fx1:'이펙트 1', fx2:'이펙트 2', fx3:'이펙트 3', fx4:'이펙트 4', fx5:'이펙트 5'};
 let saKey = '';   // 지금 보는 줄 "대상|값" ('' = 숨김)
 const saH = () => saKey ? SA_H : 0;
 function saTargets() {
@@ -11,7 +11,7 @@ function saParams(key) {
   const fx = (S.mix[key] && S.mix[key].fx) || [], out = key === 'master' ? ['vol'] : ['vol', 'cut', 'pan', 'rev', 'dly'];
   fx.forEach((f, i) => out.push('fx' + (i + 1))); return out;
 }
-function saLabel(key, prm) { if (!prm.startsWith('fx')) return SA_NAME[prm]; const f = ((S.mix[key] || {}).fx || [])[+prm[2] - 1]; return f ? `${SA_NAME[prm]} ${FX_NAME[f.type]} ${FX_KNOBS[f.type][f.type === 'dist' ? 1 : 0]}` : SA_NAME[prm]; }
+function saLabel(key, prm) { if (!prm.startsWith('fx')) return SA_NAME[prm]; const f = ((S.mix[key] || {}).fx || [])[+prm[2] - 1]; return f ? `${SA_NAME[prm]} ${FX_NAME[f.type]} ${FX_KNOBS[f.type][FX_AUTOK[f.type] || 0]}` : SA_NAME[prm]; }
 function buildSaSelects() {
   const tSel = $('saTarget'), pSel = $('saParam'), [k0, p0] = saKey ? saKey.split('|') : ['', ''];
   tSel.innerHTML = '<option value="">자동화 줄 숨김</option>' + saTargets().map(([k, n]) => `<option value="${k}"${k === k0 ? ' selected' : ''}>${Object.keys(S.sauto).some(x => x.startsWith(k + '|')) ? '● ' : ''}${n}</option>`).join('');

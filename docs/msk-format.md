@@ -77,6 +77,11 @@ str 이름 · varint 마디 수
 ### `METR` 박자·스윙 (4/4가 아니거나 스윙이 있을 때, `PATN`보다 앞)
 `u8 박 수` `u8 박 단위(4·8)` `u8 스윙(%)` — 쓸 수 있는 박자: 2/4 3/4 4/4 5/4 6/4 7/4 6/8 12/8
 
+### `SYNP` 신스 설정 (있을 때만)
+`str JSON` — `{"채널번호": {w1, w2, oct2, det, mix, sub, uni, spread, cut, res, fenv, fdec, atk, dec, sus, rel, lfoRate, lfoAmt, lfoTo, vol}}`
+
+`MSK_FX`(이펙트 종류 번호): 0 없음 · 1 압축기 · 2 디스토션 · 3 로우패스 · 4 하이패스 · 5 코러스 · 6 리버브 · 7 딜레이 · 8 EQ · 9 스테레오 폭 (칸은 최대 5개)
+
 ### `TEMP` 정밀 BPM
 `varint BPM×100` (예: 126.5 → 12650). `INFO`에는 반올림한 정수 BPM도 들어 있어서, 이 청크를 모르는 옛 앱은 정수로 읽어요.
 
@@ -92,7 +97,7 @@ str 이름 · varint 마디 수
 | 목록 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
 |---|---|---|---|---|---|---|---|---|
 | 악기 | piano | epiano | supersaw | pluck | chip | bell | sample | strings |
-| 악기 (8~11) | bass | celesta | harp | timpani | | | | |
+| 악기 (8~12) | bass | celesta | harp | timpani | synth | | | |
 | 드럼 | kick | snare | hat | clap | crash | | | |
 | 코드 종류 | (장) | m | 7 | maj7 | m7 | sus4 | dim | aug |
 | 코드 소리 | pad | supersaw | piano | epiano | pluck | | | |

@@ -22,7 +22,7 @@ const barTicksOf = m => m[0] * PPQ * 4 / m[1];
 Object.defineProperty(window, 'BAR_T', {get:() => barTicksOf(METER_OV || meterOf(typeof S !== 'undefined' ? S : null))});
 Object.defineProperty(window, 'BEATS', {get:() => BAR_T / PPQ});
 Object.defineProperty(window, 'STEPS', {get:() => BAR_T / 12});
-const SA_PARAMS = ['vol', 'cut', 'pan', 'rev', 'dly', 'fx1', 'fx2', 'fx3'];
+const SA_PARAMS = ['vol', 'cut', 'pan', 'rev', 'dly', 'fx1', 'fx2', 'fx3', 'fx4', 'fx5'];
 const PAT_COLORS = ['', '#7b95e0', '#e08476', '#72c79f', '#dcb65e', '#b287e0', '#62bccd', '#dc86b4'];   // 0 = 색 없음
 const NAMES_S = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const NAMES_F = ['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
@@ -31,7 +31,7 @@ const QUAL = {'':[0,4,7], 'm':[0,3,7], '7':[0,4,7,10], 'maj7':[0,4,7,11], 'm7':[
 const QNAME = {'':'장', 'm':'단', '7':'7', 'maj7':'maj7', 'm7':'m7', 'sus4':'sus4', 'dim':'dim', 'aug':'aug'};
 const DRUMS = ['kick', 'snare', 'hat', 'clap', 'crash'];   // 뒤에만 덧붙이기 (MSK 번호표)
 const DRUM_NAME = {kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수', crash:'크래시'};
-const INSTS = {piano:'피아노', epiano:'일렉트릭 피아노', strings:'스트링 패드', celesta:'첼레스타', harp:'하프', bass:'서브 베이스', timpani:'팀파니', supersaw:'슈퍼소', pluck:'플럭', chip:'칩튠', bell:'벨', sample:'내 샘플'};
+const INSTS = {piano:'피아노', synth:'신스', epiano:'일렉트릭 피아노', strings:'스트링 패드', celesta:'첼레스타', harp:'하프', bass:'서브 베이스', timpani:'팀파니', supersaw:'슈퍼소', pluck:'플럭', chip:'칩튠', bell:'벨', sample:'내 샘플'};
 const KITS_OK = ['edm', '808', 'hard', 'acoustic'];
 const FIXED_CH = ['chords', 'bass', 'audio', 'bus1', 'bus2'];
 const CH_NAME = {chords:'코드', bass:'베이스', audio:'오디오 클립', bus1:'버스 1', bus2:'버스 2', master:'마스터', kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수'};
@@ -65,7 +65,7 @@ function fillMix(s) {
   for (const c of s.channels) out[chKey(c)] = {...chDefault(chKey(c), c), ...(m[chKey(c)] || {})};
   for (const k of FIXED_CH) out[k] = {...chDefault(k), ...(m[k] || {})};
   for (const k of Object.keys(out)) { if (['bus1', 'bus2'].includes(out[k].out) && !['bus1', 'bus2', 'master'].includes(k)) {} else delete out[k].out; }
-  const normFx = fx => (Array.isArray(fx) ? fx : []).filter(f => f && ['comp', 'dist', 'lpf', 'hpf', 'chorus'].includes(f.type)).slice(0, 3).map(f => ({type:f.type, a:clamp(+f.a || 0, 0, 1), b:clamp(+f.b || 0, 0, 1)}));
+  const normFx = fx => (Array.isArray(fx) ? fx : []).filter(f => f && ['comp', 'dist', 'lpf', 'hpf', 'chorus', 'reverb', 'delay', 'eq', 'width'].includes(f.type)).slice(0, 5).map(f => ({type:f.type, a:clamp(+f.a || 0, 0, 1), b:clamp(+f.b || 0, 0, 1)}));
   for (const k of Object.keys(out)) out[k].fx = normFx(out[k].fx);
   out.master = {...MASTER_DEF, ...(m.master || {})}; out.master.fx = normFx(out.master.fx);
   s.mix = out;
@@ -108,7 +108,7 @@ function normalizeRaw(s) {
   s.channels = (s.channels || []).filter(c => c && (c.kind === 'drum' ? DRUMS.includes(c.inst) : true)).map(c => {
     let id = c.id || newId(); if (seen.has(id)) id = newId(); seen.add(id);
     const kind = c.kind === 'drum' ? 'drum' : 'synth';
-    return {id, kind, inst:kind === 'drum' ? c.inst : (INSTS[c.inst] ? c.inst : 'piano'), name:(c.name || (kind === 'drum' ? DRUM_NAME[c.inst] : INSTS[c.inst]) || '채널').slice(0, 24), tone:{...toneDefault(), ...(c.tone || {})}};
+    return {id, kind, inst:kind === 'drum' ? c.inst : (INSTS[c.inst] ? c.inst : 'piano'), name:(c.name || (kind === 'drum' ? DRUM_NAME[c.inst] : INSTS[c.inst]) || '채널').slice(0, 24), tone:{...toneDefault(), ...(c.tone || {})}, ...(c.syn || (INSTS[c.inst] && c.inst === 'synth') ? {syn:normSyn(c.syn)} : {})};
   });
   if (!s.channels.length) s.channels = b.channels;
   const ids = new Set(s.channels.map(c => c.id));

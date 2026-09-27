@@ -446,6 +446,30 @@ async def main():
               f'3/4 {m1} · MIDI 박자 {ts[:1]} · 6/8 불러오기 {m2}')
         check('박자·스윙이 MSK·악보에 저장 · 스윙은 16분 뒷박만 늦춤', rt == ['3/4', 0.4, '3/4', 0.4, '0,700'] and sw == [0, 15, 24], f'저장 {rt} · 스윙 50% 틱 {sw}')
         await J("S.meter=[4,4];S.swing=0;S=normalize(S);refreshAll()")
+        # 신스 · 이펙트 확장 · 샘플 편집
+        r6 = await J("""(async()=>{const mk=(inst,syn,fx,l=192)=>{const s=normalize(blank());s.bpm=120;const c=newChannel('synth',inst,'x');if(syn)c.syn=syn;s.channels=[c];s.mix={};fillMix(s);const k='ch:'+c.id;s.mix[k].rev=0;s.mix[k].dly=0;if(fx)s.mix[k].fx=fx;
+            const P=s.patterns[0];P.bars=2;P.chords=Array(8).fill(null);P.notes={[c.id]:[{p:57,s:0,l,v:.8}]};s.pat=0;s.ch=0;s.playMode='pat';return normalize(s)};
+          const pcm=async s=>{const w=await withSongAsync(s,()=>renderWav()),dv=new DataView(w.buffer),n=(w.length-44)>>2,L=new Float32Array(n),R=new Float32Array(n);for(let i=0;i<n;i++){L[i]=dv.getInt16(44+i*4,true)/32767;R[i]=dv.getInt16(46+i*4,true)/32767}return [L,R]};
+          const rms=(a,t0,t1)=>{let e=0;for(let i=Math.floor(t0*44100);i<t1*44100;i++)e+=a[i]*a[i];return Math.sqrt(e/((t1-t0)*44100))};
+          const br=(a,t0,t1)=>{let d=0;for(let i=Math.floor(t0*44100)+1;i<t1*44100;i++)d+=Math.abs(a[i]-a[i-1]);return d/((t1-t0)*44100)/(rms(a,t0,t1)||1)};
+          const o={};const [a1]=await pcm(mk('synth',{...SYN_DEF,cut:.3,fenv:0})),[a2]=await pcm(mk('synth',{...SYN_DEF,cut:.95,fenv:0}));o.cut=[+br(a1,.3,1.5).toFixed(3),+br(a2,.3,1.5).toFixed(3)];
+          const [pl]=await pcm(mk('synth',{...SYN_PRESETS['플럭'],...{}}));o.pluck=[+rms(pl,.05,.2).toFixed(3),+rms(pl,1.2,1.5).toFixed(3)];
+          const [dry]=await pcm(mk('supersaw',null,null,48)),[rv]=await pcm(mk('supersaw',null,[{type:'reverb',a:.6,b:.6}],48)),[dl,dlR]=await pcm(mk('supersaw',null,[{type:'delay',a:.55,b:.6}],24));
+          const [dry24]=await pcm(mk('supersaw',null,null,24));o.rev=[+rms(dry,.8,1.4).toFixed(4),+rms(rv,.8,1.4).toFixed(4)];o.dly=[+rms(dry24,.55,.7).toFixed(4),+rms(dl,.55,.7).toFixed(4)];
+          const [e0]=await pcm(mk('supersaw',null,[{type:'eq',a:.9,b:1}])),[e1]=await pcm(mk('supersaw',null,[{type:'eq',a:.9,b:0}]));o.eq=[+br(e0,.3,1.5).toFixed(3),+br(e1,.3,1.5).toFixed(3)];
+          const [wl,wr]=await pcm(mk('supersaw',null,[{type:'chorus',a:.8,b:.8},{type:'width',a:1,b:.67}])),[nl,nr]=await pcm(mk('supersaw',null,[{type:'chorus',a:.8,b:.8},{type:'width',a:0,b:.67}]));
+          const side=(l,r)=>{let e=0;for(let i=13230;i<66150;i++)e+=(l[i]-r[i])**2;return Math.sqrt(e/52920)};o.width=[+side(wl,wr).toFixed(4),+side(nl,nr).toFixed(5)];
+          const s2=mk('synth',SYN_PRESETS['베이스'],[{type:'reverb',a:.3,b:.2},{type:'delay',a:.2,b:.3},{type:'eq',a:.4,b:.7},{type:'width',a:.8,b:.6},{type:'lpf',a:.8,b:.1}]);
+          const d2=normalize((await decodeMSK(await encodeMSK(s2,'x',{}))).song);o.msk=[JSON.stringify(d2.channels[0].syn)===JSON.stringify(s2.channels[0].syn),d2.mix['ch:'+d2.channels[0].id].fx.map(f=>f.type).join(',')];return o})()""")
+        check('신스: 필터 주파수가 밝기를 바꿈 · 플럭 프리셋은 짧게 사라짐 · MSK 저장', r6['cut'][1] > r6['cut'][0] * 1.5 and r6['pluck'][1] < r6['pluck'][0] * 0.2 and r6['msk'][0], f"밝기 {r6['cut']} · 플럭 크기 {r6['pluck']} · 신스 설정 저장 {r6['msk'][0]}")
+        check('새 이펙트: 리버브 꼬리 · 딜레이 메아리 · EQ 증감 · 스테레오 폭 · 5칸 저장', r6['rev'][1] > r6['rev'][0] * 3 and r6['dly'][1] > r6['dly'][0] * 3 and r6['eq'][0] > r6['eq'][1] * 1.1 and r6['width'][0] > r6['width'][1] * 5 and r6['msk'][1] == 'reverb,delay,eq,width,lpf',
+              f"리버브 {r6['rev']} · 딜레이(없을 때/있을 때 0.55~0.7초) {r6['dly']} · EQ {r6['eq']} · 폭(옆 소리) {r6['width']} · {r6['msk'][1]}")
+        sed = await J("""(async()=>{const sr=44100,n=sr,b=new ArrayBuffer(44+n*2),dv=new DataView(b),w=(o,s)=>[...s].forEach((c,i)=>dv.setUint8(o+i,c.charCodeAt(0)));
+          w(0,'RIFF');dv.setUint32(4,36+n*2,true);w(8,'WAVEfmt ');dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,1,true);dv.setUint32(24,sr,true);dv.setUint32(28,sr*2,true);dv.setUint16(32,2,true);dv.setUint16(34,16,true);w(36,'data');dv.setUint32(40,n*2,true);
+          for(let i=0;i<n;i++)dv.setInt16(44+i*2,Math.round(i/n*16000),true);const s=normalize(blank());s.playMode='song';S=s;refreshAll();const a=await addAudioClip(b,'경사',0,0);
+          await openSampleEditor(a.slot,'테스트');$('seStart').value=250;$('seEnd').value=750;$('seStart').dispatchEvent(new Event('input'));$('seRev').click();$('seNorm').click();await $('seApply').onclick();
+          const buf=SAMPLES[a.slot].buf,d=buf.getChannelData(0),orig=await idbGet(a.slot+':orig');return {dur:+buf.duration.toFixed(2),first:+d[10].toFixed(2),last:+d[d.length-10].toFixed(2),peak:+Math.max(...Array.from(d.subarray(0,5000))).toFixed(2),clip:+S.audio[0].len.toFixed(2),orig:!!orig,btn:!!document.querySelector('#mixerStrips button[aria-label$="샘플 편집"]')}})()""")
+        check('샘플 편집: 가운데만 남기기 · 뒤집기 · 노멀라이즈 · 원본 보관 · 클립 길이 맞춤', sed['dur'] == 0.5 and sed['first'] > 0.9 and sed['last'] < 0.55 and sed['clip'] == 0.5 and sed['orig'], str(sed))
         v3 = {'v': 3, 'bpm': 128, 'root': 0, 'mode': 'major', 'bars': 2, 'tracks': [{'id': 'a', 'name': '리드', 'inst': 'pluck', 'notes': [{'p': 60, 's': 0, 'l': 24}]}], 'chords': [{'r': 0, 'q': ''}, None, None, None, {'r': 7, 'q': ''}], 'drums': {'kick': [1, 0, 0, 0, 0.5]}}
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v3)}));openProject(id)}})()")
         conv = await J("[S.channels.map(c=>c.name), S.patterns.length, S.playlist.clips.length, chordName(S.patterns[0].chords[4]), notesOf(S.patterns[0],S.channels[1]).map(n=>n.v)]")

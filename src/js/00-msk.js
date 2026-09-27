@@ -13,13 +13,13 @@
    자세한 설명: docs/msk-format.md */
 const MSK_VERSION = 1;
 // 번호표 (뒤에만 덧붙여야 옛 파일이 그대로 읽혀요)
-const MSK_INST = ['piano', 'epiano', 'supersaw', 'pluck', 'chip', 'bell', 'sample', 'strings', 'bass', 'celesta', 'harp', 'timpani'];
+const MSK_INST = ['piano', 'epiano', 'supersaw', 'pluck', 'chip', 'bell', 'sample', 'strings', 'bass', 'celesta', 'harp', 'timpani', 'synth'];
 const MSK_CHORD = ['pad', 'supersaw', 'piano', 'epiano', 'pluck'];
 const MSK_BMODE = ['off', 'sustain', '8th', 'offbeat'];
 const MSK_BINST = ['reese', 'sub', 'saw'];
 const MSK_KIT = ['edm', '808', 'hard', 'acoustic'];
 const MSK_Q = ['', 'm', '7', 'maj7', 'm7', 'sus4', 'dim', 'aug'];
-const MSK_FX = ['', 'comp', 'dist', 'lpf', 'hpf', 'chorus'];
+const MSK_FX = ['', 'comp', 'dist', 'lpf', 'hpf', 'chorus', 'reverb', 'delay', 'eq', 'width'];
 const mskIdx = (list, v) => Math.max(0, list.indexOf(v));
 const q8 = x => clamp(Math.round(x), 0, 255);
 // CRC32: 바이트가 하나라도 바뀌면 값이 달라지는 "지문" (ZIP·PNG와 같은 계산법)
@@ -100,6 +100,7 @@ function encodeMskBody(song, name, samples, keepIds) {
   for (const b of ['bus1', 'bus2']) if (Object.values(outs).includes(b) && song.mix[b]) { const {fx, ...rest} = song.mix[b]; busMix[b] = rest; }
   if (Object.keys(outs).length) w.chunk('ROUT', p => p.str(JSON.stringify({o:outs, b:busMix})));
   if (song.sauto && Object.keys(song.sauto).length) w.chunk('SAUT', p => p.str(JSON.stringify(Object.fromEntries(Object.entries(song.sauto).map(([k, v]) => { const [key, prm] = k.split('|'); return [cix(key) + '|' + prm, v.map(q => [q.s, Math.round(q.v * 1000)])]; })))));
+  const syn = {}; song.channels.forEach((c, i) => { if (c.syn) syn[i] = c.syn; }); if (Object.keys(syn).length) w.chunk('SYNP', p => p.str(JSON.stringify(syn)));
   w.chunk('TEMP', p => p.vu(Math.round(song.bpm * 100)));
   if (song.tempo && song.tempo.length) w.chunk('TMAP', p => { p.vu(song.tempo.length); let pt = 0; for (const x of song.tempo) { p.vu(x.t - pt); pt = x.t; p.vu(Math.round(x.bpm * 100)); } });
   if (keepIds) w.chunk('IDS ', p => { p.vu(song.channels.length); for (const c of song.channels) p.str(c.id); p.vu(song.patterns.length); for (const P of song.patterns) p.str(P.id); });
@@ -143,6 +144,7 @@ function decodeMskBody(body, needCrc) {
       if (type === 'FXSL') { for (let k = p.vu(); k > 0; k--) { const kind = p.u8(), i = p.vu(), fx = []; for (let n = p.vu(); n > 0; n--) fx.push({type:MSK_FX[p.u8()] || '', a:p.u8() / 250, b:p.u8() / 250}); (song._fx = song._fx || []).push([kind, i, fx]); } continue; }
       if (type === 'AUTO') { for (let k = p.vu(); k > 0; k--) { const pi = p.vu(), ent = []; for (let n = p.vu(); n > 0; n--) { const ci = p.vu(), A = {}; for (const key of ['vol', 'cut']) { const pts = []; let s = 0; for (let j = p.vu(); j > 0; j--) { s += p.vu(); pts.push({s, v:p.u8() / 250}); } if (pts.length) A[key] = pts; } ent.push([ci, A]); } (song._auto = song._auto || []).push([pi, ent]); } continue; }
       if (type === 'AUDC') { song.audio = []; for (let k = p.vu(); k > 0; k--) { const slot = p.str(), name = p.str(), t = p.u8(), s = p.vu(), off = p.vu() / 1000, len = p.vu() / 1000, gain = p.u8() / 100; song.audio.push({id:slot.slice(3), slot, name, t, s, off, len, gain}); } try { song._audioMix = JSON.parse(p.str()); } catch (e) {} continue; }
+      if (type === 'SYNP') { try { song._syn = JSON.parse(p.str()); } catch (e) {} continue; }
       if (type === 'BEND') { song._bend = []; for (let k = p.vu(); k > 0; k--) song._bend.push([p.vu(), p.vu(), p.vu(), p.u8(), p.u8() - 12]); continue; }
       if (type === 'ROUT') { try { song._rout = JSON.parse(p.str()); } catch (e) {} continue; }
       if (type === 'SAUT') { try { song._saut = JSON.parse(p.str()); } catch (e) {} continue; }
@@ -196,6 +198,7 @@ function decodeMskBody(body, needCrc) {
   for (const [pi, ci, s, pp, b] of song._bend || []) { const P = song.patterns[pi], c = song.channels[ci], n = P && c && (P.notes[c.id] || []).find(x => x.s === s && x.p === pp); if (n) n.b = b; }
   if (song._rout) { for (const [k, o] of Object.entries(song._rout.o || {})) { const key = kOf(k); if (key) song.mix[key] = {...(song.mix[key] || {}), out:o}; } for (const [b, v] of Object.entries(song._rout.b || {})) song.mix[b] = {...(song.mix[b] || {}), ...v}; }
   if (song._saut) { song.sauto = {}; for (const [k, v] of Object.entries(song._saut)) { const [key, prm] = k.split('|'), kk = kOf(key); if (kk) song.sauto[kk + '|' + prm] = v.map(([s, vv]) => ({s, v:vv / 1000})); } }
+  for (const [i, v] of Object.entries(song._syn || {})) if (song.channels[+i]) song.channels[+i].syn = v; delete song._syn;
   delete song._fx; delete song._auto; delete song._audioMix; delete song._bend; delete song._rout; delete song._saut;
   clipsTodo.forEach((c, i) => { const P = song.patterns[c.pi]; if (!P) return; const o = {id:newId(), pat:P.id, t:c.t, bar:c.bar}; if (plex && plex[i]) { if (plex[i][0]) o.len = plex[i][0]; if (plex[i][1]) o.off = plex[i][1]; } song.playlist.clips.push(o); });
   const out = normalize(song);
@@ -246,7 +249,7 @@ async function openLoaded(r) {
 // 지금 곡에 쓰이는 내 샘플 모으기 (채널 샘플 + 예전 공용 칸)
 async function songSamples(song) {
   const all = await idbAll(), keys = new Set([...song.channels.map(chKey), ...(song.audio || []).map(a => a.slot)]), out = {};
-  for (const [k, v] of Object.entries(all)) if (v && v.ab && (keys.has(k) || !(k.startsWith('ch:') || k.startsWith('au:')))) out[k] = v;   // 오디오 클립 소리는 이 곡이 쓰는 것만
+  for (const [k, v] of Object.entries(all)) if (v && v.ab && !k.endsWith(':orig') && (keys.has(k) || !(k.startsWith('ch:') || k.startsWith('au:')))) out[k] = v;   // 오디오 클립 소리는 이 곡이 쓰는 것만
   return out;
 }
 
