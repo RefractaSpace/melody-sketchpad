@@ -120,6 +120,7 @@
     <button class="tbtn" id="scoreIn" title="악보 글이나 곡 코드를 붙여 넣기">붙여넣기</button>
     <button class="tbtn" id="convBtn">파일 변환기</button>
     <button class="tbtn" id="midi" hidden>MIDI 저장</button>
+    <button class="tbtn" id="cloudBtn" title="서버에 곡 저장·열기 (저장소 키로 여러 기기에서)">☁ 서버</button>
     <button class="tbtn" id="saveProj" hidden title="우리 형식 .msk로 저장 (내 샘플까지, 압축)">저장 (.msk)</button>
     <button class="tbtn" id="wav" hidden>오디오 저장 (zip)</button>
     <button class="tbtn" id="loadProj" title="MSK · MIDI · 프로젝트(.json) · 악보(.txt) — 파일 내용을 보고 형식을 알아봐요">불러오기</button>
@@ -176,6 +177,15 @@
     <button class="tbtn" id="convMp3" disabled>MP3 (.mp3)</button><button class="tbtn" id="convStem" disabled title="쓰는 채널마다 따로 WAV를 만들어 zip 하나로">스템 (채널별 WAV .zip)</button>
   </div>
   <div class="drow"><button class="tbtn" id="convOpen" disabled>이 곡을 새 프로젝트로 열기</button><button class="tbtn solid" id="convClose">닫기</button></div>
+</dialog>
+<dialog id="cloudDlg" aria-labelledby="cloudTitle">
+  <h2 id="cloudTitle">서버 저장소</h2>
+  <p class="dsub" id="cloudState" role="status">확인 중…</p>
+  <div class="drow"><label class="xs" style="flex:1">저장소 키 <input id="cloudKey" class="xs" style="width:100%" spellcheck="false" autocomplete="off" aria-describedby="cloudKeyHelp"></label><button class="tbtn xs" id="cloudKeyCopy">복사</button><button class="tbtn xs" id="cloudKeyNew">새 키</button></div>
+  <p class="dsub" id="cloudKeyHelp">이 키가 곧 비밀번호예요. 다른 기기(앱·웹)에 같은 키를 넣으면 같은 곡 목록이 보여요. 남에게 보여 주지 마세요.</p>
+  <div class="drow"><label class="xs"><input type="checkbox" id="cloudAuto"> 저장할 때 서버에도 자동으로 올리기</label><button class="tbtn solid" id="cloudUp">지금 곡 올리기</button></div>
+  <div class="tlist" id="cloudList"></div>
+  <div class="drow"><button class="tbtn" id="cloudRefresh">목록 새로고침</button><button class="tbtn solid" id="cloudClose">닫기</button></div>
 </dialog>
 <dialog id="seDlg" aria-labelledby="seTitle">
   <h2 id="seTitle">샘플 편집</h2>

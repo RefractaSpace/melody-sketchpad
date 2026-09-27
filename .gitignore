@@ -1,6 +1,8 @@
+*.pyc
 .DS_Store
+.vercel
 Thumbs.db
 __pycache__/
-*.pyc
+desktop/app/
+desktop/dist/
 node_modules/
-.vercel

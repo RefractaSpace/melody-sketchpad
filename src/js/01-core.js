@@ -194,6 +194,7 @@ function save() {
   clearTimeout(saveT);
   saveT = setTimeout(() => {
     if (!lsSet(PK(lib.current), songToStore(S))) status('저장 공간이 가득 찼어요. 안 쓰는 프로젝트를 지워 주세요.');
+    if (typeof cloudOnSave === 'function') cloudOnSave();
     lib.list[lib.current].updated = Date.now(); saveLib();
   }, 200);
 }

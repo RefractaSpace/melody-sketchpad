@@ -41,12 +41,31 @@ async function preparePiano() {
   setTimeout(() => { if (pianoState === 'ready' && layerState !== 'ready') pianoStat(''); }, 3000);
   if (pianoState === 'ready' && window.PIANO_SAMPLES) loadLayers();
 }
+// ---- 서버 에셋: /assets/piano/{base,soft,hard}/<음>.mp3 — 한 번 받으면 내 컴퓨터(캐시)에 보관 ----
+const ASSET_BASE = (window.MSK_SERVER || '') + '/assets/piano/', ASSET_CACHE = 'msk-assets-v1';
+async function fetchCached(url, networkFirst) {
+  let cache = null; try { cache = await caches.open(ASSET_CACHE); } catch (e) {}
+  if (cache && !networkFirst) { const hit = await cache.match(url).catch(() => null); if (hit) return hit.arrayBuffer(); }
+  try { const r = await fetch(url); if (!r.ok) throw new Error('HTTP ' + r.status); if (cache) cache.put(url, r.clone()).catch(() => {}); return await r.arrayBuffer(); }
+  catch (e) { if (cache) { const hit = await cache.match(url).catch(() => null); if (hit) return hit.arrayBuffer(); } throw e; }
+}
+async function loadPianoAssets() {
+  if (location.protocol === 'file:' && !window.MSK_SERVER) return false;   // 파일로 연 웹 페이지는 예전 방식(piano.js)
+  try {
+    const man = JSON.parse(new TextDecoder().decode(await fetchCached(ASSET_BASE + 'manifest.json', true))), L = man.layers;
+    const one = async (layer, k, into) => { into[k] = await decode(await fetchCached(`${ASSET_BASE}${layer}/${k}.mp3`)); };
+    await Promise.all(L.base.keys.map(k => one('base', k, PIANO)));
+    pianoState = 'ready'; pianoStat('녹음 피아노 준비됨 (서버)'); layerState = 'loading';
+    for (const n of ['soft', 'hard']) if (L[n]) { Object.assign(PIANO_LG[n], L[n].gain); await Promise.all(L[n].keys.map(k => one(n, k, PIANO_L[n]))); }
+    layerState = 'ready'; pianoStat('피아노 세기 층 준비됨'); setTimeout(() => pianoStat(''), 3000); return true;
+  } catch (e) { if (!Object.keys(PIANO).length) return false; layerState = 'wait'; return true; }   // 기본 층은 받았으면 그대로 씀
+}
 function watchPiano() {
   if (window.PIANO_SAMPLES) { preparePiano(); return; }
   pianoStat('녹음 피아노 불러오는 중… (그동안은 합성 피아노)');
   window.addEventListener('piano-samples-ready', () => preparePiano(), {once:true});
   // 화면을 그린 뒤에 요청 → 느린 네트워크에서도 앱이 먼저 떠요. 못 받으면 CDN으로
-  setTimeout(() => { const sc = document.createElement('script'); sc.src = window.PIANO_SRC || 'piano.js'; sc.async = true; sc.onerror = () => preparePiano(); document.head.appendChild(sc); }, 30);
+  setTimeout(() => loadPianoAssets().then(ok => { if (ok) return; const sc = document.createElement('script'); sc.src = window.PIANO_SRC || 'piano.js'; sc.async = true; sc.onerror = () => preparePiano(); document.head.appendChild(sc); }), 30);
 }
 function pianoSample(E, m, t, d, vel, dest, T) {
   T = T || toneDefault(); const keys = Object.keys(PIANO).map(Number); if (!keys.length) return false;

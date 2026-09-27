@@ -23,6 +23,20 @@ html = read('index.html')
 html = re.sub(r'(<script src="js/\d\d-[^"]+" defer></script>\s*)+', '<script src="app.js" defer></script>\n', html)
 html = html.replace('window.PIANO_SRC = "piano-samples.js"', 'window.PIANO_SRC = "piano.js"')
 write('index.html', html); write('style.css', read('style.css')); write('app.js', app); write('piano.js', read('piano-samples.js')); write('piano-soft.js', read('piano-soft.js')); write('piano-hard.js', read('piano-hard.js'))
+# 서버 에셋: 피아노 녹음을 파일 하나씩 (앱·웹이 /assets/piano/에서 받아 캐시) + 목록(manifest)
+import base64 as _b64, json as _json, re as _re
+def _obj(txt):
+    i = txt.index('{'); return _json.loads(txt[i:txt.index('}', i) + 1])
+_man = {'version': 1, 'layers': {}}
+for _layer, _file in (('base', 'piano-samples.js'), ('soft', 'piano-soft.js'), ('hard', 'piano-hard.js')):
+    _txt = read(_file)
+    if _layer == 'base': _s, _g = _obj(_txt), {}
+    else:
+        _m = _re.search(r'=\{gain:(\{[^}]*\}),s:', _txt); _g = _json.loads(_m.group(1)); _s = _obj(_txt[_m.end() - 1:])
+    _d = os.path.join(out, 'assets', 'piano', _layer); os.makedirs(_d, exist_ok=True)
+    for _k, _v in _s.items(): open(os.path.join(_d, f'{_k}.mp3'), 'wb').write(_b64.b64decode(_v))
+    _man['layers'][_layer] = {'keys': sorted(int(k) for k in _s), 'gain': _g}
+open(os.path.join(out, 'assets', 'piano', 'manifest.json'), 'w').write(_json.dumps(_man))
 
 if '--min' in sys.argv:
     for tool, args in (('terser', ['--compress', 'passes=2', '--mangle', '-o']), ('cleancss', ['-O2', '-o'])):
