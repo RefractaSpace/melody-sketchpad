@@ -10,5 +10,5 @@ h=h.replace('<script>window.PIANO_SRC = "piano.js";','<script>window.MSK_SERVER 
 open(p,'w',encoding='utf-8').write(h)
 PY
 grep -q 'MSK_SERVER' app/index.html
-npx --yes @electron/packager . MelodySketchpad --platform=win32 --arch=x64 --out=dist --overwrite --asar --ignore='^/dist' --ignore='^/build.sh' --app-version=5.0.0
+npx --yes @electron/packager . MelodySketchpad --platform=win32 --arch=x64 --out=dist --overwrite --asar --ignore='^/dist' --ignore='^/build.sh' --app-version=5.0.0 --electron-version=44.4.5
 cd dist && rm -f MelodySketchpad-win32-x64.zip && zip -qr -9 MelodySketchpad-win32-x64.zip MelodySketchpad-win32-x64 && ls -la MelodySketchpad-win32-x64.zip
