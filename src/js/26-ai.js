@@ -13,7 +13,7 @@ function triad(root, scale, d, seven) {
   return {r, q, pcs:[r, (r + t) % 12, (r + f) % 12, ...(q === '7' ? [(r + 10) % 12] : [])]};
 }
 // ── 기본 AI: 작곡 ──
-function localCompose({prompt = '', bars = 4, seed = 1}) {
+function localCompose({prompt = '', bars = 4, seed = 1, degs:degsIn = null}) {
   const r = rng(seed), t = prompt.toLowerCase(), has = re => re.test(t);
   const sad = has(/슬프|잔잔|어두|우울|밤|쓸쓸|minor|단조/), hi = has(/신나|빠르|댄스|edm|강하|파워|여름|축제|드럼/), calm = !hi && has(/잔잔|피아노|발라드|느리|조용|꿈|lofi|로파이/);
   const minor = sad || (S.mode === 'minor' && !has(/밝|행복|신나|여름|축제|장조|major/));
@@ -21,7 +21,7 @@ function localCompose({prompt = '', bars = 4, seed = 1}) {
   const lead = has(/피아노/) ? 'piano' : has(/신스|synth/) ? 'synth' : has(/벨|종/) ? 'bell' : has(/칩|8비트|게임/) ? 'chip' : has(/플럭/) ? 'pluck' : hi ? 'pluck' : calm ? 'piano' : 'epiano';
   const drums = hi || has(/드럼|비트/), SPB = BEATS * 4;
   const prog = aiPick(r, minor ? [[0, 5, 2, 6], [0, 3, 4, 0], [0, 6, 5, 4], [5, 6, 0, 0], [0, 3, 6, 2]] : [[0, 4, 5, 3], [5, 3, 0, 4], [0, 5, 3, 4], [3, 4, 2, 5], [0, 3, 1, 4]]);
-  const degs = Array.from({length:bars}, (_, b) => b === bars - 1 && bars > 2 ? 0 : b === bars - 2 && bars > 2 ? 4 : prog[b % 4]);
+  const degs = degsIn ? Array.from({length:bars}, (_, b) => degsIn[b % degsIn.length]) : Array.from({length:bars}, (_, b) => b === bars - 1 && bars > 2 ? 0 : b === bars - 2 && bars > 2 ? 4 : prog[b % 4]);
   const chords = degs.map(d => triad(root, scale, d, d === 4 && minor));
   const out = {title:(prompt || '기본 AI').slice(0, 24), key:{root, minor}, channels:[], chords:degs.map((d, b) => [b + 1, 1, NN[chords[b].r], chords[b].q])};
   const put = (arr, b, st, p, len, v) => arr.push([b + 1, Math.floor(st / 4) + 1, st % 4 + 1, pName(p), len, v]);
@@ -107,7 +107,8 @@ function applyCompose(data, label) {
     let ch = S.channels.find(c => free(c) && (kind === 'drum' || c.name === sp.name)) || S.channels.find(free);
     if (!ch) { if (S.channels.length >= 16) { skipped++; continue; } ch = newChannel(kind, inst, kind === 'drum' ? undefined : String(sp.name || '').slice(0, 24) || undefined); S.channels.push(ch); fillMix(S); if (E) applyMix(E, S.mix); }
     used.add(ch.id); const arr = P.notes[ch.id] = P.notes[ch.id] || [];
-    for (const n of sp.notes) { const [b, bt, st, pn, len, vel] = n, p = kind === 'drum' ? 72 : pitchOf(pn); if (p == null) continue;
+    for (const n of sp.notes) { if (!Array.isArray(n)) { if (n.s >= 0 && n.s < bars * BAR_T) arr.push({s:Math.round(n.s), l:Math.max(3, Math.min(bars * BAR_T - n.s, Math.round(n.l))), p:kind === 'drum' ? 72 : Math.max(LOW, Math.min(HIGH, n.p)), v:Math.max(.05, Math.min(1, n.v))}); continue; }
+      const [b, bt, st, pn, len, vel] = n, p = kind === 'drum' ? 72 : pitchOf(pn); if (p == null) continue;
       const s = ((b | 0) - 1) * BAR_T + ((bt | 0) - 1) * PPQ + ((st | 0) - 1) * 12; if (s < 0 || s >= bars * BAR_T) continue;
       arr.push({s, l:Math.max(3, Math.min(bars * BAR_T - s, (len | 0 || 1) * 12)), p:Math.max(LOW, Math.min(HIGH, p)), v:Math.max(.05, Math.min(1, vel > 1 ? vel / 127 : vel || .8))}); }
   }

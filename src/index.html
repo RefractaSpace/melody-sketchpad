@@ -212,7 +212,7 @@
   <div class="drow"><label class="xs">엔진 <select id="aiEngine"><option value="music">음악 AI (음악으로 학습한 신경망 · Magenta)</option><option value="local">규칙 AI (음악 규칙 계산 · 가볍고 인터넷 없이)</option><option value="claude">Claude (서버 · 로그인 필요)</option></select></label></div>
   <div class="drow" id="aiTabs" role="tablist"><span><button class="tbtn solid" data-t="compose" role="tab">작곡</button> <button class="tbtn" data-t="continue" role="tab">이어 쓰기</button> <button class="tbtn" data-t="chords" role="tab">코드 추천</button> <button class="tbtn" data-t="feedback" role="tab">피드백</button></span></div>
   <section data-p="compose"><label class="xs">어떤 음악? <textarea id="aiPrompt" rows="2" style="width:100%" placeholder="예: 신나는 여름 축제 느낌, 드럼 넣어서 / 잔잔한 밤 피아노"></textarea></label>
-    <div class="drow"><label class="xs">길이 <select id="aiBars"><option value="2">2마디</option><option value="4" selected>4마디</option><option value="8">8마디</option></select></label><span class="dsub">새 패턴으로 만들어요 (지금 곡은 그대로)</span></div></section>
+    <div class="drow"><label class="xs">길이 <select id="aiBars"><option value="2">2마디</option><option value="4" selected>4마디</option><option value="8">8마디</option><option value="song">곡 전체 (편곡 36마디)</option></select></label><span class="dsub">새 패턴으로 만들어요 (지금 곡은 그대로)</span></div></section>
   <section data-p="continue" hidden><p class="dsub">지금 채널(<b class="aiChName"></b>) 멜로디의 끝 2마디를 듣고 음악 AI(MelodyRNN)가 뒤를 이어 써요. 이 탭은 엔진과 상관없이 음악 AI를 써요.</p>
     <label class="xs">이어 쓸 길이 <select id="aiAdd"><option value="1">1마디</option><option value="2" selected>2마디</option><option value="4">4마디</option></select></label></section>
   <div class="drow" id="aiTriesRow" hidden><label class="xs">후보 수 <select id="aiTries"><option value="1">1개 (빠르게)</option><option value="4" selected>4개 (보통)</option><option value="8">8개 (좋게)</option></select></label><span class="dsub">여러 개 짓고 음악 점수가 가장 높은 것을 넣어요</span></div>
@@ -313,6 +313,7 @@
 <script src="js/26-ai.js" defer></script>
 <script src="js/27-community.js" defer></script>
 <script src="js/28-music-ai.js" defer></script>
+<script src="js/29-music-ai2.js" defer></script>
 <script src="js/99-app.js" defer></script>
 <script>window.PIANO_SRC = "piano-samples.js";   // 녹음 피아노: 앱이 뜬 뒤에 불러와요 (먼저 받으면 app.js와 속도를 나눠 먹어서)</script>
 </body>
