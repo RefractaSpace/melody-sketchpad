@@ -56,7 +56,10 @@ export default async function handler(req, res) {
       const ok = crypto.timingSafeEqual(await scrypt(String(body.password || ''), Buffer.from(found.rec.salt, 'base64')), Buffer.from(found.rec.hash, 'base64'));
       if (!ok) return res.status(401).json({error:'wrong', message:'비밀번호가 틀렸어요'});
       const all = (await list({prefix:userDir(u), limit:1000})).blobs; if (all.length) await del(all.map(b => b.url));
-      return res.status(200).json({ok:true, deleted:all.length});
+      // 그 사람이 커뮤니티에 올린 글도 지움 (글 폴더 통째로)
+      const posts = (await list({prefix:'community/', limit:1000})).blobs.filter(b => /\/post[^/]*\.json$/.test(b.pathname)); let gone = 0;
+      for (const b of posts) { try { const p = await (await fetch(b.downloadUrl || b.url)).json(); if (p.author === u) { const f2 = (await list({prefix:'community/' + p.id + '/', limit:50})).blobs; if (f2.length) await del(f2.map(x => x.url)); gone++; } } catch (e) {} }
+      return res.status(200).json({ok:true, deleted:all.length, posts:gone});
     }
     return res.status(400).json({error:'action'});
   } catch (e) { return res.status(500).json({error:'server', message:String(e.message || e).slice(0, 200)}); }

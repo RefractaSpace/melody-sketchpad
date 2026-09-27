@@ -49,5 +49,5 @@ export default async function handler(req, res) {
     used.set(k, n + 1);
     if (task === 'feedback') return res.status(200).json({text:text.slice(0, 2000), model, left:LIMIT - n - 1});
     const data = parseJson(text); return res.status(200).json({data, model, left:LIMIT - n - 1});
-  } catch (e) { return res.status(e.status || 500).json({error:'ai', message:'AI 오류: ' + String(e.message || e).slice(0, 200)}); }
+  } catch (e) { const m = String(e.message || e); return res.status(e.status || 500).json({error:'ai', message:/credit card/i.test(m) ? 'Vercel 계정에 결제 카드가 등록되지 않아서 Claude를 쓸 수 없어요' : 'AI 오류: ' + m.slice(0, 200)}); }
 }
