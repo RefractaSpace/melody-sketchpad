@@ -85,6 +85,7 @@
         <label class="lbl">길이 <select id="len" class="xs"><option value="12">16분</option><option value="16">셋잇단</option><option value="24" selected>8분</option><option value="48">4분</option><option value="96">2분</option></select></label>
         <label class="lbl">패턴 <select id="bars" class="xs" aria-label="패턴 길이 (마디)"></select>마디</label>
         <span class="zoom"><button class="ib sm" id="zxOut" aria-label="가로 축소" title="가로 축소">−</button><button class="ib sm" id="zxIn" aria-label="가로 확대" title="가로 확대 (Ctrl+휠)">＋</button><button class="ib sm" id="zyOut" aria-label="세로 축소" title="세로 축소">⌄</button><button class="ib sm" id="zyIn" aria-label="세로 확대" title="세로 확대">⌃</button></span>
+        <span class="qz"><button class="tbtn xs" id="qzBtn" title="퀀타이즈 (Q): 고른 음(없으면 이 채널 전체)을 스냅 칸에 맞춰요">퀀타이즈</button><select id="qzMode" class="xs" aria-label="퀀타이즈 방식"><option value="start">시작만</option><option value="both">시작+길이</option><option value="half">시작 50%</option></select></span>
         <span class="copy"><select id="cpFrom" class="xs" aria-label="복사할 첫 마디"></select>~<select id="cpTo" class="xs" aria-label="복사할 끝 마디"></select>→<select id="cpDest" class="xs" aria-label="붙일 마디"></select><button class="tbtn xs" id="cpGo">마디 복사</button></span>
         <span class="pstat" id="pianoStat" role="status"></span>
         <button class="wx" data-close="roll" aria-label="피아노 롤 닫기">×</button></header>
@@ -170,6 +171,7 @@
     <button class="tbtn solid" id="convMsk" disabled>우리 형식 (.msk)</button><button class="tbtn" id="convCode" disabled>곡 코드 복사</button>
     <button class="tbtn" id="convTxt" disabled>악보 (.txt)</button><button class="tbtn" id="convJson" disabled>프로젝트 (.json)</button>
     <button class="tbtn" id="convMid" disabled>MIDI (.mid)</button><button class="tbtn" id="convWav" disabled>오디오 (.wav)</button>
+    <button class="tbtn" id="convMp3" disabled>MP3 (.mp3)</button><button class="tbtn" id="convStem" disabled title="쓰는 채널마다 따로 WAV를 만들어 zip 하나로">스템 (채널별 WAV .zip)</button>
   </div>
   <div class="drow"><button class="tbtn" id="convOpen" disabled>이 곡을 새 프로젝트로 열기</button><button class="tbtn solid" id="convClose">닫기</button></div>
 </dialog>

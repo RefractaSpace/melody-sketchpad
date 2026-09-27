@@ -242,3 +242,22 @@ $('cpGo').onclick = () => {
   const ch = P.chords.slice((a - 1) * 4, b * 4); for (let i = 0; i < ch.length; i++) P.chords[(c - 1) * 4 + i] = ch[i] ? {...ch[i]} : null;
   sel.clear(); save(); refreshAll(); status(`${a}~${b}마디를 ${c}~${c + n - 1}마디에 복사했어요 (이 패턴의 모든 채널·코드).`);
 };
+
+// ---- 퀀타이즈: 고른 음(없으면 이 채널 전체)을 스냅 칸에 맞춤 ----
+function quantizeNotes() {
+  const arr = selNotes().length ? selNotes() : curNotes(); if (!arr.length) { status('맞출 음이 없어요.'); return 0; }
+  const mode = $('qzMode').value, g = S.snap, k = mode === 'half' ? 0.5 : 1, T = totalTicks(); let moved = 0;
+  pushUndo();
+  for (const n of arr) {
+    const s0 = n.s, l0 = n.l, e0 = n.s + n.l; n.s = clamp(Math.round(n.s + (Math.round(n.s / g) * g - n.s) * k), 0, T - 1);
+    n.l = mode === 'both' ? Math.max(g, Math.round(e0 / g) * g - n.s) : l0; n.l = Math.max(1, Math.min(n.l, T - n.s));
+    if (n.s !== s0 || n.l !== l0) moved++;
+  }
+  // 맞춘 뒤 같은 자리·같은 음이 겹치면 하나만 (센 쪽)
+  const keep = new Map(); for (const n of curNotes()) { const key = n.p + ':' + n.s, o = keep.get(key); if (!o || n.v > o.v) keep.set(key, n); }
+  const before = curNotes().length; curPat().notes[curCh().id] = curNotes().filter(n => keep.get(n.p + ':' + n.s) === n); sel = new Set([...sel].filter(n => curNotes().includes(n)));
+  save(); drawRoll(); drawLanes(); drawRack();
+  const merged = before - curNotes().length; status(`${arr.length}음 중 ${moved}음을 스냅(${S.snap}틱) 칸에 맞췄어요` + (merged ? ` · 겹친 ${merged}음은 합쳤어요` : '') + '.');
+  return moved;
+}
+$('qzBtn').onclick = quantizeNotes;

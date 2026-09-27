@@ -97,6 +97,7 @@ document.addEventListener('keydown', e => {
   else if (e.code === 'Space') { e.preventDefault(); playing ? stop() : play(); }
   else if (!mod && (k === 'l' || k === 'L')) setPlayMode(S.playMode === 'pat' ? 'song' : 'pat');
   else if (!mod && (k === 'r' || k === 'R')) setRec(!recOn);
+  else if (!mod && (k === 'q' || k === 'Q')) quantizeNotes();
   else if (mod && k.toLowerCase() === 'z') { e.preventDefault(); $('undo').click(); }
   else if (!inRoll) return;
   else if (mod && k.toLowerCase() === 'a') { e.preventDefault(); setTool('select'); sel = new Set(curNotes()); selChanged(); }

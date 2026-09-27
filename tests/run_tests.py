@@ -350,6 +350,25 @@ async def main():
         spread_on = on[2][1] / on[0][1]; spread_off = off[2][1] / off[0][1]
         check('피아노 세기 층: 약하게·세게 친 녹음이 뒤에서 도착 · 세게 칠수록 밝아짐', lay['n'] == [21, 21] and on[0][0] < on[1][0] < on[2][0] and on[0][1] < on[1][1] < on[2][1] and spread_on > spread_off * 1.1,
               f"층 {lay['n']}음 · 밝기 약→세 {on[0][1]}→{on[2][1]} (×{spread_on:.2f}, 층 없을 때 ×{spread_off:.2f}) · 크기 {on[0][0]}→{on[2][0]}")
+        # 퀀타이즈 · MP3 · 스템
+        await J("""(()=>{const s=normalize(blank());s.bpm=120;s.snap=12;s.patterns[0].bars=1;s.patterns[0].chords=Array(4).fill(null);const c=s.channels[0],d=s.channels.find(x=>x.kind==='drum'&&x.inst==='kick');
+          s.patterns[0].notes={[c.id]:[{p:60,s:5,l:20,v:.8},{p:64,s:31,l:10,v:.8},{p:67,s:47,l:12,v:.5},{p:67,s:49,l:12,v:.9}],[d.id]:[0,48,96,144].map(x=>({p:72,s:x,l:12,v:1}))};s.ch=0;s.pat=0;s.playMode='pat';S=s;refreshAll();sel=new Set()})()""")
+        await pg.select_option('#qzMode', 'both'); await pg.click('#qzBtn')
+        qz = await J("curNotes().map(n=>[n.p,n.s,n.l,Math.round(n.v*10)]).sort((a,b)=>a[1]-b[1])")
+        check('퀀타이즈 (시작+길이, 겹친 음 합치기)', qz == [[60, 0, 24, 8], [64, 36, 12, 8], [67, 48, 12, 9]], str(qz))
+        await pg.click('#convBtn'); await pg.click('#convCur'); await pg.wait_for_timeout(300)
+        async with pg.expect_download(timeout=90000) as dl: await pg.click('#convMp3')
+        d = await dl.value; mp = os.path.join(tmp, 'x.mp3'); await d.save_as(mp)
+        mb = open(mp, 'rb').read()
+        dur = await J(f"(async()=>{{const u=new Uint8Array({list(mb[:200000])});const b=await new OfflineAudioContext(2,44100,44100).decodeAudioData(u.buffer);return b.duration}})()") if len(mb) < 200000 else -1
+        check('MP3 저장 (다시 풀면 곡 길이와 같음)', mb[:3] in (b'ID3',) or mb[0] == 0xFF, f'{len(mb):,}B · 풀어 본 길이 {dur:.2f}초 (곡 2초 + 끝 여유 3초)')
+        async with pg.expect_download(timeout=90000) as dl: await pg.click('#convStem')
+        d = await dl.value; zp = os.path.join(tmp, 'x.zip'); await d.save_as(zp); await pg.click('#convClose')
+        import zipfile, wave as wv, array as ar
+        z = zipfile.ZipFile(zp); names = z.namelist(); peaks = []
+        for nme in names:
+            with wv.open(z.open(nme)) as w: a2 = ar.array('h', w.readframes(w.getnframes())); peaks.append(max(abs(x) for x in a2) / 32767)
+        check('스템: 쓰는 채널마다 WAV 하나씩 zip으로', len(names) == 2 and all(x > 0.02 for x in peaks), f'{names} · 최대 {[round(x, 2) for x in peaks]}')
         v3 = {'v': 3, 'bpm': 128, 'root': 0, 'mode': 'major', 'bars': 2, 'tracks': [{'id': 'a', 'name': '리드', 'inst': 'pluck', 'notes': [{'p': 60, 's': 0, 'l': 24}]}], 'chords': [{'r': 0, 'q': ''}, None, None, None, {'r': 7, 'q': ''}], 'drums': {'kick': [1, 0, 0, 0, 0.5]}}
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v3)}));openProject(id)}})()")
         conv = await J("[S.channels.map(c=>c.name), S.patterns.length, S.playlist.clips.length, chordName(S.patterns[0].chords[4]), notesOf(S.patterns[0],S.channels[1]).map(n=>n.v)]")

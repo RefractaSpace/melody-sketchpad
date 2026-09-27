@@ -43,7 +43,7 @@ $('scoreLoad').onclick = async () => {
 
 // ---- 파일 변환기 ----
 let conv = null;   // {song, name, from, warnings, samples}
-const CONV_BTNS = ['convMsk', 'convCode', 'convTxt', 'convJson', 'convMid', 'convWav', 'convOpen'];
+const CONV_BTNS = ['convMsk', 'convCode', 'convTxt', 'convJson', 'convMid', 'convWav', 'convMp3', 'convStem', 'convOpen'];
 function convShow() {
   const on = !!conv; CONV_BTNS.forEach(id => $(id).disabled = !on);
   if (!on) { $('convInfo').textContent = '아직 고른 파일이 없어요.'; return; }
@@ -51,7 +51,7 @@ function convShow() {
 }
 async function convSave(ext, data, mime) {
   const fn = (conv.name || 'melody-sketch').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 60);
-  if (inClaude) { if (typeof data === 'string') await offer(fn + '.' + ext, data); else await offer(`${fn}-${ext}.zip`, new Blob([zip(fn + '.' + ext, data)])); }
+  if (inClaude) { if (ext === 'zip') await offer(fn + '.zip', new Blob([data])); else if (typeof data === 'string') await offer(fn + '.' + ext, data); else await offer(`${fn}-${ext}.zip`, new Blob([zip(fn + '.' + ext, data)])); }
   else localDownload(fn + '.' + ext, new Blob([data], {type:mime}));
 }
 // MIDI·오디오는 플레이리스트에 조각이 있으면 곡 전체로
@@ -82,4 +82,20 @@ $('convWav').onclick = async () => {
   catch (e) { status('오디오를 만들지 못했어요.'); }
   finally { b.textContent = '오디오 (.wav)'; convShow(); }
 };
+// 오래 걸리는 오디오 만들기 공통: 버튼에 진행률, 끝나면 되돌림
+async function convBusy(id, label, job) {
+  const b = $(id); CONV_BTNS.forEach(x => $(x).disabled = true);
+  try { await job(t => b.textContent = t); } catch (e) { listMsg($('convInfo'), '✗ ' + (e.message || '만들지 못했어요'), null); }
+  finally { b.textContent = label; convShow(); }
+}
+$('convMp3').onclick = () => convBusy('convMp3', 'MP3 (.mp3)', async show => {
+  const w = await withSongAsync(convSongForAudio(), () => renderWav(p => show(`소리 만드는 중 ${Math.floor(p * 100)}%`)));
+  const m = await wavToMp3(w, p => show(`MP3로 바꾸는 중 ${Math.floor(p * 100)}%`)); await convSave('mp3', m, 'audio/mpeg');
+  listMsg($('convInfo'), `✓ MP3 ${(m.length / 1e6).toFixed(1)}MB (WAV ${(w.length / 1e6).toFixed(1)}MB의 ${Math.round(m.length / w.length * 100)}%)`, null);
+});
+$('convStem').onclick = () => convBusy('convStem', '스템 (채널별 WAV .zip)', async show => {
+  const files = await withSongAsync(convSongForAudio(), () => renderStems((p, name) => show(`스템 ${Math.floor(p * 100)}% · ${name}`)));
+  if (!files.length) throw new Error('소리 나는 채널이 없어요'); await convSave('zip', zipFiles(files), 'application/zip');
+  listMsg($('convInfo'), `✓ 스템 ${files.length}개: ${files.map(f => f[0].replace(/\.wav$/, '')).join(', ')}`, null);
+});
 $('convOpen').onclick = async () => { $('convDlg').close(); await openLoaded({...conv, song:normalize(JSON.parse(JSON.stringify(conv.song)))}); status(`"${conv.name}"을 새 프로젝트로 열었어요.`); };

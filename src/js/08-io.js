@@ -75,13 +75,47 @@ function midiBytes() {
 }
 const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
 function crc32(u) { let c = 0xffffffff; for (const b of u) c = CRC[(c ^ b) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
-function zip(name, data) {
-  const enc = new TextEncoder().encode(name), crc = crc32(data), le = (n, b) => Array.from({length:b}, (_, i) => (n >>> (8 * i)) & 255);
-  const local = [...le(0x04034b50, 4), 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...le(crc, 4), ...le(data.length, 4), ...le(data.length, 4), ...le(enc.length, 2), 0, 0, ...enc];
-  const off = local.length + data.length;
-  const cen = [...le(0x02014b50, 4), 20, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...le(crc, 4), ...le(data.length, 4), ...le(data.length, 4), ...le(enc.length, 2), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...enc];
-  const end = [...le(0x06054b50, 4), 0, 0, 0, 0, 1, 0, 1, 0, ...le(cen.length, 4), ...le(off, 4), 0, 0];
-  const out = new Uint8Array(local.length + data.length + cen.length + end.length); out.set(local, 0); out.set(data, local.length); out.set(cen, off); out.set(end, off + cen.length); return out;
+// zip (압축 없이 담기만) — 파일 여러 개
+function zipFiles(files) {
+  const le = (n, b) => Array.from({length:b}, (_, i) => (n >>> (8 * i)) & 255), parts = [], cens = []; let off = 0;
+  for (const [name, data] of files) {
+    const enc = new TextEncoder().encode(name), crc = crc32(data);
+    const local = new Uint8Array([...le(0x04034b50, 4), 20, 0, 0, 8, 0, 0, 0, 0, 0, 0, ...le(crc, 4), ...le(data.length, 4), ...le(data.length, 4), ...le(enc.length, 2), 0, 0, ...enc]);   // 0x0800 = 이름이 UTF-8
+    cens.push(new Uint8Array([...le(0x02014b50, 4), 20, 0, 20, 0, 0, 8, 0, 0, 0, 0, 0, 0, ...le(crc, 4), ...le(data.length, 4), ...le(data.length, 4), ...le(enc.length, 2), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...le(off, 4), ...enc]));
+    parts.push(local, data); off += local.length + data.length;
+  }
+  const cenLen = cens.reduce((a, c) => a + c.length, 0), end = new Uint8Array([...le(0x06054b50, 4), 0, 0, 0, 0, ...le(files.length, 2), ...le(files.length, 2), ...le(cenLen, 4), ...le(off, 4), 0, 0]);
+  const all = [...parts, ...cens, end], out = new Uint8Array(all.reduce((a, c) => a + c.length, 0)); let p = 0; for (const c of all) { out.set(c, p); p += c.length; } return out;
+}
+const zip = (name, data) => zipFiles([[name, data]]);
+
+// ---- 스템: 쓰는 채널마다 "그 채널만 솔로"로 WAV ----
+function stemKeys() {
+  const inSong = S.playMode === 'song' && S.playlist.clips.length, pats = inSong ? [...new Set(S.playlist.clips.map(c => patById(c.pat)))].filter(Boolean) : [curPat()];
+  const keys = S.channels.filter(c => pats.some(P => (P.notes[c.id] || []).length)).map(c => [chKey(c), c.name]);
+  if (pats.some(P => P.chords.some(Boolean))) { keys.push(['chords', '코드']); if (S.bassMode !== 'off') keys.push(['bass', '베이스']); }
+  if (inSong && (S.audio || []).length) keys.push(['audio', '오디오 클립']);
+  return keys;
+}
+async function renderStems(onProgress) {
+  const keys = stemKeys(), files = [], base = JSON.parse(JSON.stringify(S));
+  for (let i = 0; i < keys.length; i++) {
+    const song = JSON.parse(JSON.stringify(base)); for (const k of Object.keys(song.mix)) if (k !== 'master') { song.mix[k].solo = k === keys[i][0]; song.mix[k].mute = false; }
+    const w = await withSongAsync(normalize(song), () => renderWav(p => onProgress && onProgress((i + p) / keys.length, keys[i][1])));
+    files.push([`${String(i + 1).padStart(2, '0')} ${keys[i][1].replace(/[\\/:*?"<>|]+/g, '_')}.wav`, w]);
+  }
+  return files;
+}
+// ---- MP3: WAV → lamejs 192kbps (처음 쓸 때만 받아요) ----
+let lameP = null;
+const loadLame = () => lameP || (lameP = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js'; s.onload = () => window.lamejs ? res(window.lamejs) : rej(new Error('MP3 인코더를 못 불러왔어요')); s.onerror = () => { lameP = null; rej(new Error('MP3 인코더를 받지 못했어요 (인터넷 연결 확인)')); }; document.head.appendChild(s); }));
+async function wavToMp3(w, onProgress) {
+  const L = await loadLame(), dv = new DataView(w.buffer, w.byteOffset, w.byteLength), n = (w.byteLength - 44) >> 2, left = new Int16Array(n), right = new Int16Array(n);
+  for (let i = 0; i < n; i++) { left[i] = dv.getInt16(44 + i * 4, true); right[i] = dv.getInt16(46 + i * 4, true); }
+  const enc = new L.Mp3Encoder(2, 44100, 192), out = [], B = 1152 * 16;
+  for (let i = 0, k = 0; i < n; i += B, k++) { const b = enc.encodeBuffer(left.subarray(i, i + B), right.subarray(i, i + B)); if (b.length) out.push(new Uint8Array(b)); if (k % 8 === 0) { onProgress && onProgress(i / n); await new Promise(r => setTimeout(r, 0)); } }
+  const e = enc.flush(); if (e.length) out.push(new Uint8Array(e));
+  const u = new Uint8Array(out.reduce((a, c) => a + c.length, 0)); let p = 0; for (const c of out) { u.set(c, p); p += c.length; } return u;
 }
 
 // ---- 저장하기 (claude.ai 안에서는 zip, 내 웹사이트에서는 파일 그대로) ----
