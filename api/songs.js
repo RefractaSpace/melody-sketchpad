@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   try {
     const mine = async prefix => (await list({prefix, limit:1000})).blobs;
     if (req.method === 'GET' && !id) {
-      const songs = (await mine(dir)).map(b => { const m = /\/([A-Za-z0-9_-]+)--([A-Za-z0-9_-]*)\.n[^/]*\.msk$/.exec(b.pathname);   // 이름(base64url) 뒤 '.n' 다음은 Blob이 붙인 임의 글자 return m && {id:m[1], name:unb64u(m[2]), size:b.size, uploadedAt:b.uploadedAt}; }).filter(Boolean);
+      const songs = (await mine(dir)).map(b => { const m = /\/([A-Za-z0-9_-]+)--([A-Za-z0-9_-]*)\.n[^/]*\.msk$/.exec(b.pathname); return m && {id:m[1], name:unb64u(m[2]), size:b.size, uploadedAt:b.uploadedAt}; }).filter(Boolean);
       return res.status(200).json({songs:songs.sort((a, b) => String(b.uploadedAt).localeCompare(String(a.uploadedAt)))});
     }
     const found = id ? await mine(dir + id + '--') : [];
