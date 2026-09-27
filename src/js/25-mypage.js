@@ -1,5 +1,5 @@
 /* 25-mypage.js — 내 페이지: 계정 정보 · 서버의 내 곡(미리보기 그림) · 비밀번호 · 로그아웃 */
-const fmtSize = b => b >= 1e6 ? (b / 1e6).toFixed(1) + 'MB' : Math.max(1, Math.round(b / 1024)) + 'KB';
+const fmtSize = b => b >= 1048576 ? (b / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(b / 1024)) + 'KB';   // 서버 한도(4×1024×1024)와 같은 단위
 // 곡의 음 배치를 작은 그림으로 (곡 모드면 플레이리스트 전체, 아니면 첫 패턴)
 function drawThumb(cv, song) {
   const r = cv.getBoundingClientRect(), W = Math.max(200, Math.round(r.width || 210)), H = 96, x = cv.getContext('2d'); cv.width = W * DPR; cv.height = H * DPR; x.setTransform(DPR, 0, 0, DPR, 0, 0);
