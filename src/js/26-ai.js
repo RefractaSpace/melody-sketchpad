@@ -164,4 +164,4 @@ function aiShowTab(t) { aiTab = t; document.querySelectorAll('#aiTabs button').f
 document.querySelectorAll('#aiTabs button').forEach(b => b.onclick = () => aiShowTab(b.dataset.t));
 $('aiBtn').onclick = () => { aiShowTab(aiTab); aiMsg(authInfo() ? '' : 'Claude 엔진은 로그인해야 쓸 수 있어요. 기본 AI는 바로 돼요.'); openDlg($('aiDlg')); };
 $('aiRun').onclick = () => runAI(false); $('aiAgain').onclick = () => runAI(true); $('aiClose').onclick = () => $('aiDlg').close();
-$('aiEngine').value = lsGet('msk-ai-engine') || 'local'; $('aiEngine').onchange = () => lsSet('msk-ai-engine', $('aiEngine').value);
+$('aiEngine').value = lsGet('msk-ai-engine') || 'music'; $('aiEngine').onchange = () => lsSet('msk-ai-engine', $('aiEngine').value);

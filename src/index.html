@@ -208,10 +208,13 @@
 </dialog>
 <dialog id="aiDlg" aria-labelledby="aiH" style="max-width:620px;width:94vw">
   <h2 id="aiH">✨ AI</h2>
-  <div class="drow"><label class="xs">엔진 <select id="aiEngine"><option value="local">기본 AI (앱 안에서 계산 · 바로)</option><option value="claude">Claude (서버 · 로그인 필요)</option></select></label></div>
-  <div class="drow" id="aiTabs" role="tablist"><span><button class="tbtn solid" data-t="compose" role="tab">작곡</button> <button class="tbtn" data-t="chords" role="tab">코드 추천</button> <button class="tbtn" data-t="feedback" role="tab">피드백</button></span></div>
+  <div class="drow"><label class="xs">엔진 <select id="aiEngine"><option value="music">음악 AI (음악으로 학습한 신경망 · Magenta)</option><option value="local">규칙 AI (음악 규칙 계산 · 가볍고 인터넷 없이)</option><option value="claude">Claude (서버 · 로그인 필요)</option></select></label></div>
+  <div class="drow" id="aiTabs" role="tablist"><span><button class="tbtn solid" data-t="compose" role="tab">작곡</button> <button class="tbtn" data-t="continue" role="tab">이어 쓰기</button> <button class="tbtn" data-t="chords" role="tab">코드 추천</button> <button class="tbtn" data-t="feedback" role="tab">피드백</button></span></div>
   <section data-p="compose"><label class="xs">어떤 음악? <textarea id="aiPrompt" rows="2" style="width:100%" placeholder="예: 신나는 여름 축제 느낌, 드럼 넣어서 / 잔잔한 밤 피아노"></textarea></label>
     <div class="drow"><label class="xs">길이 <select id="aiBars"><option value="2">2마디</option><option value="4" selected>4마디</option><option value="8">8마디</option></select></label><span class="dsub">새 패턴으로 만들어요 (지금 곡은 그대로)</span></div></section>
+  <section data-p="continue" hidden><p class="dsub">지금 채널(<b class="aiChName"></b>) 멜로디의 끝 2마디를 듣고 음악 AI(MelodyRNN)가 뒤를 이어 써요. 이 탭은 엔진과 상관없이 음악 AI를 써요.</p>
+    <label class="xs">이어 쓸 길이 <select id="aiAdd"><option value="1">1마디</option><option value="2" selected>2마디</option><option value="4">4마디</option></select></label></section>
+  <div class="drow" id="aiTriesRow" hidden><label class="xs">후보 수 <select id="aiTries"><option value="1">1개 (빠르게)</option><option value="4" selected>4개 (보통)</option><option value="8">8개 (좋게)</option></select></label><span class="dsub">여러 개 짓고 음악 점수가 가장 높은 것을 넣어요</span></div>
   <section data-p="chords" hidden><p class="dsub">지금 채널(<b id="aiChName"></b>)의 멜로디에 어울리는 코드를 지금 패턴의 코드 줄에 넣어요.</p>
     <label class="xs">코드 간격 <select id="aiRate"><option value="1">마디마다</option><option value="2">반 마디마다</option></select></label></section>
   <section data-p="feedback" hidden><pre id="aiOut" style="white-space:pre-wrap;font:13px/1.6 inherit;margin:6px 0;max-height:40vh;overflow:auto"></pre></section>
@@ -308,6 +311,7 @@
 <script src="js/25-mypage.js" defer></script>
 <script src="js/26-ai.js" defer></script>
 <script src="js/27-community.js" defer></script>
+<script src="js/28-music-ai.js" defer></script>
 <script src="js/99-app.js" defer></script>
 <script>window.PIANO_SRC = "piano-samples.js";   // 녹음 피아노: 앱이 뜬 뒤에 불러와요 (먼저 받으면 app.js와 속도를 나눠 먹어서)</script>
 </body>
