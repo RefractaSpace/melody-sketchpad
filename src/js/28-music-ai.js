@@ -26,37 +26,70 @@ function fixKey(notes, root, minor) { const sc = minor ? MIN : MAJ, ok = p => sc
   for (const n of notes) if (!ok(n.p) && (n.e - n.s >= 2 || n.s % 4 === 0)) { const up = n.p + 1, dn = n.p - 1; n.p = ok(dn) ? dn : up; fixed++; } return fixed; }
 const fromMM = (seq, off = 0) => seq.notes.map(n => ({p:n.pitch, s:n.quantizedStartStep + off, e:n.quantizedEndStep + off})).sort((a, b) => a.s - b.s);
 const DRUM_MAP = {35:'kick', 36:'kick', 37:'snare', 38:'snare', 40:'snare', 39:'clap', 42:'hat', 44:'hat', 46:'hat', 49:'crash', 57:'crash', 55:'crash'};
-// 작곡: 규칙 AI로 조·코드·반주 틀을 잡고, 멜로디와 드럼을 신경망이 지음
+// 작곡: 규칙 AI로 조·코드·반주 틀을 잡고, 멜로디(곡 구조 A–A′–B–A)·베이스·드럼을 신경망이 지음
+const pcsOfChord = (rn, q) => { const r0 = NN.indexOf(rn), iv = {'':[0,4,7], m:[0,3,7], '7':[0,4,7,10], maj7:[0,4,7,11], m7:[0,3,7,10], sus4:[0,5,7], dim:[0,3,6], aug:[0,4,8]}[q] || [0,4,7]; return iv.map(x => (r0 + x) % 12); };
+const mmClip = (notes, end) => notes.filter(n => n.s < end).map(n => ({...n, e:Math.min(end, Math.max(n.s + 1, n.e))}));
+// ImprovRNN으로 후보 tries개를 짓고 점수가 가장 높은 것을 돌려줌 (위치는 off부터의 절대 스텝)
+async function genBest(imp, {seed, seedLen, gen, chords, off, temp, tries, score, fix}) {
+  let best = null;
+  for (let k = 0; k < tries; k++) {
+    const g = await imp.continueSequence(mmSeq(seed, seedLen), gen, temp, chords);
+    const notes = mmClip([...seed.map(([p, s0, e]) => ({p, s:s0 + off, e:e + off})), ...fromMM(g, off + seedLen)], off + seedLen + gen);
+    if (fix) fix(notes); const sc = score(notes); if (!best || sc > best.score) best = {notes, score:sc};
+  }
+  return best;
+}
 async function musicCompose({prompt, bars, seed, tries}) {
   const base = localCompose({prompt, bars, seed}), {root, minor} = base.key, SPB = BEATS * 4, steps = bars * SPB;
   const t = prompt.toLowerCase(), hi = /신나|빠르|댄스|edm|강하|파워|여름|축제|드럼/.test(t), calm = !hi && /잔잔|피아노|발라드|느리|조용|꿈|lofi|로파이/.test(t);
-  const chordOfBar = base.chords.map(([, , rn, q]) => ({name:rn + MM_Q[q]}));
-  const pcsOf = (rn, q) => { const r0 = NN.indexOf(rn), iv = {'':[0,4,7], m:[0,3,7], '7':[0,4,7,10], maj7:[0,4,7,11], m7:[0,3,7,10], sus4:[0,5,7], dim:[0,3,6], aug:[0,4,8]}[q] || [0,4,7]; return iv.map(x => (r0 + x) % 12); };
-  const barPcs = base.chords.map(([, , rn, q]) => pcsOf(rn, q)), chordAt = s => barPcs[Math.min(bars - 1, Math.floor(s / SPB))];
-  const perStep = Array.from({length:steps}, (_, s) => chordOfBar[Math.min(bars - 1, Math.floor(s / SPB))].name);
-  const imp = await mmModel('chord_pitches_improv'), temp = calm ? .9 : hi ? 1.1 : 1.0, dens = calm ? .22 : hi ? .45 : .32;
-  const seedP = 60 + ((barPcs[0][0] - 60) % 12 + 12) % 12 + 12, cands = [];
-  for (let k = 0; k < tries; k++) {
-    const g = await imp.continueSequence(mmSeq([[seedP, 0, 2]], 2), steps - 2, temp, perStep.slice(2));
-    const notes = [{p:seedP, s:0, e:2}, ...fromMM(g, 2)].filter(n => n.s < steps).map(n => ({...n, e:Math.min(steps, Math.max(n.s + 1, n.e))}));
-    const fixed = fixKey(notes, root, minor);
-    cands.push({notes, fixed, score:melScore(notes, {root, minor, chordAt, steps, dens})});
+  const barPcs = base.chords.map(([, , rn, q]) => pcsOfChord(rn, q)), chordAt = s => barPcs[Math.max(0, Math.min(bars - 1, Math.floor(s / SPB)))];
+  const perStep = Array.from({length:steps}, (_, s) => { const [, , rn, q] = base.chords[Math.min(bars - 1, Math.floor(s / SPB))]; return rn + MM_Q[q]; });
+  const imp = await mmModel('chord_pitches_improv'), temp = calm ? .9 : hi ? 1.1 : 1.0, dens = calm ? .22 : hi ? .45 : .32, fix = n => fixKey(n, root, minor);
+  const scoreSec = (off, len, extra = () => 0) => notes => { const rel = notes.filter(n => n.s >= off).map(n => ({...n, s:n.s - off, e:n.e - off})); return melScore(rel, {root, minor, chordAt:s => chordAt(s + off), steps:len, dens}) + extra(rel); };
+  const seedP = 60 + ((barPcs[0][0] - 60) % 12 + 12) % 12 + 12, mean = ns => ns.reduce((a, n) => a + n.p, 0) / Math.max(1, ns.length);
+  let mel, form = '';
+  if (bars >= 4) {
+    // 곡 구조 A–A′–B–A″ (구간 = 전체의 1/4)
+    const L = bars / 4 * SPB, H = L / 2, chordsFrom = (a, n) => perStep.slice(a, a + n), copy = (ns, from, to, shift) => ns.filter(n => n.s >= from && n.s < to).map(n => ({p:n.p, s:n.s + shift, e:Math.min(n.e, to) + shift}));
+    const A = await genBest(imp, {seed:[[seedP, 0, 2]], seedLen:2, gen:L - 2, chords:chordsFrom(2, L - 2), off:0, temp, tries, fix, score:scoreSec(0, L)});
+    const aHead = copy(A.notes, 0, H, 0), rel = (ns, sh) => ns.map(n => [n.p, n.s - sh, n.e - sh]);
+    const A2 = await genBest(imp, {seed:rel(copy(A.notes, 0, H, L), L), seedLen:H, gen:H, chords:chordsFrom(L + H, H), off:L, temp, tries, fix, score:scoreSec(L, L)});
+    const aM = mean(A.notes), bSeed = seedP + (hi ? 5 : 3) + ((chordAt(2 * L)[0] - seedP) % 12 + 12) % 12 % 5;
+    const B = await genBest(imp, {seed:[[Math.min(88, bSeed), 0, 2]], seedLen:2, gen:L - 2, chords:chordsFrom(2 * L + 2, L - 2), off:2 * L, temp:temp + .05, tries, fix, score:scoreSec(2 * L, L, r => mean(r) > aM + 1.5 ? 1 : -.5)});
+    const A3 = await genBest(imp, {seed:rel(copy(A.notes, 0, H, 3 * L), 3 * L), seedLen:H, gen:H, chords:chordsFrom(3 * L + H, H), off:3 * L, temp:temp - .05, tries, fix, score:scoreSec(3 * L, L)});
+    mel = [...A.notes, ...A2.notes, ...B.notes, ...A3.notes].sort((a, b) => a.s - b.s); form = ' · 구조 A–A′–B–A';
+    mel.score = (A.score + A2.score + B.score + A3.score) / 4; void aHead;
+  } else {
+    const r = await genBest(imp, {seed:[[seedP, 0, 2]], seedLen:2, gen:steps - 2, chords:perStep.slice(2), off:0, temp, tries, fix, score:scoreSec(0, steps)});
+    mel = r.notes; mel.score = r.score;
   }
-  cands.sort((a, b) => b.score - a.score); const best = cands[0];
-  base.channels[0].notes = best.notes.map(n => [Math.floor(n.s / SPB) + 1, Math.floor(n.s % SPB / 4) + 1, n.s % 4 + 1, pName(Math.max(48, Math.min(96, n.p))), n.e - n.s, n.s % 4 === 0 ? .85 : .7]);
+  base.channels[0].notes = mel.map(n => [Math.floor(n.s / SPB) + 1, Math.floor(n.s % SPB / 4) + 1, n.s % 4 + 1, pName(Math.max(48, Math.min(96, n.p))), n.e - n.s, n.s % 4 === 0 ? .85 : .7]);
   base.channels[0].name = 'AI 멜로디';
+  // 베이스: 코드 위에서 ImprovRNN이 짓고 → 낮은 음역으로 → 마디 첫 박은 코드 뿌리음
+  const bi = base.channels.findIndex(c => c.inst === 'bass');
+  if (bi >= 0) {
+    const bd = calm ? .12 : hi ? .32 : .2, rootNear = (pc, near) => { let best = 0; for (let p = 28; p <= 55; p++) if (p % 12 === pc && (!best || Math.abs(p - near) < Math.abs(best - near))) best = p; return best; };
+    const bassScore = ns => { const q = ns.filter(n => n.s % 4 === 0), ct = q.filter(n => chordAt(n.s).includes(n.p % 12)).length / Math.max(1, q.length), iv = ns.slice(1).map((n, i) => Math.abs(n.p - ns[i].p)); return 2 * ct + (iv.filter(x => x <= 5).length / Math.max(1, iv.length)) - 3 * Math.abs(ns.length / steps - bd) - (ns.length < bars ? 2 : 0); };
+    const bs = 48 + ((barPcs[0][0] - 48) % 12 + 12) % 12;
+    const r = await genBest(imp, {seed:[[bs, 0, 4]], seedLen:4, gen:steps - 4, chords:perStep.slice(4), off:0, temp:.9, tries, fix, score:bassScore});
+    let ns = r.notes; const shift = Math.round((40 - mean(ns)) / 12) * 12; ns = ns.map(n => ({...n, p:n.p + shift}));
+    for (let b = 0; b < bars; b++) { const at = b * SPB, pc = barPcs[b][0], hit = ns.find(n => n.s === at), prev = ns.filter(n => n.s < at).pop();
+      if (hit) hit.p = rootNear(pc, hit.p); else { const nxt = ns.find(n => n.s > at); ns.push({p:rootNear(pc, prev ? prev.p : 40), s:at, e:Math.min(at + 4, nxt ? nxt.s : at + 4)}); if (prev && prev.e > at) prev.e = at; } }
+    ns.sort((a, b) => a.s - b.s);
+    base.channels[bi].notes = ns.map(n => [Math.floor(n.s / SPB) + 1, Math.floor(n.s % SPB / 4) + 1, n.s % 4 + 1, pName(Math.max(28, Math.min(60, n.p))), n.e - n.s, n.s % SPB === 0 ? .85 : .7]);
+  }
   // 드럼: 첫 마디(규칙 비트)를 DrumsRNN이 이어서
   const dIdx = base.channels.map((c, i) => /^drum:/.test(c.inst) ? i : -1).filter(i => i >= 0);
   if (dIdx.length && bars > 1) {
     const dr = await mmModel('drum_kit_rnn'), PIT = {kick:36, snare:38, hat:42, clap:39, crash:49}, seedN = [];
-    for (const i of dIdx) for (const [b, bt, st] of base.channels[i].notes) if (b === 1) { const s = (bt - 1) * 4 + st - 1; seedN.push([PIT[base.channels[i].inst.slice(5)], s, s + 1]); }
+    for (const i of dIdx) for (const [b, bt, st] of base.channels[i].notes) if (b === 1) { const s0 = (bt - 1) * 4 + st - 1; seedN.push([PIT[base.channels[i].inst.slice(5)], s0, s0 + 1]); }
     const g = await dr.continueSequence(mmSeq(seedN, SPB, true), steps - SPB, temp), byInst = {};
     for (const i of dIdx) { const inst = base.channels[i].inst.slice(5); byInst[inst] = base.channels[i]; base.channels[i].notes = base.channels[i].notes.filter(n => n[0] === 1); }
     for (const n of fromMM(g, SPB)) { const inst = DRUM_MAP[n.p]; if (!inst || n.s >= steps) continue; const ch = byInst[inst] || (byInst[inst] = (base.channels.push({name:DRUM_NAME[inst], inst:'drum:' + inst, notes:[]}), base.channels[base.channels.length - 1]));
       ch.notes.push([Math.floor(n.s / SPB) + 1, Math.floor(n.s % SPB / 4) + 1, n.s % 4 + 1, 'C5', 1, inst === 'hat' ? .5 : .85]); }
   }
   base.title = (prompt || '음악 AI').slice(0, 24);
-  return {data:base, info:`후보 ${tries}개 중 점수 ${best.score.toFixed(2)} (가장 낮은 후보 ${cands[cands.length - 1].score.toFixed(2)})${best.fixed ? ` · 조 밖 긴 음 ${best.fixed}개 고침` : ''}`};
+  return {data:base, info:`후보 ${tries}개씩 골라 점수 ${mel.score.toFixed(2)}${form}${bi >= 0 ? ' · 베이스도 음악 AI' : ''}`};
 }
 // 이어 쓰기: 지금 채널 멜로디의 끝 2마디를 MelodyRNN에 주고 뒤를 지음
 async function musicContinue({addBars, tries}) {

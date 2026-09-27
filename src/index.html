@@ -185,7 +185,7 @@
   <div class="mp-wrap">
     <header class="mp-top"><button class="tbtn" id="cmBack">← 작업 화면으로</button><h2 id="cmTitle">커뮤니티</h2><button class="tbtn solid" id="cmPublish">지금 곡 게시하기</button></header>
     <div class="mp-card">
-      <div class="mp-head"><span role="group" aria-label="정렬"><button class="tbtn xs solid" id="cmNew">최신</button> <button class="tbtn xs" id="cmTop">인기</button></span><input id="cmSearch" class="xs" style="min-width:220px" placeholder="제목 · 태그 · 아이디 검색" aria-label="커뮤니티 검색"></div>
+      <div class="mp-head"><span role="group" aria-label="정렬"><button class="tbtn xs solid" id="cmNew">최신</button> <button class="tbtn xs" id="cmTop">인기</button> <button class="tbtn xs" id="cmReported" hidden>신고됨 (관리자)</button></span><input id="cmSearch" class="xs" style="min-width:220px" placeholder="제목 · 태그 · 아이디 검색" aria-label="커뮤니티 검색"></div>
       <div class="mp-grid" id="cmGrid"></div>
     </div>
   </div>
@@ -193,8 +193,8 @@
 <dialog id="cmPost" aria-labelledby="cmpTitle" style="max-width:640px;width:94vw">
   <canvas id="cmpThumb" style="width:100%;height:120px;display:block;border-radius:8px" aria-hidden="true"></canvas>
   <h2 id="cmpTitle"></h2><p class="dsub" id="cmpMeta"></p>
-  <p id="cmpDesc" style="white-space:pre-wrap;margin:6px 0"></p><p class="dsub" id="cmpTags"></p>
-  <div class="drow"><span><button class="tbtn solid" id="cmpPlay">▶ 열어서 듣기</button> <button class="tbtn" id="cmpLike" aria-pressed="false">♡ 좋아요</button></span><span><button class="tbtn xs" id="cmpDel" hidden>글 지우기</button> <button class="tbtn" id="cmpClose">닫기</button></span></div>
+  <p class="dsub" id="cmpHiddenNote" hidden style="color:#e9a23b"></p><p id="cmpDesc" style="white-space:pre-wrap;margin:6px 0"></p><p class="dsub" id="cmpTags"></p>
+  <div class="drow"><span><button class="tbtn solid" id="cmpPlay">▶ 열어서 듣기</button> <button class="tbtn" id="cmpLike" aria-pressed="false">♡ 좋아요</button></span><span><button class="tbtn xs" id="cmpReport" hidden>신고</button> <button class="tbtn xs" id="cmpHide" hidden>숨기기</button> <button class="tbtn xs" id="cmpDel" hidden>글 지우기</button> <button class="tbtn" id="cmpClose">닫기</button></span></div>
   <h3 style="font-size:14px;margin:12px 0 6px">댓글</h3><div id="cmpComments" class="cm-cmts"></div>
   <div class="drow" id="cmpCmtBox"><input id="cmpInput" class="xs" style="flex:1" maxlength="500" placeholder="댓글 쓰기 (엔터로 등록)" aria-label="댓글"><button class="tbtn" id="cmpSend">등록</button></div>
   <p class="dsub" id="cmpLoginHint" hidden>좋아요·댓글은 로그인하면 쓸 수 있어요.</p>

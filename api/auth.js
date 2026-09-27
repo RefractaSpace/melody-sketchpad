@@ -6,7 +6,7 @@
 //   POST /api/auth?action=delete  {password} + 토큰 → 계정과 곡 모두 삭제
 import { put, list, del } from '@vercel/blob';
 import crypto from 'node:crypto';
-import { cors, makeToken, readToken, userDir, readJson } from './_lib.js';
+import { cors, makeToken, readToken, userDir, readJson, isAdmin } from './_lib.js';
 
 const scrypt = (pw, salt) => new Promise((ok, bad) => crypto.scrypt(pw, salt, 64, {N:16384, r:8, p:1}, (e, k) => e ? bad(e) : ok(k)));
 const tries = new Map();   // 틀린 로그인 횟수 (서버 한 대 안에서만 — 간단한 방어)
@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     if (action === 'me') {   // 내 정보: 아이디 · 가입일 · 곡 수 · 사용량
       const u = readToken(String(req.headers.authorization || '').replace(/^Bearer /, '')); if (!u) return res.status(401).json({error:'bad-token', message:'로그인이 필요해요'});
       const found = await findUser(u), songs = (await list({prefix:userDir(u) + 'songs/', limit:1000})).blobs;
-      return res.status(200).json({username:u, created:found ? found.rec.created : null, songs:songs.length, bytes:songs.reduce((a, b) => a + b.size, 0), limitBytes:4 * 1024 * 1024});
+      return res.status(200).json({username:u, admin:isAdmin(u), created:found ? found.rec.created : null, songs:songs.length, bytes:songs.reduce((a, b) => a + b.size, 0), limitBytes:4 * 1024 * 1024});
     }
     if (req.method !== 'POST') return res.status(405).json({error:'method'});
     const body = await readJson(req);
@@ -59,6 +59,7 @@ export default async function handler(req, res) {
       // 그 사람이 커뮤니티에 올린 글도 지움 (글 폴더 통째로)
       const posts = (await list({prefix:'community/', limit:1000})).blobs.filter(b => /\/post[^/]*\.json$/.test(b.pathname)); let gone = 0;
       for (const b of posts) { try { const p = await (await fetch(b.downloadUrl || b.url)).json(); if (p.author === u) { const f2 = (await list({prefix:'community/' + p.id + '/', limit:50})).blobs; if (f2.length) await del(f2.map(x => x.url)); gone++; } } catch (e) {} }
+      if (gone) { const ib = (await list({prefix:'community/_index', limit:10})).blobs; if (ib.length) await del(ib.map(b => b.url)); }   // 요약 파일은 다음 목록 요청 때 다시 만들어짐
       return res.status(200).json({ok:true, deleted:all.length, posts:gone});
     }
     return res.status(400).json({error:'action'});

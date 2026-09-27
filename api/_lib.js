@@ -8,6 +8,9 @@ export function cors(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return true; }
   return false;
 }
+// 관리자 아이디 — 신고된 글 보기, 글·댓글 숨기기/보이기, 목록 다시 만들기
+export const ADMINS = ['refracta'];
+export const isAdmin = u => !!u && ADMINS.includes(u);
 export const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 const b64u = b => Buffer.from(b).toString('base64url');
 // 토큰 서명 비밀: AUTH_SECRET이 있으면 그것, 없으면 서버만 아는 저장소 토큰에서 만듦

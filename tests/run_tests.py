@@ -523,6 +523,26 @@ async def main():
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'더 옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v2)}));openProject(id)}})()")
         check('버전 2 곡도 변환', await J("S.channels[0].inst==='bell' && chordName(S.patterns[0].chords[0])==='Fm'"))
 
+        # ── AI (인터넷 없이 되는 부분) ──
+        ai = await J("""(()=>{const o={};S.root=0;S.mode='major';
+          for(const pr of ['신나는 여름 축제, 드럼','잔잔한 밤 피아노','슬픈 발라드']){const d=localCompose({prompt:pr,bars:4,seed:5}),sc=d.key.minor?MIN:MAJ;
+            const mel=d.channels[0].notes.map(n=>pitchOf(n[3])),all=d.channels.filter(c=>!/^drum:/.test(c.inst)).flatMap(c=>c.notes.map(n=>pitchOf(n[3])));
+            const res=applyCompose(d,pr),used=Object.values(res.P.notes).filter(a=>a.length).length;
+            o[pr]={out:all.filter(p=>!sc.includes((p-d.key.root+120)%12)).length,tonic:mel[mel.length-1]%12===d.key.root,parts:d.channels.length,used,inside:Object.values(res.P.notes).flat().every(n=>n.s>=0&&n.s+n.l<=res.P.bars*BAR_T)}}
+          return o})()""")
+        check('규칙 AI 작곡: 조 밖 음 0 · 끝음 으뜸음 · 파트마다 채널 따로 · 패턴 안', all(v['out'] == 0 and v['tonic'] and v['used'] == v['parts'] and v['inside'] for v in ai.values()), json.dumps(ai, ensure_ascii=False))
+        ch = await J("""(()=>{S.root=0;S.mode='major';const M=[[60,64,67],[65,69,72],[67,71,74],[72,67,64]],n=M.flatMap((ps,b)=>ps.map((p,i)=>({s:b*BAR_T+i*PPQ,l:PPQ,p,v:.8})));
+          return localChords(n,4,1).map(x=>x[2]+x[3]).join(' ')})()""")
+        check('규칙 AI 코드 추천: C–E–G / F–A–C / G–B–D / C → C F G C', ch == 'C F G C', ch)
+        fb = await J("localFeedback().split('\\n').filter(l=>l.startsWith('• ')).length")
+        check('규칙 AI 피드백: 2줄 이상', fb >= 2, f'{fb}줄')
+        sc = await J("""(()=>{const good=[0,4,8,12].map((s,i)=>({p:[60,64,67,72][i],s,e:s+4})),bad=[0,4,8,12].map((s,i)=>({p:[61,66,70,63][i],s,e:s+4}));
+          const o={root:0,minor:false,chordAt:()=>[0,4,7],steps:16,dens:.25};const fixed=[{p:61,s:0,e:4},{p:66,s:5,e:6}];const nf=fixKey(fixed,0,false);
+          return {g:+melScore(good,o).toFixed(2),b:+melScore(bad,o).toFixed(2),nf,after:fixed.map(n=>n.p)}})()""")
+        check('음악 AI 점수: 코드음 멜로디 > 조 밖 멜로디 · 조 밖 긴 음만 고침(짧은 경과음 유지)', sc['g'] > sc['b'] + 3 and sc['nf'] == 1 and sc['after'] == [60, 66], json.dumps(sc))
+        ui = await J("""({ai:!!$('aiBtn'),comm:!!$('commBtn'),about:($('aboutLink')||{}).href||'',eng:[...$('aiEngine').options].map(o=>o.value).join(','),tabs:document.querySelectorAll('#aiTabs button').length,report:!!$('cmpReport'),hide:!!$('cmpHide'),mypage:!!$('myPage')})""")
+        check('AI·커뮤니티·내 페이지·소개 링크 화면 요소', ui['ai'] and ui['comm'] and ui['about'].endswith('/download/') and ui['eng'] == 'music,local,claude' and ui['tabs'] == 4 and ui['report'] and ui['hide'] and ui['mypage'], json.dumps(ui, ensure_ascii=False))
+
         await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
         stacked = await J("getComputedStyle(document.getElementById('win-roll')).position")
         check('휴대폰 폭에서는 창이 위아래로 쌓임', stacked == 'static', stacked)
