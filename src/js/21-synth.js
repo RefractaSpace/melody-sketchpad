@@ -1,17 +1,4 @@
 /* 21-synth.js — 악기 "신스": 발진기 2개 + 서브 → 필터(엔벨로프) → 앰프 ADSR, LFO, 유니즌 */
-const SYN_DEF = {w1:'sawtooth', w2:'square', oct2:0, det:8, mix:0.35, sub:0, uni:1, spread:15, cut:0.72, res:0.15, fenv:0.3, fdec:0.25, atk:0.005, dec:0.25, sus:0.7, rel:0.25, lfoRate:5, lfoAmt:0, lfoTo:'cut', vol:0.7};
-const SYN_PRESETS = {
-  '리드':  {w1:'sawtooth', w2:'sawtooth', det:12, mix:0.5, uni:3, spread:18, cut:0.7, res:0.2, fenv:0.35, fdec:0.3, atk:0.005, dec:0.3, sus:0.75, rel:0.2},
-  '패드':  {w1:'sawtooth', w2:'triangle', det:6, mix:0.5, uni:3, spread:28, cut:0.52, res:0.1, fenv:0.1, fdec:0.8, atk:0.6, dec:0.5, sus:0.9, rel:1.2, lfoRate:0.4, lfoAmt:0.25, lfoTo:'cut'},
-  '베이스': {w1:'sawtooth', w2:'square', oct2:-1, det:3, mix:0.3, sub:0.6, uni:1, cut:0.36, res:0.3, fenv:0.5, fdec:0.15, atk:0.003, dec:0.3, sus:0.6, rel:0.1},
-  '플럭':  {w1:'square', w2:'sawtooth', det:5, mix:0.4, uni:1, cut:0.3, res:0.35, fenv:0.8, fdec:0.12, atk:0.002, dec:0.25, sus:0, rel:0.2},
-  '브라스': {w1:'sawtooth', w2:'sawtooth', det:6, mix:0.5, uni:2, spread:10, cut:0.45, res:0.1, fenv:0.5, fdec:0.35, atk:0.06, dec:0.3, sus:0.8, rel:0.2, lfoRate:5.5, lfoAmt:0.05, lfoTo:'pitch'}
-};
-const SYN_WAVES = [['sawtooth', '톱니'], ['square', '사각'], ['triangle', '삼각'], ['sine', '사인']];
-const normSyn = o => { const s = {...SYN_DEF, ...(o || {})}, out = {};
-  for (const [k, v] of Object.entries(SYN_DEF)) out[k] = typeof v === 'number' ? (isFinite(+s[k]) ? +s[k] : v) : String(s[k]);
-  if (!SYN_WAVES.some(w => w[0] === out.w1)) out.w1 = 'sawtooth'; if (!SYN_WAVES.some(w => w[0] === out.w2)) out.w2 = 'square'; if (!['cut', 'pitch', 'vol'].includes(out.lfoTo)) out.lfoTo = 'cut';
-  out.uni = clamp(Math.round(out.uni), 1, 3); out.oct2 = clamp(Math.round(out.oct2), -1, 1); return out; };
 function synthVoice(E, f, t, d, vel, dest, slot) {
   const ac = E.ac, c = slot && slot.startsWith('ch:') ? chById(slot.slice(3)) : null, P = normSyn(c && c.syn), end = t + d, stopT = end + P.rel * 4 + 0.05;
   const mixG = ac.createGain(), flt = ac.createBiquadFilter(), amp = ac.createGain(), oscs = [];

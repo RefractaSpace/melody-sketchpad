@@ -470,6 +470,14 @@ async def main():
           await openSampleEditor(a.slot,'테스트');$('seStart').value=250;$('seEnd').value=750;$('seStart').dispatchEvent(new Event('input'));$('seRev').click();$('seNorm').click();await $('seApply').onclick();
           const buf=SAMPLES[a.slot].buf,d=buf.getChannelData(0),orig=await idbGet(a.slot+':orig');return {dur:+buf.duration.toFixed(2),first:+d[10].toFixed(2),last:+d[d.length-10].toFixed(2),peak:+Math.max(...Array.from(d.subarray(0,5000))).toFixed(2),clip:+S.audio[0].len.toFixed(2),orig:!!orig,btn:!!document.querySelector('#mixerStrips button[aria-label$="샘플 편집"]')}})()""")
         check('샘플 편집: 가운데만 남기기 · 뒤집기 · 노멀라이즈 · 원본 보관 · 클립 길이 맞춤', sed['dur'] == 0.5 and sed['first'] > 0.9 and sed['last'] < 0.55 and sed['clip'] == 0.5 and sed['orig'], str(sed))
+        # 저장 → 새로고침 → 그대로 (박자·신스·조각 포함)
+        rp = await ctx.new_page(); await rp.goto(URL); await rp.wait_for_timeout(900)
+        await rp.evaluate("(()=>{addChannel('synth','synth');curCh().syn.cut=.33;curPat().notes[curCh().id]=[{p:64,s:36,l:24,v:.7}];S.meter=[3,4];S=normalize(S);save()})()"); await rp.wait_for_timeout(1500)
+        before_r = await rp.evaluate("JSON.stringify([S.channels.map(c=>c.inst),S.meter,S.channels.find(c=>c.inst==='synth').syn.cut,S.patterns[0].notes[S.channels.find(c=>c.inst==='synth').id]])")
+        await rp.reload(); await rp.wait_for_timeout(1200)
+        after_r = await rp.evaluate("JSON.stringify([S.channels.map(c=>c.inst),S.meter,(S.channels.find(c=>c.inst==='synth')||{syn:{}}).syn.cut,S.patterns[0].notes[(S.channels.find(c=>c.inst==='synth')||{}).id]])")
+        await rp.close()
+        check('저장 → 새로고침해도 곡이 그대로 (박자·신스 설정·음)', before_r == after_r, f'전 {before_r} · 뒤 {after_r}')
         v3 = {'v': 3, 'bpm': 128, 'root': 0, 'mode': 'major', 'bars': 2, 'tracks': [{'id': 'a', 'name': '리드', 'inst': 'pluck', 'notes': [{'p': 60, 's': 0, 'l': 24}]}], 'chords': [{'r': 0, 'q': ''}, None, None, None, {'r': 7, 'q': ''}], 'drums': {'kick': [1, 0, 0, 0, 0.5]}}
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v3)}));openProject(id)}})()")
         conv = await J("[S.channels.map(c=>c.name), S.patterns.length, S.playlist.clips.length, chordName(S.patterns[0].chords[4]), notesOf(S.patterns[0],S.channels[1]).map(n=>n.v)]")

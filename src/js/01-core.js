@@ -19,9 +19,31 @@ const METERS = [[2, 4], [3, 4], [4, 4], [5, 4], [6, 4], [7, 4], [6, 8], [12, 8]]
 let METER_OV = null;
 const meterOf = s => { const m = (s && s.meter) || [4, 4]; return METERS.some(x => x[0] === m[0] && x[1] === m[1]) ? m : [4, 4]; };
 const barTicksOf = m => m[0] * PPQ * 4 / m[1];
-Object.defineProperty(window, 'BAR_T', {get:() => barTicksOf(METER_OV || meterOf(typeof S !== 'undefined' ? S : null))});
+// S가 아직 만들어지는 중(시작할 때 저장된 곡을 푸는 동안)이면 읽지 않음 — 읽으면 오류가 나서 빈 곡으로 대체돼요
+function curSongOrNull() { try { return S; } catch (e) { return null; } }
+Object.defineProperty(window, 'BAR_T', {get:() => barTicksOf(METER_OV || meterOf(curSongOrNull()))});
 Object.defineProperty(window, 'BEATS', {get:() => BAR_T / PPQ});
 Object.defineProperty(window, 'STEPS', {get:() => BAR_T / 12});
+const SYN_DEF = {w1:'sawtooth', w2:'square', oct2:0, det:8, mix:0.35, sub:0, uni:1, spread:15, cut:0.72, res:0.15, fenv:0.3, fdec:0.25, atk:0.005, dec:0.25, sus:0.7, rel:0.25, lfoRate:5, lfoAmt:0, lfoTo:'cut', vol:0.7,
+  fm:0, wt:0.5, m1s:'none', m1d:'cut', m1a:0, m2s:'none', m2d:'pitch', m2a:0};   // fm: 발진기2가 1의 주파수를 흔듦 · wt: 웨이브테이블 위치 · m1/m2: 모드 매트릭스(출처·대상·양)
+const SYN_PRESETS = {
+  '리드':  {w1:'sawtooth', w2:'sawtooth', det:12, mix:0.5, uni:3, spread:18, cut:0.7, res:0.2, fenv:0.35, fdec:0.3, atk:0.005, dec:0.3, sus:0.75, rel:0.2},
+  '패드':  {w1:'sawtooth', w2:'triangle', det:6, mix:0.5, uni:3, spread:28, cut:0.52, res:0.1, fenv:0.1, fdec:0.8, atk:0.6, dec:0.5, sus:0.9, rel:1.2, lfoRate:0.4, lfoAmt:0.25, lfoTo:'cut'},
+  '베이스': {w1:'sawtooth', w2:'square', oct2:-1, det:3, mix:0.3, sub:0.6, uni:1, cut:0.36, res:0.3, fenv:0.5, fdec:0.15, atk:0.003, dec:0.3, sus:0.6, rel:0.1},
+  '플럭':  {w1:'square', w2:'sawtooth', det:5, mix:0.4, uni:1, cut:0.3, res:0.35, fenv:0.8, fdec:0.12, atk:0.002, dec:0.25, sus:0, rel:0.2},
+  '브라스': {w1:'sawtooth', w2:'sawtooth', det:6, mix:0.5, uni:2, spread:10, cut:0.45, res:0.1, fenv:0.5, fdec:0.35, atk:0.06, dec:0.3, sus:0.8, rel:0.2, lfoRate:5.5, lfoAmt:0.05, lfoTo:'pitch'}
+};
+const SYN_WAVES = [['sawtooth', '톱니'], ['square', '사각'], ['triangle', '삼각'], ['sine', '사인'], ['table', '웨이브테이블']];
+const MOD_SRC = [['none', '없음'], ['lfo', 'LFO'], ['env', '엔벨로프'], ['vel', '세기']], MOD_DST = [['cut', '필터'], ['pitch', '음높이'], ['vol', '볼륨'], ['fm', 'FM 양']];
+const normSyn = o => { const s = {...SYN_DEF, ...(o || {})}, out = {};
+  for (const [k, v] of Object.entries(SYN_DEF)) out[k] = typeof v === 'number' ? (isFinite(+s[k]) ? +s[k] : v) : String(s[k]);
+  if (!SYN_WAVES.some(w => w[0] === out.w1)) out.w1 = 'sawtooth'; if (!SYN_WAVES.some(w => w[0] === out.w2)) out.w2 = 'square'; if (!['cut', 'pitch', 'vol'].includes(out.lfoTo)) out.lfoTo = 'cut';
+  for (const k of ['m1s', 'm2s']) if (!MOD_SRC.some(x => x[0] === out[k])) out[k] = 'none'; for (const k of ['m1d', 'm2d']) if (!MOD_DST.some(x => x[0] === out[k])) out[k] = 'cut';
+  out.fm = clamp(out.fm, 0, 1); out.wt = clamp(out.wt, 0, 1); out.m1a = clamp(out.m1a, -1, 1); out.m2a = clamp(out.m2a, -1, 1);
+  out.uni = clamp(Math.round(out.uni), 1, 3); out.oct2 = clamp(Math.round(out.oct2), -1, 1); return out; };
+// 샘플러 설정: 구간 반복(loop, ls~le 비율) · 조각(slices개로 나눠 C4부터 건반마다 한 조각)
+const SMP_DEF = {loop:false, ls:0, le:1, slices:0};
+const normSmp = o => { const s = {...SMP_DEF, ...(o || {})}; return {loop:!!s.loop, ls:clamp(+s.ls || 0, 0, 0.99), le:clamp(+s.le || 1, 0.01, 1), slices:[0, 4, 8, 16].includes(+s.slices) ? +s.slices : 0}; };
 const SA_PARAMS = ['vol', 'cut', 'pan', 'rev', 'dly', 'fx1', 'fx2', 'fx3', 'fx4', 'fx5'];
 const PAT_COLORS = ['', '#7b95e0', '#e08476', '#72c79f', '#dcb65e', '#b287e0', '#62bccd', '#dc86b4'];   // 0 = 색 없음
 const NAMES_S = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -108,7 +130,7 @@ function normalizeRaw(s) {
   s.channels = (s.channels || []).filter(c => c && (c.kind === 'drum' ? DRUMS.includes(c.inst) : true)).map(c => {
     let id = c.id || newId(); if (seen.has(id)) id = newId(); seen.add(id);
     const kind = c.kind === 'drum' ? 'drum' : 'synth';
-    return {id, kind, inst:kind === 'drum' ? c.inst : (INSTS[c.inst] ? c.inst : 'piano'), name:(c.name || (kind === 'drum' ? DRUM_NAME[c.inst] : INSTS[c.inst]) || '채널').slice(0, 24), tone:{...toneDefault(), ...(c.tone || {})}, ...(c.syn || (INSTS[c.inst] && c.inst === 'synth') ? {syn:normSyn(c.syn)} : {})};
+    return {id, kind, inst:kind === 'drum' ? c.inst : (INSTS[c.inst] ? c.inst : 'piano'), name:(c.name || (kind === 'drum' ? DRUM_NAME[c.inst] : INSTS[c.inst]) || '채널').slice(0, 24), tone:{...toneDefault(), ...(c.tone || {})}, ...(c.syn || (INSTS[c.inst] && c.inst === 'synth') ? {syn:normSyn(c.syn)} : {}), ...(c.smp ? {smp:normSmp(c.smp)} : {})};
   });
   if (!s.channels.length) s.channels = b.channels;
   const ids = new Set(s.channels.map(c => c.id));
