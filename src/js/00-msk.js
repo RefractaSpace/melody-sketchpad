@@ -19,7 +19,7 @@ const MSK_BMODE = ['off', 'sustain', '8th', 'offbeat'];
 const MSK_BINST = ['reese', 'sub', 'saw'];
 const MSK_KIT = ['edm', '808', 'hard', 'acoustic'];
 const MSK_Q = ['', 'm', '7', 'maj7', 'm7', 'sus4', 'dim', 'aug'];
-const MSK_FX = ['', 'comp', 'dist', 'lpf', 'hpf', 'chorus', 'reverb', 'delay', 'eq', 'width'];
+const MSK_FX = ['', 'comp', 'dist', 'lpf', 'hpf', 'chorus', 'reverb', 'delay', 'eq', 'width', 'eq4', 'gate'];
 const mskIdx = (list, v) => Math.max(0, list.indexOf(v));
 const q8 = x => clamp(Math.round(x), 0, 255);
 // CRC32: 바이트가 하나라도 바뀌면 값이 달라지는 "지문" (ZIP·PNG와 같은 계산법)
@@ -100,6 +100,9 @@ function encodeMskBody(song, name, samples, keepIds) {
   for (const b of ['bus1', 'bus2']) if (Object.values(outs).includes(b) && song.mix[b]) { const {fx, ...rest} = song.mix[b]; busMix[b] = rest; }
   if (Object.keys(outs).length) w.chunk('ROUT', p => p.str(JSON.stringify({o:outs, b:busMix})));
   if (song.sauto && Object.keys(song.sauto).length) w.chunk('SAUT', p => p.str(JSON.stringify(Object.fromEntries(Object.entries(song.sauto).map(([k, v]) => { const [key, prm] = k.split('|'); return [cix(key) + '|' + prm, v.map(q => [q.s, Math.round(q.v * 1000)])]; })))));
+  const fx2 = []; for (const [kind, i, k] of fxKeys) (song.mix[k].fx || []).forEach((f, si) => { if (f.c != null || f.d != null) fx2.push([kind, i, si, q8((f.c == null ? 0.5 : f.c) * 250), q8((f.d == null ? 0.5 : f.d) * 250)]); });
+  if (fx2.length) w.chunk('FXX2', p => { p.vu(fx2.length); for (const [kind, i, si, c3, d3] of fx2) { p.u8(kind); p.vu(i); p.u8(si); p.u8(c3); p.u8(d3); } });
+  const smp = {}; song.channels.forEach((c, i) => { if (c.smp) smp[i] = c.smp; }); if (Object.keys(smp).length) w.chunk('SMPC', p => p.str(JSON.stringify(smp)));
   const syn = {}; song.channels.forEach((c, i) => { if (c.syn) syn[i] = c.syn; }); if (Object.keys(syn).length) w.chunk('SYNP', p => p.str(JSON.stringify(syn)));
   w.chunk('TEMP', p => p.vu(Math.round(song.bpm * 100)));
   if (song.tempo && song.tempo.length) w.chunk('TMAP', p => { p.vu(song.tempo.length); let pt = 0; for (const x of song.tempo) { p.vu(x.t - pt); pt = x.t; p.vu(Math.round(x.bpm * 100)); } });
@@ -144,6 +147,8 @@ function decodeMskBody(body, needCrc) {
       if (type === 'FXSL') { for (let k = p.vu(); k > 0; k--) { const kind = p.u8(), i = p.vu(), fx = []; for (let n = p.vu(); n > 0; n--) fx.push({type:MSK_FX[p.u8()] || '', a:p.u8() / 250, b:p.u8() / 250}); (song._fx = song._fx || []).push([kind, i, fx]); } continue; }
       if (type === 'AUTO') { for (let k = p.vu(); k > 0; k--) { const pi = p.vu(), ent = []; for (let n = p.vu(); n > 0; n--) { const ci = p.vu(), A = {}; for (const key of ['vol', 'cut']) { const pts = []; let s = 0; for (let j = p.vu(); j > 0; j--) { s += p.vu(); pts.push({s, v:p.u8() / 250}); } if (pts.length) A[key] = pts; } ent.push([ci, A]); } (song._auto = song._auto || []).push([pi, ent]); } continue; }
       if (type === 'AUDC') { song.audio = []; for (let k = p.vu(); k > 0; k--) { const slot = p.str(), name = p.str(), t = p.u8(), s = p.vu(), off = p.vu() / 1000, len = p.vu() / 1000, gain = p.u8() / 100; song.audio.push({id:slot.slice(3), slot, name, t, s, off, len, gain}); } try { song._audioMix = JSON.parse(p.str()); } catch (e) {} continue; }
+      if (type === 'FXX2') { song._fx2 = []; for (let k = p.vu(); k > 0; k--) song._fx2.push([p.u8(), p.vu(), p.u8(), p.u8() / 250, p.u8() / 250]); continue; }
+      if (type === 'SMPC') { try { song._smp = JSON.parse(p.str()); } catch (e) {} continue; }
       if (type === 'SYNP') { try { song._syn = JSON.parse(p.str()); } catch (e) {} continue; }
       if (type === 'BEND') { song._bend = []; for (let k = p.vu(); k > 0; k--) song._bend.push([p.vu(), p.vu(), p.vu(), p.u8(), p.u8() - 12]); continue; }
       if (type === 'ROUT') { try { song._rout = JSON.parse(p.str()); } catch (e) {} continue; }
@@ -199,6 +204,8 @@ function decodeMskBody(body, needCrc) {
   if (song._rout) { for (const [k, o] of Object.entries(song._rout.o || {})) { const key = kOf(k); if (key) song.mix[key] = {...(song.mix[key] || {}), out:o}; } for (const [b, v] of Object.entries(song._rout.b || {})) song.mix[b] = {...(song.mix[b] || {}), ...v}; }
   if (song._saut) { song.sauto = {}; for (const [k, v] of Object.entries(song._saut)) { const [key, prm] = k.split('|'), kk = kOf(key); if (kk) song.sauto[kk + '|' + prm] = v.map(([s, vv]) => ({s, v:vv / 1000})); } }
   for (const [i, v] of Object.entries(song._syn || {})) if (song.channels[+i]) song.channels[+i].syn = v; delete song._syn;
+  for (const [i, v] of Object.entries(song._smp || {})) if (song.channels[+i]) song.channels[+i].smp = v; delete song._smp;
+  for (const [kind, i, si, c3, d3] of song._fx2 || []) { const k = kind === 0 ? (song.channels[i] ? chKey(song.channels[i]) : null) : [null, 'chords', 'bass', 'master', 'audio', 'bus1', 'bus2'][kind]; const f = k && song.mix[k] && (song.mix[k].fx || [])[si]; if (f) { f.c = c3; f.d = d3; } } delete song._fx2;
   delete song._fx; delete song._auto; delete song._audioMix; delete song._bend; delete song._rout; delete song._saut;
   clipsTodo.forEach((c, i) => { const P = song.patterns[c.pi]; if (!P) return; const o = {id:newId(), pat:P.id, t:c.t, bar:c.bar}; if (plex && plex[i]) { if (plex[i][0]) o.len = plex[i][0]; if (plex[i][1]) o.off = plex[i][1]; } song.playlist.clips.push(o); });
   const out = normalize(song);

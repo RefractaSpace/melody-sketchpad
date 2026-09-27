@@ -48,7 +48,11 @@ function auPos(e) { const r = plc.getBoundingClientRect(); return {x:e.clientX -
 function initAudioClips() {
   plc.addEventListener('pointerdown', e => {
     const q = auPos(e), a = audioAt(q.x, q.t); if (!a || e.button === 2) return;
-    e.stopImmediatePropagation(); e.preventDefault(); const k = PL_BAR / BAR_T, X0 = a.s * k, X1 = audioEndTick(a) * k;
+    e.stopImmediatePropagation(); e.preventDefault();
+    if (e.shiftKey) {   // Shift+누르기 = 그 자리(박 단위)에서 둘로 나누기
+      const tk = Math.round(q.x * BAR_T / PL_BAR / PPQ) * PPQ, cut = songSec(tk) - songSec(a.s); if (cut <= 0.05 || cut >= a.len - 0.05) return;
+      pushUndo(); const b = {...a, id:newId(), s:tk, off:a.off + cut, len:a.len - cut}; a.len = cut; S.audio.push(b); save(); drawPlaylist(); announce(`오디오 클립을 ${Math.floor(tk / BAR_T) + 1}마디에서 나눴어요.`); return;
+    } const k = PL_BAR / BAR_T, X0 = a.s * k, X1 = audioEndTick(a) * k;
     auDrag = {a, edge:q.x >= X1 - 8 ? 'R' : q.x <= X0 + 7 ? 'L' : '', dx:q.x - X0, s0:a.s, off0:a.off, len0:a.len, moved:false}; pushUndo();
     try { plc.setPointerCapture(e.pointerId); } catch (_) {}
   }, true);

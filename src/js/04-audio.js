@@ -112,12 +112,12 @@ function getCh(E, key) {
 const BUSES = ['bus1', 'bus2'], outKey = (key, m) => !BUSES.includes(key) && key !== 'master' && m && BUSES.includes(m.out) ? m.out : 'master';
 function outDest(E, key, m) { const o = outKey(key, m); return o === 'master' ? E.in : getCh(E, o).inp; }
 // ---- 이펙트 칸 (채널마다 3칸) — a·b는 0~1 손잡이 ----
-const FX_TYPES = ['', 'comp', 'dist', 'lpf', 'hpf', 'chorus', 'reverb', 'delay', 'eq', 'width'], FX_SLOTS = 5;   // 뒤에만 덧붙이기 (MSK 번호표)
-const FX_NAME = {'':'비어 있음', comp:'압축기', dist:'디스토션', lpf:'로우패스', hpf:'하이패스', chorus:'코러스', reverb:'리버브', delay:'딜레이', eq:'EQ (한 밴드)', width:'스테레오 폭'};
-const FX_KNOBS = {comp:['임계값', '비율'], dist:['세기', '밝기'], lpf:['주파수', '공명'], hpf:['주파수', '공명'], chorus:['깊이', '섞기'], reverb:['길이', '섞기'], delay:['시간', '섞기'], eq:['주파수', '증감'], width:['폭', '출력']};
-const FX_AUTOK = {comp:0, dist:1, lpf:0, hpf:0, chorus:1, reverb:1, delay:1, eq:1, width:0};   // 곡 자동화가 움직이는 손잡이
+const FX_TYPES = ['', 'comp', 'dist', 'lpf', 'hpf', 'chorus', 'reverb', 'delay', 'eq', 'width', 'eq4', 'gate'], FX_SLOTS = 5, FX_KEYS = ['a', 'b', 'c', 'd'];   // 뒤에만 덧붙이기 (MSK 번호표)
+const FX_NAME = {'':'비어 있음', comp:'압축기', dist:'디스토션', lpf:'로우패스', hpf:'하이패스', chorus:'코러스', reverb:'리버브', delay:'딜레이', eq:'EQ (한 밴드)', width:'스테레오 폭', eq4:'EQ (4밴드)', gate:'트랜스 게이트'};
+const FX_KNOBS = {comp:['임계값', '비율'], dist:['세기', '밝기'], lpf:['주파수', '공명'], hpf:['주파수', '공명'], chorus:['깊이', '섞기'], reverb:['길이', '섞기'], delay:['시간', '섞기'], eq:['주파수', '증감'], width:['폭', '출력'], eq4:['저음 100Hz', '중저 500Hz', '중고 2.5kHz', '고음 8kHz'], gate:['박자', '깊이']};
+const FX_AUTOK = {comp:0, dist:1, lpf:0, hpf:0, chorus:1, reverb:1, delay:1, eq:1, width:0, eq4:0, gate:1};   // 곡 자동화가 움직이는 손잡이
 const DELAY_NOTES = [[0.25, '1/16'], [0.5, '1/8'], [0.75, '3/16'], [1, '1/4'], [1.5, '3/8'], [2, '1/2']];
-const FX_DEF = {comp:[0.7, 0.16], dist:[0.3, 0.5], lpf:[0.7, 0.1], hpf:[0.2, 0.1], chorus:[0.5, 0.4], reverb:[0.35, 0.3], delay:[0.55, 0.3], eq:[0.5, 0.65], width:[0.75, 0.67]};
+const FX_DEF = {comp:[0.7, 0.16], dist:[0.3, 0.5], lpf:[0.7, 0.1], hpf:[0.2, 0.1], chorus:[0.5, 0.4], reverb:[0.35, 0.3], delay:[0.55, 0.3], eq:[0.5, 0.65], width:[0.75, 0.67], eq4:[0.5, 0.5, 0.5, 0.5], gate:[0.5, 0.8]};
 const AUTO_CUT_MAX = 18000, cutHz = v => 40 * Math.pow(AUTO_CUT_MAX / 40, clamp(v, 0, 1));   // 0~1 → 40Hz~18kHz (귀에 고르게)
 function makeFx(ac, f) {
   const g = () => ac.createGain(), a = f.a, b = f.b;
@@ -161,6 +161,15 @@ function makeFx(ac, f) {
     link(0, 0, 0.5 + w / 2); link(1, 0, 0.5 - w / 2); link(0, 1, 0.5 - w / 2); link(1, 1, 0.5 + w / 2);
     out.gain.value = b * 1.5; mg.connect(out); return {inp, out};
   }
+  if (f.type === 'eq4') {   // 4밴드 EQ: 저음 셸프 · 피크 둘 · 고음 셸프, 손잡이마다 ±12dB
+    const bands = [['lowshelf', 100], ['peaking', 500], ['peaking', 2500], ['highshelf', 8000]].map(([ty, hz], i) => { const q = ac.createBiquadFilter(); q.type = ty; q.frequency.value = hz; q.Q.value = 0.9; q.gain.value = ((f[FX_KEYS[i]] == null ? 0.5 : f[FX_KEYS[i]]) - 0.5) * 24; return q; });
+    for (let i = 0; i < 3; i++) bands[i].connect(bands[i + 1]); return {inp:bands[0], out:bands[3], pa:bands[0].gain, map:v => (v - 0.5) * 24};
+  }
+  if (f.type === 'gate') {   // 트랜스 게이트: 템포에 맞춘 사각파로 소리를 켰다 껐다 (1/4·1/8·1/16·1/32)
+    const inp = g(), out = g(), lfo = ac.createOscillator(), sh = ac.createWaveShaper(), div = [1, 2, 4, 8][Math.min(3, Math.floor(a * 4))], dep = clamp(b, 0, 1), cv = new Float32Array(256);
+    for (let i = 0; i < 256; i++) cv[i] = i < 128 ? 1 - dep : 1; sh.curve = cv; lfo.type = 'square'; lfo.frequency.value = S.bpm / 60 * div; out.gain.value = 0;
+    lfo.connect(sh); sh.connect(out.gain); lfo.start(0); inp.connect(out); return {inp, out, stop:() => { try { lfo.stop(); } catch (e) {} }};
+  }
   return null;
 }
 function applyFx(E, ch, fx) {
@@ -188,7 +197,13 @@ function applyMix(E, mix) {
 }
 function playSample(E, slot, m, t, d, vel, dest) {
   const s = SAMPLES[slot]; if (!s) return false;
+  const ch = slot.startsWith('ch:') ? chById(slot.slice(3)) : null, cfg = ch && ch.smp, dur = s.buf.duration;
+  if (cfg && cfg.slices && m != null) {   // 조각: C4부터 건반마다 한 조각, 음높이는 그대로
+    const N = cfg.slices, k = ((m - 60) % N + N) % N, len = dur / N, src = E.ac.createBufferSource(), g = E.ac.createGain(); src.buffer = s.buf; g.gain.value = vel;
+    src.connect(g); g.connect(dest); const play = Math.min(len, d != null ? d + 0.02 : len); src.start(t, k * len, play); g.gain.setValueAtTime(vel, t + Math.max(0, play - 0.01)); g.gain.linearRampToValueAtTime(0.0001, t + play); src.stop(t + play + 0.02); return true;
+  }
   const src = E.ac.createBufferSource(); src.buffer = s.buf; src.playbackRate.value = m == null ? 1 : Math.pow(2, (m - s.root) / 12); bendParam(src.playbackRate, src.playbackRate.value);
+  if (cfg && cfg.loop && d != null) { src.loop = true; src.loopStart = cfg.ls * dur; src.loopEnd = Math.max(cfg.ls * dur + 0.01, cfg.le * dur); }   // 구간 반복: 누르는 동안 계속
   const g = E.ac.createGain(); g.gain.setValueAtTime(vel, t);
   if (d != null) { g.gain.setValueAtTime(vel, t + d); g.gain.linearRampToValueAtTime(0.0001, t + d + 0.08); }
   src.connect(g); g.connect(dest); src.start(t); src.stop(t + (d != null ? d + 0.1 : s.buf.duration / src.playbackRate.value + 0.05)); return true;

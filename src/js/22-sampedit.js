@@ -12,11 +12,12 @@ function seDraw() {
 }
 async function openSampleEditor(slot, label) {
   const sm = SAMPLES[slot]; if (!sm) { status('편집할 소리가 없어요.'); return; }
-  se = {slot, label, buf:copyBuf(sm.buf), orig:sm.buf}; $('seName').textContent = `${label} · ${sm.name || ''}`; $('seStart').value = 0; $('seEnd').value = 1000;
+  se = {slot, label, buf:copyBuf(sm.buf), orig:sm.buf, hist:[]}; $('seUndo').disabled = true; $('seName').textContent = `${label} · ${sm.name || ''}`; $('seStart').value = 0; $('seEnd').value = 1000;
   const bak = await idbGet(slot + ':orig').catch(() => null); $('seRestore').disabled = !bak; seDraw(); openDlg($('seDlg'));
 }
 // 작업: 남길 부분(시작~끝)에만
-function seOp(fn, msg) { const [s0, s1] = seRange(); for (let c = 0; c < se.buf.numberOfChannels; c++) fn(se.buf.getChannelData(c), s0, s1); seDraw(); announce(msg); }
+function sePush() { se.hist.push(copyBuf(se.buf)); if (se.hist.length > 20) se.hist.shift(); $('seUndo').disabled = false; }
+function seOp(fn, msg) { sePush(); const [s0, s1] = seRange(); for (let c = 0; c < se.buf.numberOfChannels; c++) fn(se.buf.getChannelData(c), s0, s1); seDraw(); announce(msg); }
 $('seRev').onclick = () => seOp((d, a, b) => d.subarray(a, b).reverse(), '뒤집었어요');
 const fadeLen = (a, b) => Math.min(b - a, Math.floor(se.buf.sampleRate * 0.3), Math.floor((b - a) / 4));
 $('seFin').onclick = () => seOp((d, a, b) => { const n = fadeLen(a, b); for (let i = 0; i < n; i++) d[a + i] *= i / n; }, '페이드 인');
@@ -36,3 +37,21 @@ async function seStore(buf, keepOrig) {
 }
 $('seApply').onclick = async () => { const [s0, s1] = seRange(), out = copyBuf(se.buf, s0, s1); await seStore(out, true); $('seDlg').close(); status(`${se.label}: ${out.duration.toFixed(2)}초로 편집했어요 (원본은 보관).`); se = null; };
 $('seRestore').onclick = async () => { const bak = await idbGet(se.slot + ':orig').catch(() => null); if (!bak) return; const buf = await decode(bak.ab.slice(0)); await seStore(buf, false); for (const a of S.audio || []) if (a.slot === se.slot) { a.off = 0; a.len = buf.duration; } save(); drawPlaylist(); $('seDlg').close(); status(`${se.label}: 원본으로 되돌렸어요.`); se = null; };
+
+$('seUndo').onclick = () => { if (!se.hist.length) return; se.buf = se.hist.pop(); $('seUndo').disabled = !se.hist.length; seDraw(); announce('편집 한 단계 되돌림'); };
+// 늘이기(음높이 유지): WSOLA — 겹치는 창을 옮겨 붙이되, 이전 조각과 가장 닮은 자리를 찾아 붙여서 끊김을 줄임
+function wsola(d, ratio) {
+  const W = 2048, H = W / 2, SR = 256, out = new Float32Array(Math.floor(d.length * ratio) + W), win = new Float32Array(W); for (let i = 0; i < W; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / W);
+  let prev = 0;
+  for (let o = 0, k = 0; o + W < out.length; o += H, k++) {
+    const nominal = Math.round(o / ratio); let best = nominal;
+    if (k > 0) { let bc = -Infinity; const ref = prev + H; for (let s = -SR; s <= SR; s += 4) { const p = nominal + s; if (p < 0 || p + W > d.length) continue; let c = 0; for (let i = 0; i < 256; i += 2) c += d[p + i] * d[ref + i]; if (c > bc) { bc = c; best = p; } } }
+    best = clamp(best, 0, Math.max(0, d.length - W)); for (let i = 0; i < W; i++) out[o + i] += (d[best + i] || 0) * win[i]; prev = best;
+  }
+  return out.subarray(0, Math.floor(d.length * ratio));
+}
+function resample(d, r) { const n = Math.floor(d.length / r), o = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * r, j = Math.floor(x), f = x - j; o[i] = (d[j] || 0) * (1 - f) + (d[j + 1] || 0) * f; } return o; }
+function seReplace(chs) { const n = chs[0].length, b = new AudioBuffer({numberOfChannels:chs.length, length:Math.max(1, n), sampleRate:se.buf.sampleRate}); chs.forEach((c, i) => b.copyToChannel(c, i)); se.buf = b; $('seStart').value = 0; $('seEnd').value = 1000; seDraw(); }
+$('seStretch').onclick = () => { const r = +$('seStretchSel').value; if (r === 1) return; sePush(); const chs = []; for (let c = 0; c < se.buf.numberOfChannels; c++) chs.push(wsola(se.buf.getChannelData(c), r)); seReplace(chs); announce(`길이 ${Math.round(r * 100)}% (음높이 그대로)`); };
+$('sePitch').onclick = () => { const st = +$('sePitchSel').value; if (!st) return; sePush(); const r = Math.pow(2, st / 12), chs = [];   // 늘인 뒤 빠르게 재생 = 길이 그대로, 음높이만 바뀜
+  for (let c = 0; c < se.buf.numberOfChannels; c++) chs.push(resample(wsola(se.buf.getChannelData(c), r), r)); seReplace(chs); announce(`음높이 ${st > 0 ? '+' : ''}${st}반음 (길이 그대로)`); };

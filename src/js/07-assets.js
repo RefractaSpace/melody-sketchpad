@@ -27,6 +27,14 @@ function sampleCtl(slot, label) {
   mc.setAttribute('aria-label', label + (recNow ? ' 마이크 녹음 멈추기' : ' 마이크로 녹음')); mc.onclick = () => micToggle(slot, label);
   const ed = document.createElement('button'); ed.className = 'tbtn xs'; ed.textContent = '✂ 편집'; ed.hidden = !SAMPLES[slot]; ed.setAttribute('aria-label', label + ' 샘플 편집'); ed.onclick = () => openSampleEditor(slot, label);
   w.append(nm, up, mc, ed, fi);
+  const smCh = slot.startsWith('ch:') ? chById(slot.slice(3)) : null;
+  if (smCh && smCh.kind === 'synth' && SAMPLES[slot]) {   // 샘플러: 구간 반복 · 조각을 건반에
+    const c2 = smCh.smp = normSmp(smCh.smp), set = (k, v) => { c2[k] = v; save(); };
+    w.appendChild(selectEl(label + ' 구간 반복', [['0', '반복 끔'], ['1', '누르는 동안 구간 반복']], c2.loop ? '1' : '0', v => set('loop', v === '1')));
+    w.appendChild(mixSlider('반복 시작', c2.ls, 0, 0.99, 0.01, v => set('ls', v), v => Math.round(v * 100) + '%'));
+    w.appendChild(mixSlider('반복 끝', c2.le, 0.01, 1, 0.01, v => set('le', v), v => Math.round(v * 100) + '%'));
+    w.appendChild(selectEl(label + ' 조각', [['0', '조각 안 냄'], ['4', '4조각 → C4부터'], ['8', '8조각 → C4부터'], ['16', '16조각 → C4부터']], String(c2.slices), v => set('slices', +v)));
+  }
   if (s) {
     if (isTrack) {
       const rs = document.createElement('select'); rs.className = 'xs'; rs.setAttribute('aria-label', '샘플의 기준음');

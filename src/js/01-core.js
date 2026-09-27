@@ -87,7 +87,7 @@ function fillMix(s) {
   for (const c of s.channels) out[chKey(c)] = {...chDefault(chKey(c), c), ...(m[chKey(c)] || {})};
   for (const k of FIXED_CH) out[k] = {...chDefault(k), ...(m[k] || {})};
   for (const k of Object.keys(out)) { if (['bus1', 'bus2'].includes(out[k].out) && !['bus1', 'bus2', 'master'].includes(k)) {} else delete out[k].out; }
-  const normFx = fx => (Array.isArray(fx) ? fx : []).filter(f => f && ['comp', 'dist', 'lpf', 'hpf', 'chorus', 'reverb', 'delay', 'eq', 'width'].includes(f.type)).slice(0, 5).map(f => ({type:f.type, a:clamp(+f.a || 0, 0, 1), b:clamp(+f.b || 0, 0, 1)}));
+  const normFx = fx => (Array.isArray(fx) ? fx : []).filter(f => f && ['comp', 'dist', 'lpf', 'hpf', 'chorus', 'reverb', 'delay', 'eq', 'width', 'eq4', 'gate'].includes(f.type)).slice(0, 5).map(f => { const o = {type:f.type, a:clamp(+f.a || 0, 0, 1), b:clamp(+f.b || 0, 0, 1)}; if (f.c != null) o.c = clamp(+f.c, 0, 1); if (f.d != null) o.d = clamp(+f.d, 0, 1); return o; });
   for (const k of Object.keys(out)) out[k].fx = normFx(out[k].fx);
   out.master = {...MASTER_DEF, ...(m.master || {})}; out.master.fx = normFx(out.master.fx);
   s.mix = out;

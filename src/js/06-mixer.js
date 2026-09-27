@@ -10,6 +10,8 @@ function mixSlider(label, val, min, max, step, on, fmt) {
 const pct = v => Math.round(v * 100), eqf = v => (v > 0 ? '+' : '') + v.toFixed(0) + 'dB';
 const hzf = v => { const h = cutHz(v); return h >= 1000 ? (h / 1000).toFixed(1) + 'k' : Math.round(h) + ''; };
 function fxFmt(type, j) {
+  if (type === 'eq4') return v => ((v - 0.5) * 24 > 0 ? '+' : '') + ((v - 0.5) * 24).toFixed(1) + 'dB';
+  if (type === 'gate') return j ? pct : v => ['1/4', '1/8', '1/16', '1/32'][Math.min(3, Math.floor(v * 4))];
   if (type === 'reverb') return j ? pct : v => (0.4 + v * 4).toFixed(1) + '초';
   if (type === 'delay') return j ? pct : v => DELAY_NOTES[Math.min(5, Math.floor(v * 6))][1];
   if (type === 'eq') return j ? v => ((v - 0.5) * 24 > 0 ? '+' : '') + ((v - 0.5) * 24).toFixed(1) + 'dB' : hzf;
@@ -49,9 +51,10 @@ function channelStrip(key, label) {
   for (let k = 0; k < FX_SLOTS; k++) {
     const f = m.fx[k];
     st.appendChild(selectEl(`${label} 이펙트 ${k + 1}`, Object.entries(FX_NAME), f ? f.type : '', v => {
-      pushUndo(); const a = m.fx.slice(); if (!v) a.splice(k, 1); else a[k] = {type:v, a:FX_DEF[v][0], b:FX_DEF[v][1]}; m.fx = a.filter(Boolean); remix(); buildMixer(); }));
+      pushUndo(); const a = m.fx.slice(); if (!v) a.splice(k, 1); else a[k] = Object.fromEntries([['type', v], ...FX_DEF[v].map((x, j) => [FX_KEYS[j], x])]); m.fx = a.filter(Boolean); remix(); buildMixer(); }));
     if (!f) break;
-    FX_KNOBS[f.type].forEach((nm, j) => st.appendChild(mixSlider(nm, j ? f.b : f.a, 0, 1, 0.01, v => { if (j) f.b = v; else f.a = v; m.fx = m.fx.slice(); remix(); }, fxFmt(f.type, j))));
+    if (k > 0) { const up = document.createElement('button'); up.className = 'tbtn xs'; up.textContent = '↑ 위로'; up.setAttribute('aria-label', `${label} 이펙트 ${k + 1}을 위로`); up.onclick = () => { pushUndo(); const a = m.fx.slice(); [a[k - 1], a[k]] = [a[k], a[k - 1]]; m.fx = a; remix(); buildMixer(); }; st.appendChild(up); }
+    FX_KNOBS[f.type].forEach((nm, j) => { const key = FX_KEYS[j]; if (f[key] == null) f[key] = (FX_DEF[f.type] || [])[j] == null ? 0.5 : FX_DEF[f.type][j]; st.appendChild(mixSlider(nm, f[key], 0, 1, 0.01, v => { f[key] = v; m.fx = m.fx.slice(); remix(); }, fxFmt(f.type, j))); });
   }
   if (!BUSES.includes(key)) { subTitle(st, '출력'); st.appendChild(selectEl(`${label} 출력`, [['master', '마스터'], ['bus1', '버스 1'], ['bus2', '버스 2']], m.out || 'master', v => { if (v === 'master') delete m.out; else m.out = v; remix(); buildMixer(); buildSaSelects(); })); }
   return st;
@@ -61,9 +64,10 @@ function fxSection(st, m, label) {
   subTitle(st, '이펙트'); m.fx = m.fx || [];
   for (let k = 0; k < FX_SLOTS; k++) {
     const f = m.fx[k];
-    st.appendChild(selectEl(`${label} 이펙트 ${k + 1}`, Object.entries(FX_NAME), f ? f.type : '', v => { pushUndo(); const a = m.fx.slice(); if (!v) a.splice(k, 1); else a[k] = {type:v, a:FX_DEF[v][0], b:FX_DEF[v][1]}; m.fx = a.filter(Boolean); remix(); buildMixer(); }));
+    st.appendChild(selectEl(`${label} 이펙트 ${k + 1}`, Object.entries(FX_NAME), f ? f.type : '', v => { pushUndo(); const a = m.fx.slice(); if (!v) a.splice(k, 1); else a[k] = Object.fromEntries([['type', v], ...FX_DEF[v].map((x, j) => [FX_KEYS[j], x])]); m.fx = a.filter(Boolean); remix(); buildMixer(); }));
     if (!f) break;
-    FX_KNOBS[f.type].forEach((nm, j) => st.appendChild(mixSlider(nm, j ? f.b : f.a, 0, 1, 0.01, v => { if (j) f.b = v; else f.a = v; m.fx = m.fx.slice(); remix(); }, fxFmt(f.type, j))));
+    if (k > 0) { const up = document.createElement('button'); up.className = 'tbtn xs'; up.textContent = '↑ 위로'; up.setAttribute('aria-label', `${label} 이펙트 ${k + 1}을 위로`); up.onclick = () => { pushUndo(); const a = m.fx.slice(); [a[k - 1], a[k]] = [a[k], a[k - 1]]; m.fx = a; remix(); buildMixer(); }; st.appendChild(up); }
+    FX_KNOBS[f.type].forEach((nm, j) => { const key = FX_KEYS[j]; if (f[key] == null) f[key] = (FX_DEF[f.type] || [])[j] == null ? 0.5 : FX_DEF[f.type][j]; st.appendChild(mixSlider(nm, f[key], 0, 1, 0.01, v => { f[key] = v; m.fx = m.fx.slice(); remix(); }, fxFmt(f.type, j))); });
   }
 }
 function selectEl(label, opts, val, on) {
