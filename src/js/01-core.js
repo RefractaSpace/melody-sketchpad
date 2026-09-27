@@ -24,9 +24,9 @@ const DRUMS = ['kick', 'snare', 'hat', 'clap', 'crash'];   // 뒤에만 덧붙�
 const DRUM_NAME = {kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수', crash:'크래시'};
 const INSTS = {piano:'피아노', epiano:'일렉트릭 피아노', strings:'스트링 패드', celesta:'첼레스타', harp:'하프', bass:'서브 베이스', timpani:'팀파니', supersaw:'슈퍼소', pluck:'플럭', chip:'칩튠', bell:'벨', sample:'내 샘플'};
 const KITS_OK = ['edm', '808', 'hard', 'acoustic'];
-const FIXED_CH = ['chords', 'bass'];
-const CH_NAME = {chords:'코드', bass:'베이스', kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수'};
-const MIX_DEF = {chords:{v:.85,pan:0,rev:.3,dly:0,sc:true}, bass:{v:.45,pan:0,rev:0,dly:0,sc:true}};
+const FIXED_CH = ['chords', 'bass', 'audio'];
+const CH_NAME = {chords:'코드', bass:'베이스', audio:'오디오 클립', kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수'};
+const MIX_DEF = {chords:{v:.85,pan:0,rev:.3,dly:0,sc:true}, bass:{v:.45,pan:0,rev:0,dly:0,sc:true}, audio:{v:.9,pan:0,rev:.08,dly:0,sc:false}};
 const DRUM_MIX = {kick:{v:.6,pan:0,rev:0,dly:0,sc:false}, snare:{v:.7,pan:0,rev:.18,dly:0,sc:false}, hat:{v:.45,pan:.15,rev:.05,dly:0,sc:false}, clap:{v:.6,pan:-.1,rev:.25,dly:0,sc:false}, crash:{v:.4,pan:.2,rev:.3,dly:0,sc:false}};
 const TRACK_MIX_DEF = {v:1, pan:0, rev:.22, dly:.18, sc:true};
 const MASTER_DEF = {v:.85, sc:.5, size:2};
@@ -119,6 +119,8 @@ function normalize(s) {
     return o; })};
   s.pat = clamp(s.pat | 0, 0, s.patterns.length - 1); s.ch = clamp(s.ch | 0, 0, s.channels.length - 1);
   s.playMode = s.playMode === 'song' ? 'song' : 'pat';
+  s.audio = (Array.isArray(s.audio) ? s.audio : []).filter(a => a && typeof a.slot === 'string' && a.slot.startsWith('au:')).map(a => ({id:a.id || a.slot.slice(3), slot:a.slot, name:String(a.name || '오디오').slice(0, 40),
+    t:clamp(a.t | 0, 0, 19), s:clamp(Math.round(+a.s || 0), 0, MAX_BARS * BAR_T - 1), off:Math.max(0, +a.off || 0), len:clamp(+a.len || 1, 0.05, 900), gain:clamp(a.gain == null ? 1 : +a.gain, 0, 2)}));
   // 템포 지도: [{t:곡 틱, bpm}] — 틱 순서, 같은 틱은 뒤의 것
   const tm = new Map(); for (const x of Array.isArray(s.tempo) ? s.tempo : []) { const t = clamp(Math.round(+x.t || 0), 0, MAX_BARS * BAR_T), b = Math.round(clamp(+x.bpm || 0, 20, 400) * 100) / 100; if (b) tm.set(t, b); }
   s.tempo = [...tm].sort((a, b) => a[0] - b[0]).map(([t, bpm]) => ({t, bpm}));
@@ -172,7 +174,7 @@ const totalTicks = () => patTicks(curPat());
 const patById = id => S.patterns.find(p => p.id === id);
 const chById = id => S.channels.find(c => c.id === id);
 // 곡 길이 = 마지막 조각이 끝나는 마디 (조각이 없으면 지금 패턴 길이)
-function songBars() { let e = 0; for (const c of S.playlist.clips) if (patById(c.pat)) e = Math.max(e, c.bar + clipLen(c)); return clamp(e || S.patterns[S.pat].bars, 1, MAX_BARS); }
+function songBars() { let e = 0; for (const c of S.playlist.clips) if (patById(c.pat)) e = Math.max(e, c.bar + clipLen(c)); for (const a of S.audio || []) e = Math.max(e, Math.ceil(audioEndTick(a) / BAR_T)); return clamp(e || S.patterns[S.pat].bars, 1, MAX_BARS); }
 // 조각: 패턴을 off마디부터 len마디 동안 (패턴보다 길면 반복)
 const clipLen = cl => cl.len || (patById(cl.pat) ? patById(cl.pat).bars - (cl.off || 0) : 1);
 // 곡 틱 구간 [a, b)에서 이 조각이 울리는 부분들 → [{P, origin(패턴 0틱이 오는 곡 틱), from, to(패턴 틱)}]

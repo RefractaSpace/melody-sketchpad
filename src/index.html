@@ -62,7 +62,7 @@
     </section>
 
     <section class="win" id="win-playlist" data-win="playlist" aria-label="플레이리스트">
-      <header class="wh"><b>플레이리스트</b><span class="wsub" id="plHint">패턴을 골라 빈칸을 누르면 놓여요 · 끌어서 옮기기 · 오른쪽 클릭으로 지우기 · 두 번 누르면 피아노 롤</span><button class="tbtn xs" id="tempoBtn" title="곡 중간에 템포가 바뀌는 곳 (SONG 재생·WAV·MIDI에 적용)">템포 지도</button><button class="wx" data-close="playlist" aria-label="플레이리스트 닫기">×</button></header>
+      <header class="wh"><b>플레이리스트</b><span class="wsub" id="plHint">패턴을 골라 빈칸을 누르면 놓여요 · 끌어서 옮기기 · 오른쪽 클릭으로 지우기 · 두 번 누르면 피아노 롤</span><button class="tbtn xs" id="vocRec" aria-pressed="false" title="곡을 틀면서 마이크로 녹음 → 시작 위치에 오디오 클립 (오디오 파일은 여기에 끌어다 놓기)">🎤 녹음</button><button class="tbtn xs" id="tempoBtn" title="곡 중간에 템포가 바뀌는 곳 (SONG 재생·WAV·MIDI에 적용)">템포 지도</button><button class="wx" data-close="playlist" aria-label="플레이리스트 닫기">×</button></header>
       <div class="wb pl" id="plWrap"><div class="plhead" id="plHead"></div><div class="plbox" id="plBox"><canvas id="plRuler" aria-label="곡 눈금자. 누르면 그 위치부터 재생"></canvas><canvas id="plCanvas" tabindex="0" aria-label="플레이리스트. 패턴 조각을 시간 위에 배치해요"></canvas></div></div>
     </section>
 
@@ -209,6 +209,7 @@
 <script src="js/15-convert.js" defer></script>
 <script src="js/17-input.js" defer></script>
 <script src="js/18-tempo.js" defer></script>
+<script src="js/19-audio.js" defer></script>
 <script src="js/99-app.js" defer></script>
 <script>window.PIANO_SRC = "piano-samples.js";   // 녹음 피아노: 앱이 뜬 뒤에 불러와요 (먼저 받으면 app.js와 속도를 나눠 먹어서)</script>
 </body>

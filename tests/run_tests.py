@@ -369,6 +369,30 @@ async def main():
         for nme in names:
             with wv.open(z.open(nme)) as w: a2 = ar.array('h', w.readframes(w.getnframes())); peaks.append(max(abs(x) for x in a2) / 32767)
         check('스템: 쓰는 채널마다 WAV 하나씩 zip으로', len(names) == 2 and all(x > 0.02 for x in peaks), f'{names} · 최대 {[round(x, 2) for x in peaks]}')
+        # 오디오 클립
+        au = await J("""(async()=>{const sr=44100,n=sr*2,b=new ArrayBuffer(44+n*2),dv=new DataView(b),w=(o,s)=>[...s].forEach((c,i)=>dv.setUint8(o+i,c.charCodeAt(0)));
+          w(0,'RIFF');dv.setUint32(4,36+n*2,true);w(8,'WAVEfmt ');dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,1,true);dv.setUint32(24,sr,true);dv.setUint32(28,sr*2,true);dv.setUint16(32,2,true);dv.setUint16(34,16,true);w(36,'data');dv.setUint32(40,n*2,true);
+          for(let i=0;i<n;i++)dv.setInt16(44+i*2,Math.sin(2*Math.PI*440*i/sr)*12000,true);
+          const s=normalize(blank());s.bpm=120;s.patterns[0].bars=4;s.patterns[0].chords=Array(16).fill(null);s.patterns[0].notes={};s.playlist.clips=[{id:'c',pat:s.patterns[0].id,t:0,bar:0}];s.playMode='song';S=s;refreshAll();
+          const a=await addAudioClip(b,'사인파',2,2*192);
+          const wv=await renderWav(),d2=new DataView(wv.buffer),pk=(t0,t1)=>{let m=0;for(let i=Math.floor(t0*sr);i<t1*sr;i++)m=Math.max(m,Math.abs(d2.getInt16(44+i*4,true)));return m/32767};
+          // 중간부터 재생: 3마디(=클립 1마디 뒤)에서 시작하면 1초 건너뛰고 시작
+          const starts=[];const o=AudioBufferSourceNode.prototype.start;AudioBufferSourceNode.prototype.start=function(t,off,dur){if(this.buffer===SAMPLES[a.slot].buf)starts.push([+(off||0).toFixed(3),+(dur||0).toFixed(3)]);return o.apply(this,arguments)};
+          ensureCtx();scheduleRange(E,480,492,ctx.currentTime+5,false,480);AudioBufferSourceNode.prototype.start=o;
+          const msk=await decodeMSK(await encodeMSK(S,'x',await songSamples(S)));
+          return {clip:[a.t,a.s,+a.len.toFixed(2)],before:+pk(0.3,3.9).toFixed(3),during:+pk(4.2,5.8).toFixed(3),after:+pk(6.3,7.5).toFixed(3),bars:songBars(),mid:starts,
+            msk:[msk.song.audio.length,msk.song.audio[0]&&msk.song.audio[0].s,!!(msk.samples||[]).find(x=>x.slot===a.slot)],mixer:!!document.querySelector('#mixerStrips [aria-label*="오디오 클립"]')}})()""")
+        check('오디오 클립: 제자리에서 재생 · 중간부터 재생 · MSK에 소리까지 · 믹서 칸', au['before'] < 0.01 and au['during'] > 0.1 and au['after'] < au['during'] * 0.1 and au['mid'] == [[1.0, 1.0]] and au['msk'][0] == 1 and au['msk'][1] == 384 and au['msk'][2], str(au))
+        await J("openWin('playlist');plWrap.scrollLeft=0")
+        r = await J("(()=>{const r=plCanvas.getBoundingClientRect();return {x:r.left,y:r.top}})()")
+        await pg.mouse.move(r['x'] + 2 * 30 + 20, r['y'] + 2 * 34 + 17); await pg.mouse.down(); await pg.mouse.move(r['x'] + 3 * 30 + 20, r['y'] + 3 * 34 + 17, steps=5); await pg.mouse.up()
+        end = await J("(()=>{const a=S.audio[0];return (audioEndTick(a)/BAR_T*PL_BAR)})()")
+        await pg.mouse.move(r['x'] + end - 3, r['y'] + 3 * 34 + 17); await pg.mouse.down(); await pg.mouse.move(r['x'] + end - 3 - 15, r['y'] + 3 * 34 + 17, steps=5); await pg.mouse.up()
+        mv = await J("(()=>{const a=S.audio[0];return [a.t,a.s,+a.len.toFixed(2)]})()")
+        await J("setPlayMode('song');songStart=0"); await J("vocalToggle()"); await pg.wait_for_timeout(1800); await J("vocalToggle()")
+        await pg.wait_for_function("S.audio.length===2", timeout=8000)
+        vr = await J("(()=>{const a=S.audio[1];return [a.s,+a.len.toFixed(1),+a.off.toFixed(3),a.name]})()")
+        check('오디오 클립 끌어 옮기기·자르기 · 곡 틀면서 녹음(지연 보정)', mv[0] == 3 and mv[1] == 576 and 0.5 < mv[2] < 1.5 and vr[0] == 0 and vr[1] >= 1.0 and vr[2] > 0, f'옮긴 뒤 {mv} · 녹음 {vr}')
         v3 = {'v': 3, 'bpm': 128, 'root': 0, 'mode': 'major', 'bars': 2, 'tracks': [{'id': 'a', 'name': '리드', 'inst': 'pluck', 'notes': [{'p': 60, 's': 0, 'l': 24}]}], 'chords': [{'r': 0, 'q': ''}, None, None, None, {'r': 7, 'q': ''}], 'drums': {'kick': [1, 0, 0, 0, 0.5]}}
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v3)}));openProject(id)}})()")
         conv = await J("[S.channels.map(c=>c.name), S.patterns.length, S.playlist.clips.length, chordName(S.patterns[0].chords[4]), notesOf(S.patterns[0],S.channels[1]).map(n=>n.v)]")

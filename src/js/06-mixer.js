@@ -70,6 +70,7 @@ function buildMixer() {
   });
   { const st = channelStrip('chords', CH_NAME.chords); toneKnobs(st, S.chordTone); const ex = document.createElement('div'); ex.className = 'sx';
     ex.appendChild(selectEl('코드 소리', [['pad','패드'],['supersaw','슈퍼소 코드'],['piano','피아노'],['epiano','일렉트릭 피아노'],['pluck','플럭']], S.chordInst, v => S.chordInst = v)); st.appendChild(ex); box.appendChild(st); }
+  if ((S.audio || []).length) box.appendChild(channelStrip('audio', CH_NAME.audio));
   { const st = channelStrip('bass', CH_NAME.bass), ex = document.createElement('div'); ex.className = 'sx';
     ex.appendChild(selectEl('베이스 패턴', [['off','끔'],['sustain','길게'],['8th','8분'],['offbeat','오프비트']], S.bassMode, v => S.bassMode = v));
     ex.appendChild(selectEl('베이스 소리', [['reese','리스'],['sub','서브'],['saw','톱니']], S.bassInst, v => S.bassInst = v)); st.appendChild(ex); box.appendChild(st); }

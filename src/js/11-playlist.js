@@ -63,6 +63,7 @@ function drawPlaylistBase() {
   }
   if (document.activeElement === plc) { x.strokeStyle = CS.ink; x.lineWidth = 2; x.setLineDash([4, 3]); x.strokeRect(plCur.bar * PL_BAR + 1, plCur.t * PL_ROW + 1, PL_BAR - 2, PL_ROW - 3); x.setLineDash([]); }
   if (songTick >= 0) { x.fillStyle = CS.ink; x.fillRect(songTick / (4 * PPQ) * PL_BAR - 1, 0, 2, h); }
+  drawAudioClips(x);
 }
 function followPlaylist() {
   if (!winOpen('playlist')) return; const X = songTick / (4 * PPQ) * PL_BAR, vw = plWrap.clientWidth - 78;

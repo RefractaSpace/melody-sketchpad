@@ -70,9 +70,10 @@ function schedulePattern(EE, P, t0, t1, at) {
 }
 const playSpan = () => S.playMode === 'song' ? songTicks() : totalTicks();
 // 전체 시간축(PAT: 패턴, SONG: 곡)의 [t0, t1) 예약 — base + tSec(틱) = 절대 시각
-function scheduleRange(EE, t0, t1, base, metro) {
+function scheduleRange(EE, t0, t1, base, metro, from = 0) {
   if (S.playMode === 'song') {
     for (const cl of S.playlist.clips) for (const q of clipParts(cl, t0, t1)) schedulePattern(EE, q.P, q.from, q.to, lt => base + tSec(q.origin + lt));
+    scheduleAudio(EE, t0, t1, base, from);
   } else schedulePattern(EE, curPat(), t0, t1, lt => base + tSec(lt));
   if (metro) for (let tt = Math.ceil(t0 / PPQ) * PPQ; tt < t1; tt += PPQ) click(EE, base + tSec(tt), tt % BAR_T === 0);
 }
@@ -85,7 +86,7 @@ function pump() {
     const k = Math.floor(nextTick / span), local = st0 + (nextTick - k * span), base = startAt + k * spanSec - tSec(st0);
     if (base + tSec(local) > now + ahead) break;
     if (!loopOn() && nextTick >= span) break;
-    scheduleRange(E, local, Math.min(tot, local + 12), base, metroOn); nextTick += 12;
+    scheduleRange(E, local, Math.min(tot, local + 12), base, metroOn, st0); nextTick += 12;
   }
 }
 function updatePos(t) { const bar = Math.floor(t / BAR_T) + 1, beat = Math.floor((t % BAR_T) / PPQ) + 1; $('posOut').textContent = bar + ' : ' + beat + (useMap() && S.tempo.length ? ` ♩${Math.round(bpmAt(t) * 10) / 10}` : ''); }
