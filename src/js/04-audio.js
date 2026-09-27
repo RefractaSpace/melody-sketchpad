@@ -59,7 +59,7 @@ function pianoSample(E, m, t, d, vel, dest, T) {
     else if (vel > 0.75) { const [a, b] = cf(ramp(vel, 0.75, 0.95)); layers = [[PIANO[r], a], [PIANO_L.hard[r], b * (PIANO_LG.hard[r] || 1)]]; } }
   const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(18000, ((hasL ? 5000 : 2200) + (hasL ? 11000 : 11000) * vel) * T.br); lp.Q.value = 0.5;
   let longest = 0; const srcs = [];
-  for (const [buf, w] of layers) { if (!buf || w < 0.01) continue; const src = ac.createBufferSource(), lg = ac.createGain(); src.buffer = buf; src.playbackRate.value = rate; lg.gain.value = w; src.connect(lg); lg.connect(lp); srcs.push(src); longest = Math.max(longest, buf.duration); }
+  for (const [buf, w] of layers) { if (!buf || w < 0.01) continue; const src = ac.createBufferSource(), lg = ac.createGain(); src.buffer = buf; src.playbackRate.value = rate; bendParam(src.playbackRate, rate); lg.gain.value = w; src.connect(lg); lg.connect(lp); srcs.push(src); longest = Math.max(longest, buf.duration); }
   const g = ac.createGain(), lv = (0.45 + 0.55 * vel) * 0.9;
   if (T.atk > 0) { g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(lv, t + T.atk); } else g.gain.setValueAtTime(lv, t);
   const off = Math.max(t + d, t + 0.08 + T.atk); g.gain.setValueAtTime(lv, off); g.gain.setTargetAtTime(0.0001, off, Math.max(0.03, T.rel) / 3);
@@ -80,7 +80,8 @@ function makeEngine(ac, live) {
   E.in = mk(); const glue = ac.createDynamicsCompressor(); glue.threshold.value = -16; glue.ratio.value = 2.5; glue.attack.value = 0.01; glue.release.value = 0.2;
   const shp = ac.createWaveShaper(), cv = new Float32Array(2048); for (let i = 0; i < 2048; i++) { const x = i / 1023.5 - 1; cv[i] = Math.tanh(1.3 * x) / Math.tanh(1.3); } shp.curve = cv; shp.oversample = '2x';
   const lim = ac.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.08;
-  E.out = mk(); E.in.connect(glue); glue.connect(shp); shp.connect(lim); lim.connect(E.out); E.out.connect(ac.destination);
+  E.out = mk(); E.mfx = {fxIn:mk(), fxOut:mk(), fxSig:'', fxNodes:[]}; E.mAuto = mk();   // 마스터 이펙트 칸 · 곡 자동화(마스터 볼륨)
+  E.in.connect(E.mfx.fxIn); E.mfx.fxIn.connect(E.mfx.fxOut); E.mfx.fxOut.connect(E.mAuto); E.mAuto.connect(glue); glue.connect(shp); shp.connect(lim); lim.connect(E.out); E.out.connect(ac.destination);
   if (live) { E.meter = ac.createAnalyser(); E.meter.fftSize = 1024; E.out.connect(E.meter); }
   // 공간: 리버브 · 핑퐁 딜레이
   E.rev = ac.createConvolver(); E.revRet = mk(); E.revRet.gain.value = 0.9; E.rev.connect(E.revRet); E.revRet.connect(E.in);
@@ -98,12 +99,18 @@ function getCh(E, key) {
   const inp = mk(), duck = mk(), vol = mk(), pan = ac.createStereoPanner(), rs = mk(), ds = mk();
   const lo = ac.createBiquadFilter(), md = ac.createBiquadFilter(), hi = ac.createBiquadFilter();
   lo.type = 'lowshelf'; lo.frequency.value = 180; md.type = 'peaking'; md.frequency.value = 1200; md.Q.value = 0.8; hi.type = 'highshelf'; hi.frequency.value = 5000;
+  // 곡 자동화용: sVol · sCut · sPan (패턴 자동화 aVol·aCut과 따로)
+  const sVol = mk(), sCut = ac.createBiquadFilter(), sPan = ac.createStereoPanner(); sCut.type = 'lowpass'; sCut.frequency.value = AUTO_CUT_MAX; sCut.Q.value = 0.7;
   const fxIn = mk(), fxOut = mk(), aVol = mk(), aCut = ac.createBiquadFilter(); aCut.type = 'lowpass'; aCut.frequency.value = AUTO_CUT_MAX; aCut.Q.value = 0.7;
-  inp.connect(duck); duck.connect(lo); lo.connect(md); md.connect(hi); hi.connect(fxIn); fxIn.connect(fxOut); fxOut.connect(aVol); aVol.connect(aCut); aCut.connect(vol); vol.connect(pan); pan.connect(E.in); pan.connect(rs); pan.connect(ds); rs.connect(E.rev); ds.connect(E.dlyIn);
+  inp.connect(duck); duck.connect(lo); lo.connect(md); md.connect(hi); hi.connect(fxIn); fxIn.connect(fxOut); fxOut.connect(aVol); aVol.connect(aCut); aCut.connect(sVol); sVol.connect(sCut); sCut.connect(vol); vol.connect(pan); pan.connect(sPan); pan.connect(rs); pan.connect(ds); rs.connect(E.rev); ds.connect(E.dlyIn);
   const m = S.mix[key] || chDefault(key, key.startsWith('ch:') ? chById(key.slice(3)) : null); vol.gain.value = m.v; pan.pan.value = m.pan; rs.gain.value = m.rev; ds.gain.value = m.dly;
-  const ch = E.ch[key] = {inp, duck, vol, pan, rs, ds, lo, md, hi, fxIn, fxOut, aVol, aCut, fxSig:'', fxNodes:[]};
+  sPan.connect(outDest(E, key, m));   // 출력: 마스터 또는 버스 (m이 정해진 뒤에)
+  const ch = E.ch[key] = {inp, duck, vol, pan, rs, ds, lo, md, hi, fxIn, fxOut, aVol, aCut, sVol, sCut, sPan, outKey:outKey(key, m), fxSig:'', fxNodes:[]};
   applyFx(E, ch, m.fx || []); return ch;
 }
+// 채널 출력: 마스터 또는 버스 1·2 (버스 자신은 늘 마스터로)
+const BUSES = ['bus1', 'bus2'], outKey = (key, m) => !BUSES.includes(key) && key !== 'master' && m && BUSES.includes(m.out) ? m.out : 'master';
+function outDest(E, key, m) { const o = outKey(key, m); return o === 'master' ? E.in : getCh(E, o).inp; }
 // ---- 이펙트 칸 (채널마다 3칸) — a·b는 0~1 손잡이 ----
 const FX_TYPES = ['', 'comp', 'dist', 'lpf', 'hpf', 'chorus'];   // 뒤에만 덧붙이기 (MSK 번호표)
 const FX_NAME = {'':'비어 있음', comp:'압축기', dist:'디스토션', lpf:'로우패스', hpf:'하이패스', chorus:'코러스'};
@@ -115,22 +122,22 @@ function makeFx(ac, f) {
   if (f.type === 'comp') {   // 압축기: 큰 소리를 눌러 고르게, 줄어든 만큼 다시 키움
     const c = ac.createDynamicsCompressor(), thr = -60 + a * 60, ratio = 1 + b * 19, mk = g();
     c.threshold.value = thr; c.ratio.value = ratio; c.knee.value = 6; c.attack.value = 0.005; c.release.value = 0.15;
-    mk.gain.value = Math.pow(10, (-thr * (1 - 1 / ratio)) / 40); c.connect(mk); return {inp:c, out:mk};
+    mk.gain.value = Math.pow(10, (-thr * (1 - 1 / ratio)) / 40); c.connect(mk); return {inp:c, out:mk, pa:c.threshold, map:v => -60 + v * 60};
   }
   if (f.type === 'dist') {   // 디스토션: tanh로 찌그러뜨리고 로우패스로 밝기 조절
     const pre = g(), sh = ac.createWaveShaper(), tone = ac.createBiquadFilter(), post = g(), k = 1 + a * 30, cv = new Float32Array(1024);
     for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; cv[i] = Math.tanh(k * x) / Math.tanh(k); } sh.curve = cv; sh.oversample = '2x';
     tone.type = 'lowpass'; tone.frequency.value = 1500 + b * 16000; post.gain.value = 1 / (1 + a * 1.5);
-    pre.connect(sh); sh.connect(tone); tone.connect(post); return {inp:pre, out:post};
+    pre.connect(sh); sh.connect(tone); tone.connect(post); return {inp:pre, out:post, pa:tone.frequency, map:v => 1500 + v * 16000};
   }
-  if (f.type === 'lpf' || f.type === 'hpf') { const q = ac.createBiquadFilter(); q.type = f.type === 'lpf' ? 'lowpass' : 'highpass'; q.frequency.value = cutHz(a); q.Q.value = 0.5 + b * 15; return {inp:q, out:q}; }
+  if (f.type === 'lpf' || f.type === 'hpf') { const q = ac.createBiquadFilter(); q.type = f.type === 'lpf' ? 'lowpass' : 'highpass'; q.frequency.value = cutHz(a); q.Q.value = 0.5 + b * 15; return {inp:q, out:q, pa:q.frequency, map:cutHz}; }
   if (f.type === 'chorus') {   // 코러스: 살짝 흔들리는 지연 소리를 섞어서 넓게
     const inp = g(), out = g(), dry = g(), wet = g(), d1 = ac.createDelay(0.1), d2 = ac.createDelay(0.1), lfo = ac.createOscillator(), dep = g(), dep2 = g(), p1 = ac.createStereoPanner(), p2 = ac.createStereoPanner();
     d1.delayTime.value = 0.017; d2.delayTime.value = 0.023; lfo.frequency.value = 0.8; dep.gain.value = 0.002 + a * 0.006; dep2.gain.value = -(0.002 + a * 0.006);
     lfo.connect(dep); lfo.connect(dep2); dep.connect(d1.delayTime); dep2.connect(d2.delayTime); lfo.start();
     p1.pan.value = -0.6; p2.pan.value = 0.6; dry.gain.value = 1 - b * 0.4; wet.gain.value = b * 0.8;
     inp.connect(dry); dry.connect(out); inp.connect(d1); inp.connect(d2); d1.connect(p1); d2.connect(p2); p1.connect(wet); p2.connect(wet); wet.connect(out);
-    return {inp, out, stop:() => { try { lfo.stop(); } catch (e) {} }};
+    return {inp, out, pa:wet.gain, map:v => v * 0.8, stop:() => { try { lfo.stop(); } catch (e) {} }};
   }
   return null;
 }
@@ -145,11 +152,13 @@ function applyFx(E, ch, fx) {
 function applyMix(E, mix) {
   const t = E.ac.currentTime, keys = Object.keys(mix).filter(k => k !== 'master'), anySolo = keys.some(k => mix[k].solo);
   for (const k of keys) {
-    const m = mix[k], ch = getCh(E, k), on = !m.mute && (!anySolo || m.solo);
+    const m = mix[k], ch = getCh(E, k), on = !m.mute && (!anySolo || m.solo || (BUSES.includes(k) && keys.some(j => mix[j].solo && mix[j].out === k)));   // 솔로한 채널이 이 버스로 가면 버스도 켜둠
+    const ok = outKey(k, m); if (ch.outKey !== ok) { try { ch.sPan.disconnect(); } catch (e) {} ch.sPan.connect(outDest(E, k, m)); ch.outKey = ok; }
     ch.vol.gain.setTargetAtTime(on ? m.v : 0, t, 0.015); ch.pan.pan.setTargetAtTime(m.pan, t, 0.015); ch.rs.gain.setTargetAtTime(m.rev, t, 0.015); ch.ds.gain.setTargetAtTime(m.dly, t, 0.015);
     ch.lo.gain.setTargetAtTime(m.lo || 0, t, 0.015); ch.md.gain.setTargetAtTime(m.mid || 0, t, 0.015); ch.hi.gain.setTargetAtTime(m.hi || 0, t, 0.015);
     applyFx(E, ch, m.fx || []);
   }
+  if (mix.master) applyFx(E, E.mfx, mix.master.fx || []);
   for (const k of Object.keys(E.ch)) if (!mix[k]) E.ch[k].vol.gain.setTargetAtTime(0, t, 0.015);   // 지운 트랙
   E.out.gain.setTargetAtTime(mix.master.v, t, 0.015);
   const secs = [0.9, 1.6, 2.6, 3.8][mix.master.size] || 1.6; if (E.size !== mix.master.size) { E.rev.buffer = makeIR(E.ac, secs); E.size = mix.master.size; }
@@ -157,7 +166,7 @@ function applyMix(E, mix) {
 }
 function playSample(E, slot, m, t, d, vel, dest) {
   const s = SAMPLES[slot]; if (!s) return false;
-  const src = E.ac.createBufferSource(); src.buffer = s.buf; src.playbackRate.value = m == null ? 1 : Math.pow(2, (m - s.root) / 12);
+  const src = E.ac.createBufferSource(); src.buffer = s.buf; src.playbackRate.value = m == null ? 1 : Math.pow(2, (m - s.root) / 12); bendParam(src.playbackRate, src.playbackRate.value);
   const g = E.ac.createGain(); g.gain.setValueAtTime(vel, t);
   if (d != null) { g.gain.setValueAtTime(vel, t + d); g.gain.linearRampToValueAtTime(0.0001, t + d + 0.08); }
   src.connect(g); g.connect(dest); src.start(t); src.stop(t + (d != null ? d + 0.1 : s.buf.duration / src.playbackRate.value + 0.05)); return true;
@@ -170,9 +179,10 @@ function sidechain(EE, t) {
   }
 }
 // 지금 트랙 악기로 한 음 들려주기
-function playTrackNote(EE, ch, p, t, d, v) {
+function playTrackNote(EE, ch, p, t, d, v, b) {
   if (ch.kind === 'drum') { drumHit(ch.inst, t, EE, v, chKey(ch)); return; }
-  voice(EE, ch.inst, p, t, d, v, getCh(EE, chKey(ch)).inp, ch.tone, chKey(ch));
+  if (b) BEND = {r:Math.pow(2, b / 12), t0:t + Math.min(0.08, d * 0.25), t1:t + Math.max(0.02, d)};   // 음이 끝날수록 b반음까지 휨
+  try { voice(EE, ch.inst, p, t, d, v, getCh(EE, chKey(ch)).inp, ch.tone, chKey(ch)); } finally { BEND = null; }
 }
 function preview(p, v) { ensureCtx(); playTrackNote(E, curTrack(), p, ctx.currentTime + 0.01, 0.3, v == null ? 0.9 : v); }
 
@@ -184,7 +194,9 @@ function makeWaves(ac){const N=40,re=new Float32Array(N),im=new Float32Array(N);
   const pulse=ac.createPeriodicWave(re2,im2);return{piano,pulse}}
 
 function adsr(g,t,a,peak,d,sus,end,rel){g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(peak,t+a);g.gain.setTargetAtTime(peak*sus,t+a,d/3);g.gain.setTargetAtTime(0.0001,Math.max(end,t+a),rel/4)}
-function osc(ac,type,f,det,t,stop,dest){const o=ac.createOscillator();if(typeof type==='string')o.type=type;else o.setPeriodicWave(type);o.frequency.value=f;o.detune.value=det||0;o.connect(dest);o.start(t);o.stop(stop);return o}
+let BEND = null;   // 피치 벤드: {r:목표 배수, t0, t1} — 음을 예약하는 동안만 켜짐
+function bendParam(prm, v0) { if (BEND) { prm.setValueAtTime(v0, BEND.t0); prm.exponentialRampToValueAtTime(v0 * BEND.r, BEND.t1); } }
+function osc(ac,type,f,det,t,stop,dest){const o=ac.createOscillator();if(typeof type==='string')o.type=type;else o.setPeriodicWave(type);o.frequency.value=f;bendParam(o.frequency,f);o.detune.value=det||0;o.connect(dest);o.start(t);o.stop(stop);return o}
 function noiseBurst(E,t,d,type,f,q,v,dest){const s=E.ac.createBufferSource();s.buffer=E.noise;s.loop=true;const fl=E.ac.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=q;const g=E.ac.createGain();
   g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.0001,t+d);s.connect(fl);fl.connect(g);g.connect(dest);s.start(t,Math.random()*0.5);s.stop(t+d+0.05)}
 

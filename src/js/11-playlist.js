@@ -15,7 +15,7 @@ function drawPlaylist() {
 }
 function plOverlay(blit = true) {
   if (!plc) return; if (!plCache || plCache.c.width !== plc.width || plCache.c.height !== plc.height) { drawPlaylist(); return; }
-  const dpr = plc.width / (MAX_BARS * PL_BAR), h = S.playlist.tracks * PL_ROW;
+  const dpr = plc.width / (MAX_BARS * PL_BAR), h = S.playlist.tracks * PL_ROW + saH();
   for (const [cv, cache] of [[plr, plCache.r], [plc, plCache.c]]) { const x = cv.getContext('2d'); if (blit) { x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(cache, 0, 0); } x.setTransform(dpr, 0, 0, dpr, 0, 0); }
   if (songTick < 0) return;
   const X = songTick / BAR_T * PL_BAR, xr = plr.getContext('2d'), x = plc.getContext('2d');
@@ -25,7 +25,7 @@ function plOverlay(blit = true) {
   x.fillStyle = CS.ink; x.fillRect(X - 1, 0, 2, h);
 }
 function drawPlaylistBase() {
-  const tracks = S.playlist.tracks, w = MAX_BARS * PL_BAR, h = tracks * PL_ROW;
+  const tracks = S.playlist.tracks, w = MAX_BARS * PL_BAR, h = tracks * PL_ROW + saH();
   if (plHead.childElementCount !== tracks) { plHead.innerHTML = ''; for (let i = 0; i < tracks; i++) { const d = document.createElement('div'); d.textContent = '트랙 ' + (i + 1); plHead.appendChild(d); } }
   // 눈금자
   let x = sizeCanvas(plr, w, PL_RULER); x.fillStyle = CS.panel2; x.fillRect(0, 0, w, PL_RULER); x.fillStyle = CS.line; x.fillRect(0, PL_RULER - 1, w, 1);
@@ -64,6 +64,7 @@ function drawPlaylistBase() {
   if (document.activeElement === plc) { x.strokeStyle = CS.ink; x.lineWidth = 2; x.setLineDash([4, 3]); x.strokeRect(plCur.bar * PL_BAR + 1, plCur.t * PL_ROW + 1, PL_BAR - 2, PL_ROW - 3); x.setLineDash([]); }
   if (songTick >= 0) { x.fillStyle = CS.ink; x.fillRect(songTick / (4 * PPQ) * PL_BAR - 1, 0, 2, h); }
   drawAudioClips(x);
+  drawSongAutoLane(x);
 }
 function followPlaylist() {
   if (!winOpen('playlist')) return; const X = songTick / (4 * PPQ) * PL_BAR, vw = plWrap.clientWidth - 78;

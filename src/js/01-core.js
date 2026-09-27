@@ -14,6 +14,7 @@ const ZX_LEVELS = [0.75, 1, 1.5, 2, 3, 4], RH_LEVELS = [14, 17, 20, 24, 28];
 let zxi = 3, rhi = 2, TICKPX = ZX_LEVELS[zxi], ROWH = RH_LEVELS[rhi];
 const LANE_H = 28, CHORD_H = 34, VEL_H = 60, LANES_H = CHORD_H + VEL_H;
 const MAX_BARS = 128, MAX_PAT_BARS = 32, DRUM_PITCH = 72, PL_TRACKS = 10, BAR_T = 4 * PPQ;
+const SA_PARAMS = ['vol', 'cut', 'pan', 'rev', 'dly', 'fx1', 'fx2', 'fx3'];
 const PAT_COLORS = ['', '#7b95e0', '#e08476', '#72c79f', '#dcb65e', '#b287e0', '#62bccd', '#dc86b4'];   // 0 = 색 없음
 const NAMES_S = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const NAMES_F = ['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
@@ -24,9 +25,9 @@ const DRUMS = ['kick', 'snare', 'hat', 'clap', 'crash'];   // 뒤에만 덧붙�
 const DRUM_NAME = {kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수', crash:'크래시'};
 const INSTS = {piano:'피아노', epiano:'일렉트릭 피아노', strings:'스트링 패드', celesta:'첼레스타', harp:'하프', bass:'서브 베이스', timpani:'팀파니', supersaw:'슈퍼소', pluck:'플럭', chip:'칩튠', bell:'벨', sample:'내 샘플'};
 const KITS_OK = ['edm', '808', 'hard', 'acoustic'];
-const FIXED_CH = ['chords', 'bass', 'audio'];
-const CH_NAME = {chords:'코드', bass:'베이스', audio:'오디오 클립', kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수'};
-const MIX_DEF = {chords:{v:.85,pan:0,rev:.3,dly:0,sc:true}, bass:{v:.45,pan:0,rev:0,dly:0,sc:true}, audio:{v:.9,pan:0,rev:.08,dly:0,sc:false}};
+const FIXED_CH = ['chords', 'bass', 'audio', 'bus1', 'bus2'];
+const CH_NAME = {chords:'코드', bass:'베이스', audio:'오디오 클립', bus1:'버스 1', bus2:'버스 2', master:'마스터', kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수'};
+const MIX_DEF = {chords:{v:.85,pan:0,rev:.3,dly:0,sc:true}, bass:{v:.45,pan:0,rev:0,dly:0,sc:true}, audio:{v:.9,pan:0,rev:.08,dly:0,sc:false}, bus1:{v:.9,pan:0,rev:0,dly:0,sc:false}, bus2:{v:.9,pan:0,rev:0,dly:0,sc:false}};
 const DRUM_MIX = {kick:{v:.6,pan:0,rev:0,dly:0,sc:false}, snare:{v:.7,pan:0,rev:.18,dly:0,sc:false}, hat:{v:.45,pan:.15,rev:.05,dly:0,sc:false}, clap:{v:.6,pan:-.1,rev:.25,dly:0,sc:false}, crash:{v:.4,pan:.2,rev:.3,dly:0,sc:false}};
 const TRACK_MIX_DEF = {v:1, pan:0, rev:.22, dly:.18, sc:true};
 const MASTER_DEF = {v:.85, sc:.5, size:2};
@@ -55,11 +56,13 @@ function fillMix(s) {
   const m = s.mix || {}, out = {};
   for (const c of s.channels) out[chKey(c)] = {...chDefault(chKey(c), c), ...(m[chKey(c)] || {})};
   for (const k of FIXED_CH) out[k] = {...chDefault(k), ...(m[k] || {})};
-  for (const k of Object.keys(out)) out[k].fx = (Array.isArray(out[k].fx) ? out[k].fx : []).filter(f => f && ['comp', 'dist', 'lpf', 'hpf', 'chorus'].includes(f.type)).slice(0, 3).map(f => ({type:f.type, a:clamp(+f.a || 0, 0, 1), b:clamp(+f.b || 0, 0, 1)}));
-  out.master = {...MASTER_DEF, ...(m.master || {})};
+  for (const k of Object.keys(out)) { if (['bus1', 'bus2'].includes(out[k].out) && !['bus1', 'bus2', 'master'].includes(k)) {} else delete out[k].out; }
+  const normFx = fx => (Array.isArray(fx) ? fx : []).filter(f => f && ['comp', 'dist', 'lpf', 'hpf', 'chorus'].includes(f.type)).slice(0, 3).map(f => ({type:f.type, a:clamp(+f.a || 0, 0, 1), b:clamp(+f.b || 0, 0, 1)}));
+  for (const k of Object.keys(out)) out[k].fx = normFx(out[k].fx);
+  out.master = {...MASTER_DEF, ...(m.master || {})}; out.master.fx = normFx(out.master.fx);
   s.mix = out;
 }
-const normNote = n => ({p:n.p | 0, s:n.s | 0, l:n.l | 0, v:clamp(n.v == null ? 0.8 : +n.v, 0.05, 1)});
+const normNote = n => { const o = {p:n.p | 0, s:n.s | 0, l:n.l | 0, v:clamp(n.v == null ? 0.8 : +n.v, 0.05, 1)}, b = clamp(Math.round(+n.b || 0), -12, 12); if (b) o.b = b; return o; };   // b = 피치 벤드(반음)
 const okNote = n => n && n.p >= LOW && n.p <= HIGH && n.s >= 0 && n.l > 0;
 const normChord = c => c ? (c.x ? {x:1} : {r:clamp(c.r | 0, 0, 11), q:QUAL[c.q] ? c.q : ''}) : null;
 
@@ -119,6 +122,11 @@ function normalize(s) {
     return o; })};
   s.pat = clamp(s.pat | 0, 0, s.patterns.length - 1); s.ch = clamp(s.ch | 0, 0, s.channels.length - 1);
   s.playMode = s.playMode === 'song' ? 'song' : 'pat';
+  // 곡 자동화: {"대상|값": [{s:곡 틱, v:0~1}]}
+  { const ok = new Set([...s.channels.map(chKey), ...FIXED_CH, 'master']), sa = {};
+    for (const [k, pts] of Object.entries(s.sauto || {})) { const [key, prm] = k.split('|'); if (!ok.has(key) || !SA_PARAMS.includes(prm) || !Array.isArray(pts)) continue;
+      const mp = new Map(); for (const q of pts) { const t = Math.round(+q.s || 0); if (t >= 0 && t <= MAX_BARS * BAR_T) mp.set(t, clamp(+q.v || 0, 0, 1)); } if (mp.size) sa[k] = [...mp].sort((a, b) => a[0] - b[0]).map(([s2, v]) => ({s:s2, v})); }
+    s.sauto = sa; }
   s.audio = (Array.isArray(s.audio) ? s.audio : []).filter(a => a && typeof a.slot === 'string' && a.slot.startsWith('au:')).map(a => ({id:a.id || a.slot.slice(3), slot:a.slot, name:String(a.name || '오디오').slice(0, 40),
     t:clamp(a.t | 0, 0, 19), s:clamp(Math.round(+a.s || 0), 0, MAX_BARS * BAR_T - 1), off:Math.max(0, +a.off || 0), len:clamp(+a.len || 1, 0.05, 900), gain:clamp(a.gain == null ? 1 : +a.gain, 0, 2)}));
   // 템포 지도: [{t:곡 틱, bpm}] — 틱 순서, 같은 틱은 뒤의 것

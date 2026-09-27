@@ -393,6 +393,41 @@ async def main():
         await pg.wait_for_function("S.audio.length===2", timeout=8000)
         vr = await J("(()=>{const a=S.audio[1];return [a.s,+a.len.toFixed(1),+a.off.toFixed(3),a.name]})()")
         check('오디오 클립 끌어 옮기기·자르기 · 곡 틀면서 녹음(지연 보정)', mv[0] == 3 and mv[1] == 576 and 0.5 < mv[2] < 1.5 and vr[0] == 0 and vr[1] >= 1.0 and vr[2] > 0, f'옮긴 뒤 {mv} · 녹음 {vr}')
+        # 피치 벤드 · 곡 자동화 · 버스 · 마스터 이펙트
+        r5 = await J("""(async()=>{const mk=(inst,notes)=>{const s=normalize(blank());s.bpm=120;const c=newChannel('synth',inst,'x');s.channels=[c];s.mix={};fillMix(s);s.mix[chKey(c)].rev=0;s.mix[chKey(c)].dly=0;
+            const P=s.patterns[0];P.bars=2;P.chords=Array(8).fill(null);P.notes={[c.id]:notes};s.playlist.clips=[{id:'k',pat:P.id,t:0,bar:0}];s.pat=0;s.ch=0;s.playMode='song';return s};
+          const pcm=async s=>{const w=await withSongAsync(normalize(s),()=>renderWav()),dv=new DataView(w.buffer),n=(w.length-44)>>2,L=new Float32Array(n),R=new Float32Array(n);for(let i=0;i<n;i++){L[i]=dv.getInt16(44+i*4,true)/32767;R[i]=dv.getInt16(46+i*4,true)/32767}return [L,R]};
+          const zc=(a,t0,t1)=>{let z=0;for(let i=Math.floor(t0*44100)+1;i<t1*44100;i++)if((a[i-1]<0)!==(a[i]<0))z++;return z/(t1-t0)/2};
+          const rms=(a,t0,t1)=>{let e=0;for(let i=Math.floor(t0*44100);i<t1*44100;i++)e+=a[i]*a[i];return Math.sqrt(e/((t1-t0)*44100))};
+          const out={};
+          const [b0]=await pcm(mk('bass',[{p:48,s:0,l:192,v:.8}])),[b1]=await pcm(mk('bass',[{p:48,s:0,l:192,v:.8,b:12}]));out.bend=[Math.round(zc(b0,1.6,1.95)),Math.round(zc(b1,0.08,0.2)),Math.round(zc(b1,1.8,1.98))];
+          const sp=mk('supersaw',[{p:57,s:0,l:384,v:.8}]);sp.sauto={['ch:'+sp.channels[0].id+'|pan']:[{s:0,v:0},{s:384,v:1}]};const [L,R]=await pcm(sp);out.pan=[+(rms(L,.2,.8)/rms(R,.2,.8)).toFixed(2),+(rms(L,3.2,3.8)/rms(R,3.2,3.8)).toFixed(2)];
+          const mv=mk('supersaw',[{p:57,s:0,l:384,v:.8}]);mv.sauto={'master|vol':[{s:0,v:1},{s:384,v:0}]};const [M]=await pcm(mv);out.mvol=[+rms(M,.2,.6).toFixed(3),+rms(M,3.3,3.7).toFixed(3)];
+          const fx=mk('supersaw',[{p:57,s:0,l:384,v:.8}]);fx.mix['ch:'+fx.channels[0].id].fx=[{type:'lpf',a:.2,b:.1}];fx.sauto={['ch:'+fx.channels[0].id+'|fx1']:[{s:0,v:.15},{s:384,v:1}]};const [F]=await pcm(fx);
+          const br=(a,t0,t1)=>{let d=0;for(let i=Math.floor(t0*44100)+1;i<t1*44100;i++)d+=Math.abs(a[i]-a[i-1]);return d/((t1-t0)*44100)/rms(a,t0,t1)};out.fx=[+br(F,.2,.6).toFixed(3),+br(F,3.3,3.7).toFixed(3)];
+          // 버스: 채널을 버스1로, 버스1에 로우패스 → 어두워짐 · 솔로해도 들림 · 마스터 로우패스
+          const bu=mk('supersaw',[{p:57,s:0,l:192,v:.8}]);const [D]=await pcm(bu);bu.mix['ch:'+bu.channels[0].id].out='bus1';bu.mix.bus1={...bu.mix.bus1,fx:[{type:'lpf',a:.2,b:.1}]};const [Bu]=await pcm(bu);
+          bu.mix['ch:'+bu.channels[0].id].solo=1;const [So]=await pcm(bu);const ms=mk('supersaw',[{p:57,s:0,l:192,v:.8}]);ms.mix.master={...ms.mix.master,fx:[{type:'lpf',a:.2,b:.1}]};const [Ma]=await pcm(ms);
+          out.bus=[+br(D,.2,.6).toFixed(3),+br(Bu,.2,.6).toFixed(3),+rms(So,.2,.6).toFixed(3),+br(Ma,.2,.6).toFixed(3)];
+          const all=mk('supersaw',[{p:57,s:0,l:192,v:.8,b:-3}]);const k='ch:'+all.channels[0].id;all.mix[k].out='bus2';all.mix.bus2={...all.mix.bus2,v:.5};all.mix.master={...all.mix.master,fx:[{type:'comp',a:.5,b:.3}]};all.sauto={[k+'|pan']:[{s:0,v:.2},{s:96,v:.8}],'master|vol':[{s:10,v:.5}]};
+          const n1=normalize(all),d2=(await decodeMSK(await encodeMSK(n1,'x',{}))).song,sig=s=>JSON.stringify([s.patterns[0].notes[s.channels[0].id].map(n=>n.b||0),s.mix[chKey(s.channels[0])].out,s.mix.bus2.v,s.mix.master.fx.map(f=>f.type),Object.entries(s.sauto).map(([a,v])=>[a.replace(/ch:[^|]+/,'CH'),v.map(q=>[q.s,Math.round(q.v*100)])])]);
+          out.msk=sig(n1)===sig(d2);return out})()""")
+        check('피치 벤드: +12반음이면 음 끝에서 주파수 2배', 0.9 < r5['bend'][0] / 131 < 1.1 and r5['bend'][2] > r5['bend'][1] * 1.6, f"벤드 없음 {r5['bend'][0]}Hz · 벤드 시작 {r5['bend'][1]}Hz → 끝 {r5['bend'][2]}Hz")
+        check('곡 자동화: 팬 왼→오 · 마스터 볼륨 100→0% · 이펙트 손잡이', r5['pan'][0] > 1.5 and r5['pan'][1] < 0.67 and r5['mvol'][1] < r5['mvol'][0] * 0.35 and r5['fx'][1] > r5['fx'][0] * 1.4, f"왼/오 {r5['pan']} · 마스터 {r5['mvol']} · 밝기 {r5['fx']}")
+        check('버스(로우패스)·솔로해도 버스로 들림·마스터 이펙트 · MSK 저장', r5['bus'][1] < r5['bus'][0] * 0.6 and r5['bus'][2] > 0.02 and r5['bus'][3] < r5['bus'][0] * 0.6 and r5['msk'], f"밝기 원본 {r5['bus'][0]} · 버스 {r5['bus'][1]} · 솔로 크기 {r5['bus'][2]} · 마스터 {r5['bus'][3]} · MSK {r5['msk']}")
+        await J("""(()=>{const s=normalize(blank());s.patterns[0].bars=1;s.patterns[0].chords=Array(4).fill(null);s.patterns[0].notes={[s.channels[0].id]:[{p:72,s:0,l:48,v:.8}]};s.playlist.clips=[{id:'z',pat:s.patterns[0].id,t:0,bar:0}];s.playMode='song';S=s;S.ch=0;refreshAll();openWin('roll');openWin('playlist');plWrap.scrollLeft=0;plWrap.scrollTop=0})()""")
+        await pg.select_option('#laneMode', 'bend'); await pg.wait_for_timeout(80)
+        lr = await J("(()=>{const r=laneCanvas.getBoundingClientRect();return {x:r.left,y:r.top,tp:TICKPX,sl:lanes.scrollLeft}})()")
+        await pg.mouse.move(lr['x'] + 20 * lr['tp'] - lr['sl'], lr['y'] + 34 + 40); await pg.mouse.down(); await pg.mouse.move(lr['x'] + 20 * lr['tp'] - lr['sl'], lr['y'] + 34 + 8, steps=4); await pg.mouse.up()
+        bend = await J("curNotes()[0].b||0"); await pg.select_option('#laneMode', 'vel')
+        await pg.select_option('#saTarget', 'master'); await pg.wait_for_timeout(100)
+        pr = await J("(()=>{const r=plCanvas.getBoundingClientRect();return {x:r.left,y:r.top+S.playlist.tracks*PL_ROW-plWrap.scrollTop}})()")
+        await J("plWrap.scrollTop=plWrap.scrollHeight"); await pg.wait_for_timeout(80)
+        pr = await J("(()=>{const r=plCanvas.getBoundingClientRect();return {x:r.left,y:r.top+S.playlist.tracks*PL_ROW}})()")
+        await pg.mouse.click(pr['x'] + 60, pr['y'] + 30)
+        sa = await J("JSON.stringify(S.sauto)")
+        await pg.select_option('#saTarget', ''); 
+        check('피치 줄 끌기 · 곡 자동화 줄에 점 찍기', bend > 3 and '"master|vol"' in sa and '"s":384' in sa, f'벤드 {bend}반음 · {sa}')
         v3 = {'v': 3, 'bpm': 128, 'root': 0, 'mode': 'major', 'bars': 2, 'tracks': [{'id': 'a', 'name': '리드', 'inst': 'pluck', 'notes': [{'p': 60, 's': 0, 'l': 24}]}], 'chords': [{'r': 0, 'q': ''}, None, None, None, {'r': 7, 'q': ''}], 'drums': {'kick': [1, 0, 0, 0, 0.5]}}
         await J(f"(()=>{{const id=newId();lib.list[id]={{name:'옛 곡',updated:Date.now()}};lsSet(PK(id),JSON.stringify({json.dumps(v3)}));openProject(id)}})()")
         conv = await J("[S.channels.map(c=>c.name), S.patterns.length, S.playlist.clips.length, chordName(S.patterns[0].chords[4]), notesOf(S.patterns[0],S.channels[1]).map(n=>n.v)]")

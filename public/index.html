@@ -62,7 +62,7 @@
     </section>
 
     <section class="win" id="win-playlist" data-win="playlist" aria-label="플레이리스트">
-      <header class="wh"><b>플레이리스트</b><span class="wsub" id="plHint">패턴을 골라 빈칸을 누르면 놓여요 · 끌어서 옮기기 · 오른쪽 클릭으로 지우기 · 두 번 누르면 피아노 롤</span><button class="tbtn xs" id="vocRec" aria-pressed="false" title="곡을 틀면서 마이크로 녹음 → 시작 위치에 오디오 클립 (오디오 파일은 여기에 끌어다 놓기)">🎤 녹음</button><button class="tbtn xs" id="tempoBtn" title="곡 중간에 템포가 바뀌는 곳 (SONG 재생·WAV·MIDI에 적용)">템포 지도</button><button class="wx" data-close="playlist" aria-label="플레이리스트 닫기">×</button></header>
+      <header class="wh"><b>플레이리스트</b><span class="wsub" id="plHint">패턴을 골라 빈칸을 누르면 놓여요 · 끌어서 옮기기 · 오른쪽 클릭으로 지우기 · 두 번 누르면 피아노 롤</span><select id="saTarget" class="xs" aria-label="곡 자동화 대상"></select><select id="saParam" class="xs" aria-label="곡 자동화 값" hidden></select><button class="tbtn xs" id="vocRec" aria-pressed="false" title="곡을 틀면서 마이크로 녹음 → 시작 위치에 오디오 클립 (오디오 파일은 여기에 끌어다 놓기)">🎤 녹음</button><button class="tbtn xs" id="tempoBtn" title="곡 중간에 템포가 바뀌는 곳 (SONG 재생·WAV·MIDI에 적용)">템포 지도</button><button class="wx" data-close="playlist" aria-label="플레이리스트 닫기">×</button></header>
       <div class="wb pl" id="plWrap"><div class="plhead" id="plHead"></div><div class="plbox" id="plBox"><canvas id="plRuler" aria-label="곡 눈금자. 누르면 그 위치부터 재생"></canvas><canvas id="plCanvas" tabindex="0" aria-label="플레이리스트. 패턴 조각을 시간 위에 배치해요"></canvas></div></div>
     </section>
 
@@ -100,7 +100,7 @@
           <div class="empty" id="empty">연필로 칸을 눌러 첫 음을 찍어 보세요</div>
         </div>
         <div class="lanes" id="lanes">
-          <div class="lanekeys"><div class="ch">코드</div><div class="vel"><select id="laneMode" class="xs" aria-label="아래 줄: 세기 또는 자동화"><option value="vel">세기</option><option value="vol">볼륨</option><option value="cut">필터</option></select></div></div>
+          <div class="lanekeys"><div class="ch">코드</div><div class="vel"><select id="laneMode" class="xs" aria-label="아래 줄: 세기 또는 자동화"><option value="vel">세기</option><option value="vol">볼륨</option><option value="cut">필터</option><option value="bend">피치</option></select></div></div>
           <div class="lanebox" id="laneBox"><div class="chordrow" id="chordRow"></div><canvas id="laneCanvas" aria-label="세기 줄 또는 자동화 줄. 세기는 막대를 끌고, 자동화는 눌러서 점을 찍고 끌어 옮기고 두 번 눌러 지워요"></canvas></div>
         </div>
       </div>

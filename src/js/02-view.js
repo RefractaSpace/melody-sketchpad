@@ -120,7 +120,8 @@ function drawLanes() {
   const vy = CHORD_H, bw = 4 * PPQ * TICKPX;
   x.fillStyle = CS.panel2; x.fillRect(v.sl, vy, v.vw, VEL_H); x.fillStyle = CS.line; x.fillRect(v.sl, vy, v.vw, 1);
   for (let b = Math.floor(v.sl / bw); b <= Math.ceil((v.sl + v.vw) / bw); b++) { x.fillStyle = CS.mute; x.globalAlpha = .6; x.fillRect(b * bw, CHORD_H, 1, VEL_H); x.globalAlpha = 1; }
-  if (laneMode !== 'vel') drawAutoLane(x, v, vy);
+  if (laneMode === 'bend') drawBendLane(x, v, vy);
+  else if (laneMode !== 'vel') drawAutoLane(x, v, vy);
   else for (const n of [...curNotes()].sort((a, b) => a.v - b.v)) {
     const X = n.s * TICKPX; if (X < v.sl - 8 || X > v.sl + v.vw) continue;
     const hh = (VEL_H - 10) * n.v; x.fillStyle = CS.note; x.globalAlpha = sel.has(n) || !sel.size ? 1 : 0.35;
@@ -181,4 +182,14 @@ function drawAutoLane(x, v, vy) {
   x.strokeStyle = CS.note; x.lineWidth = 2; x.beginPath(); x.moveTo(W0, autoY(vy, pts[0].v));
   for (const p of pts) x.lineTo(p.s * TICKPX, autoY(vy, p.v)); x.lineTo(W1, autoY(vy, pts[pts.length - 1].v)); x.stroke();
   x.fillStyle = CS.note; for (const p of pts) { x.beginPath(); x.arc(p.s * TICKPX, autoY(vy, p.v), 4, 0, 7); x.fill(); }
+}
+
+// 피치 벤드 줄: 가운데가 0, 위 +12 · 아래 -12 반음
+function drawBendLane(x, v, vy) {
+  const mid = vy + VEL_H / 2, hh = VEL_H / 2 - 5; x.fillStyle = CS.line; x.fillRect(v.sl, mid, v.vw, 1);
+  x.font = '11px "IBM Plex Sans KR",sans-serif'; x.fillStyle = CS.mute; x.textBaseline = 'top';
+  if (!curNotes().some(n => n.b)) x.fillText('피치 벤드 — 음 위를 위아래로 끌면 음이 끝날수록 휘어요 (두 번 누르면 0)', v.sl + 8, vy + 4);
+  for (const n of curNotes()) { const X = n.s * TICKPX, W = Math.max(3, n.l * TICKPX - 2); if (X > v.sl + v.vw || X + W < v.sl) continue;
+    const b = n.b || 0, y = mid - b / 12 * hh; x.fillStyle = sel.has(n) ? CS.ink : CS.note; x.globalAlpha = b ? 0.9 : 0.35;
+    x.fillRect(X + 1, Math.min(y, mid), W, Math.max(2, Math.abs(y - mid))); x.globalAlpha = 1; if (b) { x.fillStyle = CS.ink; x.fillText((b > 0 ? '+' : '') + b, X + 3, b > 0 ? y - 12 : y + 2); } }
 }

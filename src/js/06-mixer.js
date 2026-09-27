@@ -49,7 +49,18 @@ function channelStrip(key, label) {
     if (!f) break;
     FX_KNOBS[f.type].forEach((nm, j) => st.appendChild(mixSlider(nm, j ? f.b : f.a, 0, 1, 0.01, v => { if (j) f.b = v; else f.a = v; m.fx = m.fx.slice(); remix(); }, fxFmt(f.type, j))));
   }
+  if (!BUSES.includes(key)) { subTitle(st, '출력'); st.appendChild(selectEl(`${label} 출력`, [['master', '마스터'], ['bus1', '버스 1'], ['bus2', '버스 2']], m.out || 'master', v => { if (v === 'master') delete m.out; else m.out = v; remix(); buildMixer(); buildSaSelects(); })); }
   return st;
+}
+// 마스터 이펙트 칸 (채널과 같은 방식)
+function fxSection(st, m, label) {
+  subTitle(st, '이펙트'); m.fx = m.fx || [];
+  for (let k = 0; k < 3; k++) {
+    const f = m.fx[k];
+    st.appendChild(selectEl(`${label} 이펙트 ${k + 1}`, Object.entries(FX_NAME), f ? f.type : '', v => { pushUndo(); const a = m.fx.slice(); if (!v) a.splice(k, 1); else a[k] = {type:v, a:FX_DEF[v][0], b:FX_DEF[v][1]}; m.fx = a.filter(Boolean); remix(); buildMixer(); }));
+    if (!f) break;
+    FX_KNOBS[f.type].forEach((nm, j) => st.appendChild(mixSlider(nm, j ? f.b : f.a, 0, 1, 0.01, v => { if (j) f.b = v; else f.a = v; m.fx = m.fx.slice(); remix(); }, fxFmt(f.type, j))));
+  }
 }
 function selectEl(label, opts, val, on) {
   const s = document.createElement('select'); s.setAttribute('aria-label', label);
@@ -71,6 +82,7 @@ function buildMixer() {
   { const st = channelStrip('chords', CH_NAME.chords); toneKnobs(st, S.chordTone); const ex = document.createElement('div'); ex.className = 'sx';
     ex.appendChild(selectEl('코드 소리', [['pad','패드'],['supersaw','슈퍼소 코드'],['piano','피아노'],['epiano','일렉트릭 피아노'],['pluck','플럭']], S.chordInst, v => S.chordInst = v)); st.appendChild(ex); box.appendChild(st); }
   if ((S.audio || []).length) box.appendChild(channelStrip('audio', CH_NAME.audio));
+  for (const b of BUSES) if (Object.values(S.mix).some(m => m.out === b)) box.appendChild(channelStrip(b, CH_NAME[b]));
   { const st = channelStrip('bass', CH_NAME.bass), ex = document.createElement('div'); ex.className = 'sx';
     ex.appendChild(selectEl('베이스 패턴', [['off','끔'],['sustain','길게'],['8th','8분'],['offbeat','오프비트']], S.bassMode, v => S.bassMode = v));
     ex.appendChild(selectEl('베이스 소리', [['reese','리스'],['sub','서브'],['saw','톱니']], S.bassInst, v => S.bassInst = v)); st.appendChild(ex); box.appendChild(st); }
@@ -79,6 +91,7 @@ function buildMixer() {
   st.appendChild(mixSlider('볼륨', ma.v, 0, 1.2, 0.01, v => { ma.v = v; remix(); }, pct));
   st.appendChild(mixSlider('사이드체인', ma.sc, 0, 0.9, 0.01, v => { ma.sc = v; }, pct));
   st.appendChild(mixSlider('리버브 길이', ma.size, 0, 3, 1, v => { ma.size = v; remix(); }, v => ['짧게','보통','길게','아주 길게'][v]));
+  fxSection(st, ma, '마스터');
   const kx = document.createElement('div'); kx.className = 'sx';
   kx.appendChild(selectEl('드럼 키트', [['edm','키트: EDM'],['808','키트: 808'],['hard','키트: 하드'],['acoustic','키트: 어쿠스틱풍']], S.kit, v => {
     S.kit = v; ensureCtx(); applyMix(E, S.mix); const t = ctx.currentTime + 0.02; drumHit('kick', t); drumHit('hat', t + 0.15); drumHit('snare', t + 0.3); drumHit('hat', t + 0.45); }));

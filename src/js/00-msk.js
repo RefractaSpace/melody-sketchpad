@@ -83,13 +83,22 @@ function encodeMskBody(song, name, samples, keepIds) {
     w.chunk('SMPL', p => { if (ci >= 0) { p.u8(0); p.vu(ci); } else { p.u8(1); p.str(slot); } p.str(s.name); p.u8(s.root); const u = new Uint8Array(s.ab); p.vu(u.length); p.raw(u); });
   }
   // 이펙트 칸: [종류(0 채널·1 코드·2 베이스), 채널 번호, 칸 수, (종류·a·b)…]
-  const fxKeys = [...song.channels.map((c, i) => [0, i, chKey(c)]), [1, 0, 'chords'], [2, 0, 'bass']].filter(([, , k]) => song.mix[k] && song.mix[k].fx && song.mix[k].fx.length);
+  const fxKeys = [...song.channels.map((c, i) => [0, i, chKey(c)]), [1, 0, 'chords'], [2, 0, 'bass'], [3, 0, 'master'], [4, 0, 'audio'], [5, 0, 'bus1'], [6, 0, 'bus2']].filter(([, , k]) => song.mix[k] && song.mix[k].fx && song.mix[k].fx.length);
   if (fxKeys.length) w.chunk('FXSL', p => { p.vu(fxKeys.length); for (const [kind, i, k] of fxKeys) { p.u8(kind); p.vu(i); const fx = song.mix[k].fx; p.vu(fx.length); for (const f of fx) { p.u8(mskIdx(MSK_FX, f.type)); p.u8(q8(f.a * 250)); p.u8(q8(f.b * 250)); } } });
   // 자동화: [패턴 번호, 채널 수, (채널 번호, 볼륨 점들, 필터 점들)…]
   const autoP = song.patterns.map((P, pi) => [pi, P]).filter(([, P]) => P.auto && Object.keys(P.auto).length);
   if (autoP.length) w.chunk('AUTO', p => { p.vu(autoP.length); for (const [pi, P] of autoP) { const ent = Object.entries(P.auto).map(([cid, A]) => [song.channels.findIndex(c => c.id === cid), A]).filter(([ci]) => ci >= 0); p.vu(pi); p.vu(ent.length);
     for (const [ci, A] of ent) { p.vu(ci); for (const k of ['vol', 'cut']) { const pts = A[k] || []; p.vu(pts.length); let ps = 0; for (const q of pts) { p.vu(q.s - ps); ps = q.s; p.u8(q8(q.v * 250)); } } } } });
   if (song.audio && song.audio.length) w.chunk('AUDC', p => { p.vu(song.audio.length); for (const a of song.audio) { p.str(a.slot); p.str(a.name); p.u8(a.t); p.vu(a.s); p.vu(Math.round(a.off * 1000)); p.vu(Math.round(a.len * 1000)); p.u8(Math.round(a.gain * 100)); } p.str(JSON.stringify(song.mix.audio || {})); });
+  // 피치 벤드: [패턴, 채널, 시작 틱, 음높이, 반음+12]
+  const bends = []; song.patterns.forEach((P, pi) => song.channels.forEach((c, ci) => (P.notes[c.id] || []).forEach(n => { if (n.b) bends.push([pi, ci, n.s, n.p, n.b + 12]); })));
+  if (bends.length) w.chunk('BEND', p => { p.vu(bends.length); for (const [pi, ci, s, pp, b] of bends) { p.vu(pi); p.vu(ci); p.vu(s); p.u8(pp); p.u8(b); } });
+  // 출력(버스) · 버스 설정 · 곡 자동화 (JSON, 채널은 번호로)
+  const cix = k => { const i = song.channels.findIndex(c => chKey(c) === k); return i >= 0 ? '#' + i : k; }, outs = {}, busMix = {};
+  for (const [k, v] of Object.entries(song.mix)) if (v && v.out) outs[cix(k)] = v.out;
+  for (const b of ['bus1', 'bus2']) if (Object.values(outs).includes(b) && song.mix[b]) { const {fx, ...rest} = song.mix[b]; busMix[b] = rest; }
+  if (Object.keys(outs).length) w.chunk('ROUT', p => p.str(JSON.stringify({o:outs, b:busMix})));
+  if (song.sauto && Object.keys(song.sauto).length) w.chunk('SAUT', p => p.str(JSON.stringify(Object.fromEntries(Object.entries(song.sauto).map(([k, v]) => { const [key, prm] = k.split('|'); return [cix(key) + '|' + prm, v.map(q => [q.s, Math.round(q.v * 1000)])]; })))));
   w.chunk('TEMP', p => p.vu(Math.round(song.bpm * 100)));
   if (song.tempo && song.tempo.length) w.chunk('TMAP', p => { p.vu(song.tempo.length); let pt = 0; for (const x of song.tempo) { p.vu(x.t - pt); pt = x.t; p.vu(Math.round(x.bpm * 100)); } });
   if (keepIds) w.chunk('IDS ', p => { p.vu(song.channels.length); for (const c of song.channels) p.str(c.id); p.vu(song.patterns.length); for (const P of song.patterns) p.str(P.id); });
@@ -132,6 +141,9 @@ function decodeMskBody(body, needCrc) {
       if (type === 'FXSL') { for (let k = p.vu(); k > 0; k--) { const kind = p.u8(), i = p.vu(), fx = []; for (let n = p.vu(); n > 0; n--) fx.push({type:MSK_FX[p.u8()] || '', a:p.u8() / 250, b:p.u8() / 250}); (song._fx = song._fx || []).push([kind, i, fx]); } continue; }
       if (type === 'AUTO') { for (let k = p.vu(); k > 0; k--) { const pi = p.vu(), ent = []; for (let n = p.vu(); n > 0; n--) { const ci = p.vu(), A = {}; for (const key of ['vol', 'cut']) { const pts = []; let s = 0; for (let j = p.vu(); j > 0; j--) { s += p.vu(); pts.push({s, v:p.u8() / 250}); } if (pts.length) A[key] = pts; } ent.push([ci, A]); } (song._auto = song._auto || []).push([pi, ent]); } continue; }
       if (type === 'AUDC') { song.audio = []; for (let k = p.vu(); k > 0; k--) { const slot = p.str(), name = p.str(), t = p.u8(), s = p.vu(), off = p.vu() / 1000, len = p.vu() / 1000, gain = p.u8() / 100; song.audio.push({id:slot.slice(3), slot, name, t, s, off, len, gain}); } try { song._audioMix = JSON.parse(p.str()); } catch (e) {} continue; }
+      if (type === 'BEND') { song._bend = []; for (let k = p.vu(); k > 0; k--) song._bend.push([p.vu(), p.vu(), p.vu(), p.u8(), p.u8() - 12]); continue; }
+      if (type === 'ROUT') { try { song._rout = JSON.parse(p.str()); } catch (e) {} continue; }
+      if (type === 'SAUT') { try { song._saut = JSON.parse(p.str()); } catch (e) {} continue; }
       if (type === 'TMAP') { song.tempo = []; let t = 0; for (let k = p.vu(); k > 0; k--) { t += p.vu(); song.tempo.push({t, bpm:p.vu() / 100}); } continue; }
       if (type === 'INFO') {
         name = p.str(); const bpm0 = p.vu(); if (song.bpm == null) song.bpm = bpm0; song.root = p.u8(); song.mode = p.u8() ? 'minor' : 'major'; song.snap = p.u8(); song.len = p.u8(); song.playMode = p.u8() ? 'song' : 'pat';
@@ -175,10 +187,14 @@ function decodeMskBody(body, needCrc) {
     song.patterns.forEach((P, i) => { if (ids.pat[i]) P.id = ids.pat[i]; });
   }
   if (pcol) song.patterns.forEach((P, i) => { if (pcol[i]) P.color = pcol[i]; });
-  for (const [kind, i, fx] of song._fx || []) { const k = kind === 0 ? (song.channels[i] ? chKey(song.channels[i]) : null) : kind === 1 ? 'chords' : 'bass'; if (k) song.mix[k] = {...(song.mix[k] || {}), fx}; }
+  for (const [kind, i, fx] of song._fx || []) { const k = kind === 0 ? (song.channels[i] ? chKey(song.channels[i]) : null) : [null, 'chords', 'bass', 'master', 'audio', 'bus1', 'bus2'][kind]; if (k) song.mix[k] = {...(song.mix[k] || {}), fx}; }
   for (const [pi, ent] of song._auto || []) { const P = song.patterns[pi]; if (!P) continue; P.auto = {}; for (const [ci, A] of ent) if (song.channels[ci]) P.auto[song.channels[ci].id] = A; }
   if (song._audioMix) song.mix.audio = {...(song.mix.audio || {}), ...song._audioMix};
-  delete song._fx; delete song._auto; delete song._audioMix;
+  const kOf = k => k[0] === '#' ? (song.channels[+k.slice(1)] ? chKey(song.channels[+k.slice(1)]) : null) : k;
+  for (const [pi, ci, s, pp, b] of song._bend || []) { const P = song.patterns[pi], c = song.channels[ci], n = P && c && (P.notes[c.id] || []).find(x => x.s === s && x.p === pp); if (n) n.b = b; }
+  if (song._rout) { for (const [k, o] of Object.entries(song._rout.o || {})) { const key = kOf(k); if (key) song.mix[key] = {...(song.mix[key] || {}), out:o}; } for (const [b, v] of Object.entries(song._rout.b || {})) song.mix[b] = {...(song.mix[b] || {}), ...v}; }
+  if (song._saut) { song.sauto = {}; for (const [k, v] of Object.entries(song._saut)) { const [key, prm] = k.split('|'), kk = kOf(key); if (kk) song.sauto[kk + '|' + prm] = v.map(([s, vv]) => ({s, v:vv / 1000})); } }
+  delete song._fx; delete song._auto; delete song._audioMix; delete song._bend; delete song._rout; delete song._saut;
   clipsTodo.forEach((c, i) => { const P = song.patterns[c.pi]; if (!P) return; const o = {id:newId(), pat:P.id, t:c.t, bar:c.bar}; if (plex && plex[i]) { if (plex[i][0]) o.len = plex[i][0]; if (plex[i][1]) o.off = plex[i][1]; } song.playlist.clips.push(o); });
   const out = normalize(song);
   return {song:out, name, samples:samples.map(s => ({slot:s.byIndex ? (out.channels[s.key] ? chKey(out.channels[s.key]) : null) : s.key, name:s.name, root:s.root, ab:s.ab})).filter(s => s.slot)};

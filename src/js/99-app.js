@@ -119,7 +119,7 @@ document.addEventListener('keydown', e => {
 // ---- 시작 ----
 setTool('draw');
 $('projName').value = lib.list[lib.current].name;
-readCss(); initWindows(); initAudioClips(); refreshAll(); updatePos(0); loadSamples().then(buildBrowser); watchPiano();
+readCss(); initWindows(); initAudioClips(); initSongAuto(); refreshAll(); updatePos(0); loadSamples().then(buildBrowser); watchPiano();
 wrap.scrollTop = (HIGH - 79) * ROWH - 40;
 const boot = $('boot'); if (boot) boot.remove();
 let resizeT = 0;

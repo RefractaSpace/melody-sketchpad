@@ -63,6 +63,17 @@ str 이름 · varint 마디 수
 ### `AUDC` 오디오 클립 (있을 때만)
 `varint 개수`, 클립마다 `str 소리 번호표(au:…)` `str 이름` `u8 트랙` `varint 시작 틱` `varint 건너뛸 ms` `varint 길이 ms` `u8 크기(%)`, 끝에 `str 오디오 클립 믹서 설정(JSON)`. 소리는 `SMPL`에 같은 번호표로 들어가요.
 
+### `BEND` 피치 벤드 (있을 때만)
+`varint 개수`, 음마다 `varint 패턴` `varint 채널` `varint 시작 틱` `u8 음높이` `u8 반음+12` (같은 시작·음높이의 음에 붙여요)
+
+### `ROUT` 출력·버스 (있을 때만)
+`str JSON` — `{"o":{"#채널번호 또는 chords/bass/audio":"bus1|bus2"}, "b":{"bus1":{믹서 설정}}}`
+
+### `SAUT` 곡 자동화 (있을 때만)
+`str JSON` — `{"대상|값":[[곡 틱, 값×1000], …]}`, 대상은 `#채널번호`·`chords`·`bass`·`audio`·`bus1`·`bus2`·`master`, 값은 `vol cut pan rev dly fx1 fx2 fx3`
+
+`FXSL`의 종류 번호: 0 채널 · 1 코드 · 2 베이스 · 3 마스터 · 4 오디오 클립 · 5 버스 1 · 6 버스 2
+
 ### `TEMP` 정밀 BPM
 `varint BPM×100` (예: 126.5 → 12650). `INFO`에는 반올림한 정수 BPM도 들어 있어서, 이 청크를 모르는 옛 앱은 정수로 읽어요.
 

@@ -53,7 +53,7 @@ function scheduleAuto(EE, P, t0, t1, at) {
 function schedulePattern(EE, P, t0, t1, at) {
   const dur = (a, l) => at(a + l) - at(a);
   scheduleAuto(EE, P, t0, t1, at);
-  for (const c of S.channels) { const arr = P.notes[c.id]; if (arr) for (const n of arr) if (n.s >= t0 && n.s < t1) playTrackNote(EE, c, n.p, at(n.s), dur(n.s, n.l) * 0.98, n.v); }
+  for (const c of S.channels) { const arr = P.notes[c.id]; if (arr) for (const n of arr) if (n.s >= t0 && n.s < t1) playTrackNote(EE, c, n.p, at(n.s), dur(n.s, n.l) * 0.98, n.v, n.b); }
   for (const seg of chordSegments(P)) if (seg.s >= t0 && seg.s < t1) chordPlay(EE, S.chordInst, chordVoices(seg.c), at(seg.s), dur(seg.s, seg.l) * 0.98);
   if (S.bassMode !== 'off') {
     const nb = P.bars * 4;
@@ -73,7 +73,7 @@ const playSpan = () => S.playMode === 'song' ? songTicks() : totalTicks();
 function scheduleRange(EE, t0, t1, base, metro, from = 0) {
   if (S.playMode === 'song') {
     for (const cl of S.playlist.clips) for (const q of clipParts(cl, t0, t1)) schedulePattern(EE, q.P, q.from, q.to, lt => base + tSec(q.origin + lt));
-    scheduleAudio(EE, t0, t1, base, from);
+    scheduleAudio(EE, t0, t1, base, from); scheduleSongAuto(EE, t0, t1, base);
   } else schedulePattern(EE, curPat(), t0, t1, lt => base + tSec(lt));
   if (metro) for (let tt = Math.ceil(t0 / PPQ) * PPQ; tt < t1; tt += PPQ) click(EE, base + tSec(tt), tt % BAR_T === 0);
 }
