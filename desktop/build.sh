@@ -1,5 +1,5 @@
 #!/bin/bash
-# public/ 를 앱에 담고(피아노 녹음은 빼고 서버에서 받게), Windows .exe 로 묶어요.
+# public/ 를 앱에 담고(피아노 녹음은 빼고 서버에서 받게), Windows 설치 프로그램(.exe)으로 묶어요.
 set -e
 cd "$(dirname "$0")"
 rm -rf app && mkdir app
@@ -10,5 +10,6 @@ h=h.replace('<script>window.PIANO_SRC = "piano.js";','<script>window.MSK_SERVER 
 open(p,'w',encoding='utf-8').write(h)
 PY
 grep -q 'MSK_SERVER' app/index.html
-npx --yes @electron/packager . MelodySketchpad --platform=win32 --arch=x64 --out=dist --overwrite --asar --ignore='^/dist' --ignore='^/build.sh' --app-version=5.0.0 --electron-version=44.4.5
-cd dist && rm -f MelodySketchpad-win32-x64.zip && zip -qr -9 MelodySketchpad-win32-x64.zip MelodySketchpad-win32-x64 && ls -la MelodySketchpad-win32-x64.zip
+[ -d node_modules/electron-builder ] || npm install --no-audit --no-fund --loglevel=error
+npx electron-builder --win nsis --x64 --publish never
+ls -la dist/*.exe dist/latest.yml

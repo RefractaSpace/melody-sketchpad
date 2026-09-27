@@ -1,10 +1,27 @@
 {
   "name": "melody-sketchpad-desktop",
   "productName": "MelodySketchpad",
-  "version": "5.0.0",
-  "description": "멜로디 스케치패드 데스크톱 앱",
+  "version": "5.1.0",
+  "description": "멜로디 스케치패드 — 작곡 앱",
   "main": "main.js",
   "author": "REFRACTA",
   "license": "UNLICENSED",
-  "devDependencies": { "electron": "44.4.5", "@electron/packager": "20.3.0" }
+  "dependencies": { "electron-updater": "6.6.2" },
+  "devDependencies": { "electron": "44.4.5", "electron-builder": "26.0.12" },
+  "build": {
+    "appId": "space.refracta.melodysketchpad",
+    "productName": "MelodySketchpad",
+    "copyright": "© REFRACTA",
+    "files": ["main.js", "preload.js", "icon.png", "app/**/*"],
+    "directories": { "output": "dist" },
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "icon": "icon.ico", "signAndEditExecutable": false },
+    "nsis": {
+      "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true, "createStartMenuShortcut": true, "shortcutName": "멜로디 스케치패드",
+      "installerIcon": "icon.ico", "uninstallerIcon": "icon.ico", "uninstallDisplayName": "멜로디 스케치패드",
+      "artifactName": "MelodySketchpad-Setup-${version}.exe", "language": "1042", "installerLanguages": ["ko_KR"]
+    },
+    "fileAssociations": [{ "ext": "msk", "name": "MelodySketchpadSong", "description": "멜로디 스케치패드 곡", "icon": "icon.ico" }],
+    "publish": [{ "provider": "github", "owner": "RefractaSpace", "repo": "melody-sketchpad", "releaseType": "release" }]
+  }
 }
