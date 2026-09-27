@@ -51,10 +51,20 @@ try:
     # AI
     check('AI는 로그인 필요', req('POST', '/ai', {'task': 'feedback'})[0] == 401)
     c, j = req('POST', '/ai', {'task': 'feedback', 'song': {}}, tok=toks[U1]); check('AI 응답이 한국어 안내 (결제 전이면 안내, 아니면 결과)', c == 200 or ('결제 카드' in j.get('message', '')), str(j.get('message', 'OK'))[:60])
+    # DB가 켜져 있으면: 동시 좋아요가 하나도 안 사라지는지 (파일 저장소 방식에서는 보장 안 됨)
+    hc, hj = req('GET', '/auth?action=health')
+    if hc == 200 and isinstance(hj, dict) and hj.get('db'):
+        import concurrent.futures as cf
+        lk = [req('POST', '/auth?action=signup', {'username': f'tl{i}{stamp}', 'password': PW})[1]['token'] for i in range(10)]
+        for i, t in enumerate(lk): toks[f'tl{i}{stamp}'] = t
+        with cf.ThreadPoolExecutor(10) as ex: list(ex.map(lambda t: req('POST', f'/community?action=like&id={pid}', tok=t), lk))
+        n = req('GET', f'/community?id={pid}')[1]['post']['likes']
+        check('DB: 10명 동시 좋아요 → 정확히 11개 (먼저 누른 1명 포함)', n == 11, f'{n}개, 계정 {hj.get("users")} · 글 {hj.get("posts")}')
+    else: print('  ·  DB 꺼짐 — 동시 좋아요 검사는 건너뜀')
     check('앱 정보 (/api/release)', (lambda r: r[0] == 200 and r[1]['version'])(req('GET', '/release')))
 finally:
     # 정리: 글과 계정 지우기 (계정 삭제는 그 사람의 글도 지움)
-    for u, pw in ((U1, 'new_pass_456'), (U2, PW), (U3, PW)):
-        if toks.get(u): req('POST', '/auth?action=delete', {'password': pw}, tok=toks[u])
+    for u, t in list(toks.items()):
+        if t: req('POST', '/auth?action=delete', {'password': 'new_pass_456' if u == U1 else PW}, tok=t)
     c, j = req('GET', '/community?q=test' + stamp); check('정리 뒤 테스트 글 없음', c == 200 and not j['posts'])
 print(f'\n서버 결과: {sum(results)}/{len(results)} 통과'); sys.exit(0 if all(results) else 1)

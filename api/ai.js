@@ -2,6 +2,7 @@
 //   POST /api/ai  {task:'compose'|'chords'|'feedback', …}
 //   답은 정해진 JSON 모양으로 받아서 검사한 뒤 돌려줘요 (화면이 그대로 곡에 넣을 수 있게)
 import { cors, readToken, readJson } from './_lib.js';
+import { hasDB, q, ensureDB } from './_db.js';
 
 const MODELS = ['anthropic/claude-sonnet-4.5', 'anthropic/claude-haiku-4.5'], LIMIT = 40, used = new Map();
 const NOTE = 'C C# D D# E F F# G G# A A# B'.split(' ');
@@ -35,7 +36,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({error:'method'});
   const a = String(req.headers.authorization || ''), u = a.startsWith('Bearer ') ? readToken(a.slice(7)) : null;
   if (!u) return res.status(401).json({error:'login', message:'AI는 로그인하면 쓸 수 있어요'});
-  const day = new Date().toISOString().slice(0, 10), k = u + day, n = used.get(k) || 0;
+  const day = new Date().toISOString().slice(0, 10), k = u + day;
+  let n = used.get(k) || 0; if (hasDB()) { await ensureDB(); n = ((await q(`select n from ai_usage where username = $1 and day = $2`, [u, day]))[0] || {n:0}).n; }   // DB가 있으면 모든 서버가 같은 횟수를 봄
   if (n >= LIMIT) return res.status(429).json({error:'limit', message:`오늘 AI를 ${LIMIT}번 다 썼어요. 내일 다시 써 주세요`});
   const b = await readJson(req, 64 * 1024), task = String(b.task || '');
   if (!SYS[task]) return res.status(400).json({error:'task'});
@@ -46,7 +48,7 @@ export default async function handler(req, res) {
   else user = `Song data (JSON): ${JSON.stringify(b.song || {}).slice(0, 12000)}`;
   try {
     const {text, model} = await callAI(req, SYS[task], user, task === 'feedback' ? 700 : 3000);
-    used.set(k, n + 1);
+    used.set(k, n + 1); if (hasDB()) await q(`insert into ai_usage (username, day, n) values ($1, $2, 1) on conflict (username, day) do update set n = ai_usage.n + 1`, [u, day]);
     if (task === 'feedback') return res.status(200).json({text:text.slice(0, 2000), model, left:LIMIT - n - 1});
     const data = parseJson(text); return res.status(200).json({data, model, left:LIMIT - n - 1});
   } catch (e) { const m = String(e.message || e); return res.status(e.status || 500).json({error:'ai', message:/credit card/i.test(m) ? 'Vercel 계정에 결제 카드가 등록되지 않아서 Claude를 쓸 수 없어요' : 'AI 오류: ' + m.slice(0, 200)}); }
