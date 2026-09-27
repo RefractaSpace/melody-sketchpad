@@ -360,3 +360,9 @@ dialog.wide{width:min(920px,94vw)}
 .mp-song .mp-info{padding:8px 10px;display:flex;flex-direction:column;gap:2px}.mp-song b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mp-song small{color:var(--mute);font-size:11px}
 .mp-song .mp-act{display:flex;gap:6px;padding:0 10px 10px}
 @media (max-width:700px){.mp-profile{grid-template-columns:auto 1fr}.mp-stats{grid-column:1/-1;justify-content:space-around}}
+
+/* 커뮤니티 */
+.cm-card{padding:0;text-align:left;cursor:pointer;color:inherit;font:inherit}.cm-card:hover{border-color:var(--ink)}.cm-card:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.cm-counts{color:var(--ink)!important}
+.cm-cmts{display:flex;flex-direction:column;gap:6px;max-height:34vh;overflow:auto;margin-bottom:6px}
+.cm-cmt{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:baseline;font-size:13px;padding:6px 8px;border-radius:8px;background:var(--panel2)}.cm-cmt small{color:var(--mute);font-size:11px}.cm-cmt span{word-break:break-word}

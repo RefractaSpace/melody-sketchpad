@@ -120,6 +120,8 @@
     <button class="tbtn" id="scoreIn" title="악보 글이나 곡 코드를 붙여 넣기">붙여넣기</button>
     <button class="tbtn" id="convBtn">파일 변환기</button>
     <button class="tbtn" id="midi" hidden>MIDI 저장</button>
+    <button class="tbtn" id="aiBtn" title="AI 작곡 · 코드 추천 · 피드백">✨ AI</button>
+    <button class="tbtn" id="commBtn" title="다른 사람 곡 듣기 · 내 곡 게시">🌐 커뮤니티</button>
     <button class="tbtn" id="cloudBtn" title="서버에 곡 저장·열기 (저장소 키로 여러 기기에서)">☁ 서버</button>
     <button class="tbtn" id="saveProj" hidden title="우리 형식 .msk로 저장 (내 샘플까지, 압축)">저장 (.msk)</button>
     <button class="tbtn" id="wav" hidden>오디오 저장 (zip)</button>
@@ -177,6 +179,44 @@
     <button class="tbtn" id="convMp3" disabled>MP3 (.mp3)</button><button class="tbtn" id="convStem" disabled title="쓰는 채널마다 따로 WAV를 만들어 zip 하나로">스템 (채널별 WAV .zip)</button>
   </div>
   <div class="drow"><button class="tbtn" id="convOpen" disabled>이 곡을 새 프로젝트로 열기</button><button class="tbtn solid" id="convClose">닫기</button></div>
+</dialog>
+<section id="commPage" class="mypage" hidden aria-labelledby="cmTitle">
+  <div class="mp-wrap">
+    <header class="mp-top"><button class="tbtn" id="cmBack">← 작업 화면으로</button><h2 id="cmTitle">커뮤니티</h2><button class="tbtn solid" id="cmPublish">지금 곡 게시하기</button></header>
+    <div class="mp-card">
+      <div class="mp-head"><span role="group" aria-label="정렬"><button class="tbtn xs solid" id="cmNew">최신</button> <button class="tbtn xs" id="cmTop">인기</button></span><input id="cmSearch" class="xs" style="min-width:220px" placeholder="제목 · 태그 · 아이디 검색" aria-label="커뮤니티 검색"></div>
+      <div class="mp-grid" id="cmGrid"></div>
+    </div>
+  </div>
+</section>
+<dialog id="cmPost" aria-labelledby="cmpTitle" style="max-width:640px;width:94vw">
+  <canvas id="cmpThumb" style="width:100%;height:120px;display:block;border-radius:8px" aria-hidden="true"></canvas>
+  <h2 id="cmpTitle"></h2><p class="dsub" id="cmpMeta"></p>
+  <p id="cmpDesc" style="white-space:pre-wrap;margin:6px 0"></p><p class="dsub" id="cmpTags"></p>
+  <div class="drow"><span><button class="tbtn solid" id="cmpPlay">▶ 열어서 듣기</button> <button class="tbtn" id="cmpLike" aria-pressed="false">♡ 좋아요</button></span><span><button class="tbtn xs" id="cmpDel" hidden>글 지우기</button> <button class="tbtn" id="cmpClose">닫기</button></span></div>
+  <h3 style="font-size:14px;margin:12px 0 6px">댓글</h3><div id="cmpComments" class="cm-cmts"></div>
+  <div class="drow" id="cmpCmtBox"><input id="cmpInput" class="xs" style="flex:1" maxlength="500" placeholder="댓글 쓰기 (엔터로 등록)" aria-label="댓글"><button class="tbtn" id="cmpSend">등록</button></div>
+  <p class="dsub" id="cmpLoginHint" hidden>좋아요·댓글은 로그인하면 쓸 수 있어요.</p>
+</dialog>
+<dialog id="cmPubDlg" aria-labelledby="cmPubH">
+  <h2 id="cmPubH">커뮤니티에 게시</h2><p class="dsub">지금 곡을 누구나 듣고 열어 볼 수 있게 올려요. 다른 사람이 열면 복사본이 생기고, 원본은 바뀌지 않아요.</p>
+  <label class="xs">제목 <input id="cmPubTitle" class="xs" style="width:100%" maxlength="60"></label>
+  <label class="xs">설명 <textarea id="cmPubDesc" rows="3" style="width:100%" maxlength="1000"></textarea></label>
+  <label class="xs">태그 (쉼표로) <input id="cmPubTags" class="xs" style="width:100%" placeholder="뉴에이지, 피아노"></label>
+  <p class="dsub" id="cmPubMsg" role="status"></p>
+  <div class="drow"><span></span><span><button class="tbtn" id="cmPubCancel">취소</button> <button class="tbtn solid" id="cmPubGo">게시</button></span></div>
+</dialog>
+<dialog id="aiDlg" aria-labelledby="aiH" style="max-width:620px;width:94vw">
+  <h2 id="aiH">✨ AI</h2>
+  <div class="drow"><label class="xs">엔진 <select id="aiEngine"><option value="local">기본 AI (앱 안에서 계산 · 바로)</option><option value="claude">Claude (서버 · 로그인 필요)</option></select></label></div>
+  <div class="drow" id="aiTabs" role="tablist"><span><button class="tbtn solid" data-t="compose" role="tab">작곡</button> <button class="tbtn" data-t="chords" role="tab">코드 추천</button> <button class="tbtn" data-t="feedback" role="tab">피드백</button></span></div>
+  <section data-p="compose"><label class="xs">어떤 음악? <textarea id="aiPrompt" rows="2" style="width:100%" placeholder="예: 신나는 여름 축제 느낌, 드럼 넣어서 / 잔잔한 밤 피아노"></textarea></label>
+    <div class="drow"><label class="xs">길이 <select id="aiBars"><option value="2">2마디</option><option value="4" selected>4마디</option><option value="8">8마디</option></select></label><span class="dsub">새 패턴으로 만들어요 (지금 곡은 그대로)</span></div></section>
+  <section data-p="chords" hidden><p class="dsub">지금 채널(<b id="aiChName"></b>)의 멜로디에 어울리는 코드를 지금 패턴의 코드 줄에 넣어요.</p>
+    <label class="xs">코드 간격 <select id="aiRate"><option value="1">마디마다</option><option value="2">반 마디마다</option></select></label></section>
+  <section data-p="feedback" hidden><pre id="aiOut" style="white-space:pre-wrap;font:13px/1.6 inherit;margin:6px 0;max-height:40vh;overflow:auto"></pre></section>
+  <p class="dsub" id="aiMsg" role="status"></p>
+  <div class="drow"><span></span><span><button class="tbtn" id="aiClose">닫기</button> <button class="tbtn" id="aiAgain">다시 만들기</button> <button class="tbtn solid" id="aiRun">만들기</button></span></div>
 </dialog>
 <section id="myPage" class="mypage" hidden aria-labelledby="mpTitle">
   <div class="mp-wrap">
