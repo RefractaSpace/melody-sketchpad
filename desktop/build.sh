@@ -3,7 +3,7 @@
 set -e
 cd "$(dirname "$0")"
 rm -rf app && mkdir app
-cp -r ../public/. app/ && rm -rf app/assets app/piano*.js app/og.png
+cp -r ../public/. app/ && rm -rf app/assets app/piano*.js app/og.png app/download
 python3 - <<'PY'
 p='app/index.html'; h=open(p,encoding='utf-8').read()
 h=h.replace('<script>window.PIANO_SRC = "piano.js";','<script>window.MSK_SERVER = "https://melody-sketchpad.vercel.app"; window.PIANO_SRC = "piano.js";',1)

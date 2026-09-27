@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>멜로디 스케치패드 — 음을 찍어서 곡을 만드는 작곡 도구</title>
+<meta name="description" content="피아노 롤, 채널 랙, 플레이리스트, 믹서, 음악 AI. 브라우저에서 바로 쓰거나 Windows 앱으로 설치하는 무료 작곡 도구.">
+<meta property="og:title" content="멜로디 스케치패드">
+<meta property="og:description" content="음을 찍어서 곡을 만드는 무료 작곡 도구 — 웹과 Windows">
+<meta property="og:image" content="https://melody-sketchpad.vercel.app/og.png">
+<link rel="icon" href="img/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gothic+A1:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  --paper:#EEF1F6; --grid:#D5DCE8; --grid2:#C3CCDB; --ink:#14213D; --ink2:#46536E; --orange:#FF8A28; --panel:#FFFFFF;
+  --n1:#5B8DEF; --n2:#3FB58A; --n3:#E9A23B; --n4:#D9607A; --key:#FFFFFF; --keyb:#1E2A45;
+  --display:"Black Han Sans","Gothic A1",system-ui,sans-serif; --body:"Gothic A1","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#0F1830;--grid:#1D2A48;--grid2:#2A3A5E;--ink:#E8EDF7;--ink2:#A9B4CB;--panel:#16213D;--key:#DCE3F0;--keyb:#0A1122}}
+:root[data-theme="dark"]{--paper:#0F1830;--grid:#1D2A48;--grid2:#2A3A5E;--ink:#E8EDF7;--ink2:#A9B4CB;--panel:#16213D;--key:#DCE3F0;--keyb:#0A1122}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.7 var(--body);-webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:break-word}
+a{color:inherit}
+img{max-width:100%;height:auto;display:block}
+:focus-visible{outline:3px solid var(--orange);outline-offset:3px;border-radius:4px}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+
+/* 첫 화면: 피아노 롤 */
+.hero{position:relative;min-height:min(92vh,760px);display:grid;grid-template-columns:56px 1fr;border-bottom:1px solid var(--grid2);overflow:hidden}
+.keys{background:var(--keyb);position:relative}
+#roll{position:absolute;inset:0;width:100%;height:100%}
+.stage{position:relative}
+.hero-copy{position:relative;z-index:2;max-width:640px;padding:clamp(40px,9vh,96px) 24px 40px clamp(24px,5vw,72px)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;margin:0 0 clamp(28px,6vh,64px)}
+.brand img{width:34px;height:34px;border-radius:9px}
+h1{font:400 clamp(44px,7.4vw,92px)/1.02 var(--display);letter-spacing:-.01em;margin:0 0 22px;color:var(--ink)}
+h1 span{display:block}
+.lede{font-size:clamp(17px,1.6vw,19px);color:var(--ink2);max-width:34em;margin:0 0 30px}
+.cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:10px;height:52px;padding:0 22px;border-radius:12px;font:700 16px var(--body);text-decoration:none;border:2px solid var(--ink);color:var(--ink);background:var(--panel);cursor:pointer}
+.btn.primary{background:var(--orange);border-color:var(--orange);color:#1a1206}
+.btn:hover{transform:translateY(-1px)}
+.btn svg{width:18px;height:18px}
+.meta{font-size:14px;color:var(--ink2);margin:14px 0 0}
+.play{position:absolute;z-index:3;right:clamp(16px,3vw,40px);bottom:24px;height:44px;padding:0 18px;border-radius:22px;border:2px solid var(--ink);background:var(--panel);color:var(--ink);font:700 15px var(--body);cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.play[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.copy-bg{position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,var(--paper) 0,color-mix(in srgb,var(--paper) 88%,transparent) 42%,transparent 70%);pointer-events:none}
+@media (max-width:760px){.copy-bg{background:linear-gradient(180deg,color-mix(in srgb,var(--paper) 92%,transparent) 0,color-mix(in srgb,var(--paper) 80%,transparent) 70%,transparent)}.hero{grid-template-columns:28px 1fr}}
+
+/* 본문 */
+section{padding:clamp(56px,9vw,112px) 0}
+h2{font:400 clamp(30px,4vw,46px)/1.15 var(--display);margin:0 0 16px}
+h3{font:800 21px/1.35 var(--body);margin:0 0 10px}
+p{margin:0 0 14px;max-width:38em}
+.muted{color:var(--ink2)}
+.shot{border-radius:14px;border:1px solid var(--grid2);box-shadow:0 18px 50px -24px rgba(20,33,61,.45);overflow:hidden;background:#111}
+.screen figcaption{margin-top:14px;color:var(--ink2);font-size:15px;max-width:44em}
+
+.rows{display:flex;flex-direction:column;gap:clamp(56px,8vw,96px)}
+.row{display:grid;grid-template-columns:5fr 7fr;gap:clamp(24px,4vw,56px);align-items:center}
+.row:nth-child(even){grid-template-columns:7fr 5fr}
+.row:nth-child(even) .text{order:2}
+.row .bar{display:block;width:64px;height:10px;border-radius:5px;margin-bottom:18px}
+.row ul{margin:12px 0 0;padding-left:1.1em;color:var(--ink2)}
+.row li{margin:4px 0}
+@media (max-width:860px){.row,.row:nth-child(even){grid-template-columns:1fr}.row:nth-child(even) .text{order:0}}
+
+.files{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:28px;border-top:2px solid var(--ink);padding-top:22px}
+.files h3{font-size:17px}
+.files p{color:var(--ink2);font-size:15px}
+@media (max-width:760px){.files{grid-template-columns:1fr}}
+
+.dl{background:var(--panel);border-top:1px solid var(--grid2);border-bottom:1px solid var(--grid2)}
+.dl-grid{display:grid;grid-template-columns:7fr 5fr;gap:clamp(28px,5vw,72px);align-items:start}
+.steps{list-style:none;counter-reset:s;margin:22px 0 26px;padding:0}
+.steps li{counter-increment:s;display:grid;grid-template-columns:40px 1fr;gap:14px;padding:14px 0;border-top:1px solid var(--grid)}
+.steps li::before{content:counter(s);width:32px;height:32px;border-radius:50%;background:var(--ink);color:var(--paper);display:grid;place-items:center;font:800 15px var(--body)}
+.steps b{display:block}
+.req{font-size:14px;color:var(--ink2)}
+.web{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start}
+.web img{width:150px;border-radius:18px;border:1px solid var(--grid2)}
+@media (max-width:860px){.dl-grid{grid-template-columns:1fr}}
+@media (max-width:480px){.web{grid-template-columns:1fr}.web img{width:120px}}
+
+.faq details{border-top:1px solid var(--grid2);padding:16px 0}
+.faq details:last-child{border-bottom:1px solid var(--grid2)}
+.faq summary{cursor:pointer;font-weight:800;font-size:17px;list-style:none;display:flex;justify-content:space-between;gap:16px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";font-weight:400;font-size:22px;line-height:1}
+.faq details[open] summary::after{content:"−"}
+.faq details p{margin:10px 0 0;color:var(--ink2)}
+
+footer{padding:40px 0 56px;color:var(--ink2);font-size:14px}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:20px;align-items:center}
+.refracta{display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:800;letter-spacing:.02em}
+.refracta svg{width:34px;height:34px}
+.foot nav{display:flex;gap:18px;flex-wrap:wrap}
+@media (prefers-reduced-motion:reduce){.btn:hover{transform:none}}
+</style>
+</head>
+<body>
+
+<header class="hero" aria-label="소개">
+  <div class="keys" aria-hidden="true"><canvas id="keys" style="position:absolute;inset:0;width:100%;height:100%"></canvas></div>
+  <div class="stage">
+    <canvas id="roll" aria-hidden="true"></canvas>
+    <div class="copy-bg"></div>
+    <div class="hero-copy">
+      <p class="brand"><img src="img/icon.png" alt="" width="34" height="34">멜로디 스케치패드</p>
+      <h1><span>음을 찍으면</span><span>곡이 돼요</span></h1>
+      <p class="lede">피아노 롤, 채널 랙, 플레이리스트, 믹서가 한 화면에 있는 작곡 도구예요. 브라우저에서 바로 쓰거나 Windows 앱으로 설치하세요. 무료예요.</p>
+      <div class="cta">
+        <a class="btn primary" href="/">웹에서 바로 시작</a>
+        <a class="btn" id="dlBtn" href="https://github.com/RefractaSpace/melody-sketchpad/releases/latest/download/MelodySketchpad-Setup.exe">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>Windows 앱 내려받기</a>
+      </div>
+      <p class="meta" id="dlMeta">Windows 10, 11 (64비트)용 설치 프로그램</p>
+    </div>
+    <button class="play" id="playBtn" aria-pressed="false" aria-label="첫 화면의 멜로디 들어 보기">▶ 들어 보기</button>
+  </div>
+</header>
+
+<main>
+  <section aria-labelledby="h-screen">
+    <div class="wrap">
+      <h2 id="h-screen">한 화면에서 곡 하나를 끝까지</h2>
+      <p class="muted">패턴을 만들고 플레이리스트에 조각으로 배치해요. 노트북 화면부터 큰 모니터까지, 화면 크기마다 창 배치를 따로 기억해요.</p>
+      <figure class="screen" style="margin:28px 0 0">
+        <div class="shot"><img src="img/workspace.jpg" alt="작업 화면: 위쪽 플레이리스트에 곡 구간이 조각으로 놓여 있고, 아래에 채널 랙과 피아노 롤, 왼쪽에 악기 브라우저, 오른쪽에 믹서가 있다" width="1440" height="900" loading="lazy"></div>
+        <figcaption>밴드 곡 「축제, 청춘」을 MIDI로 불러온 모습이에요. 템포가 97번 바뀌는 곡도 음 하나하나의 시각이 3.5ms 안에서 맞아요.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section aria-label="기능" style="padding-top:0">
+    <div class="wrap rows">
+      <div class="row">
+        <div class="text">
+          <span class="bar" style="background:var(--n1)" aria-hidden="true"></span>
+          <h3>소리를 직접 만들어요</h3>
+          <p class="muted">악기를 고르고, 없으면 신스로 만들어요. 믹서에서 채널마다 이펙트를 걸고 곡 전체의 볼륨과 필터를 선으로 그려요.</p>
+          <ul><li>신스: 발진기 2개, FM, 웨이브테이블, 필터, LFO, 모드 매트릭스</li><li>세기 3층 피아노, 드럼 4키트, 내 샘플</li><li>이펙트 11가지, 버스 2개, 자동화</li></ul>
+        </div>
+        <div class="shot"><img src="img/mixer.jpg" alt="믹서 창: 채널마다 볼륨, 팬, EQ, 4밴드 EQ와 리버브 이펙트 칸이 있다" width="1400" height="875" loading="lazy"></div>
+      </div>
+      <div class="row">
+        <div class="text">
+          <span class="bar" style="background:var(--n2)" aria-hidden="true"></span>
+          <h3>막히면 음악 AI에게</h3>
+          <p class="muted">"잔잔한 밤 피아노"처럼 글로 쓰면 멜로디, 반주, 드럼, 코드가 있는 패턴이 생겨요. 쓰던 멜로디를 이어 쓰거나, 멜로디에 맞는 코드를 추천받을 수도 있어요.</p>
+          <ul><li>음악으로 학습한 신경망(Google Magenta)이 브라우저 안에서 실행돼요</li><li>여러 후보를 짓고 가장 자연스러운 것을 골라요</li><li>지금 곡을 분석해서 고칠 점을 알려 줘요</li></ul>
+        </div>
+        <div class="shot"><img src="img/ai.jpg" alt="AI 대화상자: 엔진 선택, 작곡 탭, '신나는 여름 축제 느낌' 입력, 새 패턴이 만들어졌다는 안내" width="1400" height="875" loading="lazy"></div>
+      </div>
+      <div class="row">
+        <div class="text">
+          <span class="bar" style="background:var(--n3)" aria-hidden="true"></span>
+          <h3>연주하고, 녹음하고, 다듬어요</h3>
+          <p class="muted">MIDI 건반이나 컴퓨터 자판으로 연주하면 그대로 음이 찍혀요. 마이크로 녹음한 소리는 플레이리스트에 오디오 클립으로 놓고 편집해요.</p>
+          <ul><li>녹음 뒤 박자에 맞추기(퀀타이즈)</li><li>자르기, 뒤집기, 페이드, 길이·음높이 따로 바꾸기</li><li>편집 되돌리기 20단계</li></ul>
+        </div>
+        <div class="shot"><img src="img/sample.jpg" alt="샘플 편집 창: 녹음한 소리의 파형과 남길 구간, 편집 버튼들" width="1400" height="875" loading="lazy"></div>
+      </div>
+      <div class="row">
+        <div class="text">
+          <span class="bar" style="background:var(--n4)" aria-hidden="true"></span>
+          <h3>올리고, 듣고, 나눠요</h3>
+          <p class="muted">계정을 만들면 곡이 서버에 저장돼서 웹과 앱 어디서나 열려요. 커뮤니티에 곡을 올리면 다른 사람이 듣고, 좋아요와 댓글을 남기고, 복사본을 열어 배울 수 있어요.</p>
+          <ul><li>내 페이지에서 곡마다 음 배치 미리보기</li><li>최신순, 인기순, 태그 검색</li></ul>
+        </div>
+        <div class="shot"><img src="img/community.jpg" alt="커뮤니티 페이지: 곡 카드마다 음 배치 미리보기와 제목, 작성자, 좋아요 수" width="1400" height="875" loading="lazy"></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-files" style="padding-top:0">
+    <div class="wrap">
+      <h2 id="h-files">다른 프로그램과 주고받기</h2>
+      <div class="files">
+        <div><h3>열기</h3><p>MIDI, 스케치패드 곡(.msk), 악보 글(.txt), 이전 버전 프로젝트</p></div>
+        <div><h3>내보내기</h3><p>WAV, MP3, 채널별 스템(.zip), MIDI — FL Studio나 다른 DAW로 옮길 수 있어요</p></div>
+        <div><h3>저장</h3><p>내 컴퓨터(브라우저 안), 서버의 내 계정, 파일로 저장</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="dl" id="download" aria-labelledby="h-dl">
+    <div class="wrap dl-grid">
+      <div>
+        <h2 id="h-dl">Windows 앱 설치</h2>
+        <p class="muted">앱은 인터넷 창 없이 따로 열리고, .msk 파일을 두 번 누르면 바로 열려요. 새 버전이 나오면 알아서 받아 두었다가 다시 켤 때 설치해요.</p>
+        <ol class="steps">
+          <li><div><b>설치 프로그램을 내려받아요</b><span class="muted" id="dlSize">MelodySketchpad-Setup.exe</span></div></li>
+          <li><div><b>내려받은 파일을 실행해요</b><span class="muted">"Windows의 PC 보호" 창이 뜨면 추가 정보를 누르고 실행을 눌러요. 코드 서명을 아직 하지 않아서 뜨는 창이에요.</span></div></li>
+          <li><div><b>설치 폴더를 고르고 설치해요</b><span class="muted">관리자 권한 없이 내 계정에 설치돼요. 바탕화면과 시작 메뉴에 바로가기가 생겨요.</span></div></li>
+        </ol>
+        <a class="btn primary" id="dlBtn2" href="https://github.com/RefractaSpace/melody-sketchpad/releases/latest/download/MelodySketchpad-Setup.exe">Windows 앱 내려받기</a>
+        <p class="req" style="margin-top:14px">Windows 10, 11 (64비트) · 설치 공간 약 400MB · 피아노 소리와 음악 AI는 처음 쓸 때 인터넷에서 받아요<br><a href="https://github.com/RefractaSpace/melody-sketchpad/releases" id="notesLink">릴리스 노트와 이전 버전</a></p>
+      </div>
+      <div>
+        <h2 style="font-size:clamp(26px,3vw,34px)">설치 없이 웹에서</h2>
+        <div class="web">
+          <img src="img/phone.jpg" alt="휴대폰 화면에서 연 멜로디 스케치패드" width="520" height="1125" loading="lazy">
+          <div><p class="muted">크롬, 엣지, 사파리에서 바로 열려요. 맥과 태블릿, 휴대폰에서도 쓸 수 있어요. 곡은 브라우저 안에 저장되고, 로그인하면 서버에도 저장돼요.</p>
+          <a class="btn" href="/">웹에서 바로 시작</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq" aria-labelledby="h-faq">
+    <div class="wrap" style="max-width:820px">
+      <h2 id="h-faq">자주 묻는 질문</h2>
+      <details><summary>정말 무료예요?</summary><p>네. 광고도 없어요. 음악 AI는 내 컴퓨터(브라우저) 안에서 돌아가서 비용이 들지 않아요.</p></details>
+      <details><summary>인터넷이 없어도 되나요?</summary><p>한 번 연 뒤에는 곡 편집과 재생이 인터넷 없이 돼요. 피아노 소리와 음악 AI 모델은 처음 한 번만 받고, 계정·커뮤니티는 인터넷이 필요해요.</p></details>
+      <details><summary>만든 곡은 어디에 저장돼요?</summary><p>기본은 내 브라우저(또는 앱) 안이에요. 로그인하면 서버의 내 계정에도 올릴 수 있고, 언제든 .msk 파일이나 MIDI, WAV로 내려받을 수 있어요.</p></details>
+      <details><summary>맥 앱도 있어요?</summary><p>아직은 Windows 앱만 있어요. 맥에서는 웹 버전을 쓰세요. 기능은 같아요.</p></details>
+      <details><summary>FL Studio 곡을 열 수 있어요?</summary><p>FL Studio 프로젝트(.flp)는 직접 열 수 없어요. FL Studio에서 MIDI로 내보낸 뒤 열면 음과 템포가 들어와요.</p></details>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span class="refracta"><svg viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="32" rx="27" ry="12" transform="rotate(-24 32 32)" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="9" fill="#FF8A28"/><circle cx="55" cy="21.5" r="4.5" fill="currentColor"/></svg>REFRACTA</span>
+    <nav aria-label="바닥 링크"><a href="/">웹 앱</a><a href="#download">내려받기</a><a href="https://github.com/RefractaSpace/melody-sketchpad">GitHub</a></nav>
+    <span id="verLine">멜로디 스케치패드</span>
+  </div>
+</footer>
+
+<script>
+// 첫 화면 피아노 롤 — 직접 지은 짧은 멜로디(4마디, C장조 110BPM). 한 번 재생선이 지나가고, ▶로 소리를 들어요.
+(() => {
+  const BPM = 110, BEAT = 60 / BPM, LO = 48, HI = 84, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // [시작 박, 길이 박, 음] — 멜로디 · 코드 · 베이스
+  const MEL = [[0,1,76],[1,.5,74],[1.5,.5,72],[2,1,74],[3,1,79],[4,1.5,77],[5.5,.5,76],[6,2,74],[8,1,72],[9,.5,74],[9.5,.5,76],[10,1,79],[11,1,81],[12,1,79],[13,.5,77],[13.5,.5,76],[14,2,72]];
+  const CH = [[0,[60,64,67]],[4,[57,60,65]],[8,[57,60,64]],[12,[55,59,62]]], BASS = [[0,48],[2,48],[4,53],[6,53],[8,45],[10,45],[12,43],[14,43]];
+  const notes = [...CH.flatMap(([s, ps]) => ps.map(p => ({s, l:3.8, p, c:'--n2'}))), ...BASS.map(([s, p]) => ({s, l:1.8, p, c:'--n3'})), ...MEL.map(([s, l, p]) => ({s, l, p, c:'--n1', lead:true}))];
+  const TOTAL = 16, rollC = document.getElementById('roll'), keysC = document.getElementById('keys'), css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  let head = reduce ? -1 : 0, sweepStart = null, playing = null;
+  function size(c) { const r = c.getBoundingClientRect(), d = devicePixelRatio || 1; c.width = Math.round(r.width * d); c.height = Math.round(r.height * d); const x = c.getContext('2d'); x.setTransform(d, 0, 0, d, 0, 0); return [x, r.width, r.height]; }
+  const black = p => [1,3,6,8,10].includes(p % 12);
+  function draw() {
+    const [x, W, H] = size(rollC), rows = HI - LO + 1, rh = H / rows, bw = W / TOTAL;
+    x.fillStyle = css('--paper'); x.fillRect(0, 0, W, H);
+    for (let p = LO; p <= HI; p++) if (black(p)) { x.fillStyle = css('--grid'); x.globalAlpha = .45; x.fillRect(0, (HI - p) * rh, W, rh); x.globalAlpha = 1; }
+    for (let b = 0; b <= TOTAL; b++) { x.fillStyle = b % 4 ? css('--grid') : css('--grid2'); x.fillRect(Math.round(b * bw), 0, b % 4 ? 1 : 2, H); }
+    for (const n of notes) { const on = head >= n.s && head < n.s + n.l; x.fillStyle = css(n.c); x.globalAlpha = n.lead ? 1 : .8;
+      const X = n.s * bw + 1, Y = (HI - n.p) * rh + 1, w = n.l * bw - 2, h = Math.max(4, rh - 2); x.beginPath(); x.roundRect ? x.roundRect(X, Y, w, h, 3) : x.rect(X, Y, w, h); x.fill();
+      if (on) { x.globalAlpha = .35; x.fillStyle = '#fff'; x.fill(); } x.globalAlpha = 1; }
+    if (head >= 0 && head <= TOTAL) { x.fillStyle = css('--orange'); x.fillRect(head * bw - 1, 0, 3, H); }
+    const [k, KW, KH] = size(keysC); k.fillStyle = css('--keyb'); k.fillRect(0, 0, KW, KH);
+    const rhk = KH / rows; k.fillStyle = css('--key'); k.fillRect(0, 0, KW, KH);   // 흰 건반 바탕 + 칸 경계, 그 위에 짧은 검은 건반
+    k.fillStyle = css('--grid2'); for (let p = LO; p <= HI; p++) if (!black(p) && (p % 12 === 0 || p % 12 === 5)) k.fillRect(0, Math.round((HI - p + 1) * rhk), KW, 1);
+    k.fillStyle = css('--keyb'); for (let p = LO; p <= HI; p++) if (black(p)) k.fillRect(0, (HI - p) * rhk, KW * .62, rhk);
+  }
+  function loop(t) {
+    if (playing) head = (playing.ac.currentTime - playing.t0) / BEAT;
+    else if (sweepStart != null) { head = (t - sweepStart) / 1000 / BEAT; if (head > TOTAL) { head = -1; sweepStart = null; } }
+    if (playing && head > TOTAL + .5) stop();
+    draw(); if (playing || sweepStart != null) requestAnimationFrame(loop);
+  }
+  function stop() { if (!playing) return; try { playing.out.gain.setTargetAtTime(0, playing.ac.currentTime, .05); } catch (e) {} setTimeout(() => playing && playing.ac.close(), 300); playing = null; head = -1; btn.setAttribute('aria-pressed', 'false'); btn.textContent = '▶ 들어 보기'; draw(); }
+  const btn = document.getElementById('playBtn');
+  btn.onclick = () => {
+    if (playing) return stop();
+    const ac = new (window.AudioContext || window.webkitAudioContext)(), out = ac.createGain(), t0 = ac.currentTime + .08; out.gain.value = .5; out.connect(ac.destination);
+    const f = p => 440 * 2 ** ((p - 69) / 12);
+    for (const n of notes) { const o = ac.createOscillator(), g = ac.createGain(), s = t0 + n.s * BEAT, e = s + n.l * BEAT;
+      o.type = n.lead ? 'triangle' : n.c === '--n3' ? 'sine' : 'sine'; o.frequency.value = f(n.p);
+      const v = n.lead ? .32 : n.c === '--n3' ? .3 : .07; g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(v, s + .015); g.gain.setTargetAtTime(v * .55, s + .05, .25); g.gain.setTargetAtTime(0, e, .08);
+      o.connect(g).connect(out); o.start(s); o.stop(e + .5); }
+    playing = {ac, out, t0}; btn.setAttribute('aria-pressed', 'true'); btn.textContent = '■ 멈추기'; sweepStart = null; requestAnimationFrame(loop);
+  };
+  addEventListener('resize', draw); matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+  document.fonts && document.fonts.ready.then(draw); draw();
+  if (!reduce) setTimeout(() => { sweepStart = performance.now(); requestAnimationFrame(loop); }, 500);
+})();
+// 최신 릴리스 정보 (버전 · 크기 · 날짜)
+fetch('https://api.github.com/repos/RefractaSpace/melody-sketchpad/releases/latest').then(r => r.ok ? r.json() : null).then(rel => {
+  if (!rel) return; const a = (rel.assets || []).find(x => /Setup\.exe$/.test(x.name)) || (rel.assets || []).find(x => /Setup.*\.exe$/.test(x.name)); if (!a) return;
+  const v = rel.tag_name.replace(/^v/, ''), mb = Math.round(a.size / 1048576), d = new Date(rel.published_at).toLocaleDateString('ko-KR');
+  document.getElementById('dlMeta').textContent = `버전 ${v}, ${mb}MB, ${d}에 나옴. Windows 10, 11 (64비트)`;
+  document.getElementById('dlSize').textContent = `${a.name} (${mb}MB)`;
+  document.getElementById('verLine').textContent = `멜로디 스케치패드 ${v}`;
+  document.getElementById('notesLink').href = rel.html_url;
+}).catch(() => {});
+</script>
+</body>
+</html>
