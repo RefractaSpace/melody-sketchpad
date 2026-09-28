@@ -3,237 +3,200 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>멜로디 스케치패드</title>
-<meta name="description" content="피아노 롤, 믹서, 음악 AI를 갖춘 무료 작곡 도구. 브라우저에서 바로 쓰거나 Windows 앱으로 설치할 수 있습니다.">
+<title>멜로디 스케치패드 — 떠오른 멜로디를 바로 곡으로</title>
+<meta name="description" content="피아노 롤, 채널 랙, 플레이리스트, 믹서, 음악 AI까지. 웹과 Windows에서 무료로 쓰는 작곡 도구.">
 <meta property="og:title" content="멜로디 스케치패드">
-<meta property="og:description" content="떠오른 멜로디를 바로 곡으로. 웹과 Windows에서 쓰는 무료 작곡 도구">
+<meta property="og:description" content="떠오른 멜로디를 바로 곡으로. 웹과 Windows에서 무료로 쓰는 작곡 도구.">
 <meta property="og:image" content="https://melody-sketchpad.vercel.app/og.png">
-<meta name="theme-color" content="#000000">
 <link rel="icon" href="img/icon.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
-:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
-  --bg:#000;--surface:#0D0D0F;--surface2:#151518;--line:#222226;--text:#F5F5F7;--muted:#86868B;--dim:#5E5E63;--accent:#FF8A28;
-  --font:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
+:root{box-sizing:border-box;padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#F7F8FA;--ink:#14213D;--ink2:#5A6378;--line:#E1E5EC;--navy:#0E1A33;--navy2:#16254A;--on:#E9EDF5;--onm:#94A0BA;--acc:#FF8A28;
+  --font:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
 *,*::before,*::after{box-sizing:inherit}
 html{scroll-behavior:smooth;scroll-padding-top:calc(64px + env(safe-area-inset-top,0px))}
-body{margin:0;background:var(--bg);color:var(--text);font:400 17px/1.6 var(--font);letter-spacing:-.01em;-webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:break-word}
-a{color:inherit;text-decoration:none}
-img{display:block;max-width:100%;height:auto}
-:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.6 var(--font);letter-spacing:-.01em;-webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:break-word}
+a{color:inherit;text-decoration:none}img{display:block;max-width:100%;height:auto}
+:focus-visible{outline:2px solid var(--acc);outline-offset:3px;border-radius:6px}
 .w{max-width:1120px;margin:0 auto;padding:0 24px}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
-
-/* 상단 메뉴 */
-.nav{position:sticky;top:0;z-index:10;background:rgba(0,0,0,.72);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid rgba(255,255,255,.07);padding-top:env(safe-area-inset-top,0px)}
-.nav .w{height:56px;display:flex;align-items:center;gap:28px}
-.logo{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px}
-.logo img{width:24px;height:24px;border-radius:6px}
-.nav nav{display:flex;gap:24px;margin-left:auto;font-size:14px;color:var(--muted)}
-.nav nav a:hover{color:var(--text)}
-.pill{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:999px;font:600 14px var(--font);border:1px solid transparent;transition:background .15s,border-color .15s}
-.pill.solid{background:var(--text);color:#000}.pill.solid:hover{background:#fff}
-.pill.ghost{border-color:#3A3A3F;color:var(--text)}.pill.ghost:hover{border-color:#6A6A70}
-.pill.lg{height:48px;padding:0 24px;font-size:16px}
-@media (max-width:680px){.nav nav{display:none}.nav .pill{margin-left:auto}}
-
-/* 첫 화면 */
-.hero{text-align:center;padding:clamp(72px,12vh,128px) 0 0}
-.hero .icon{width:72px;height:72px;border-radius:17px;margin:0 auto 20px;box-shadow:0 8px 30px rgba(255,138,40,.18)}
-.badge{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:5px 12px 5px 10px;margin-bottom:22px}
-.badge i{width:6px;height:6px;border-radius:50%;background:var(--accent)}
-h1{font-size:clamp(46px,8vw,96px);font-weight:700;line-height:1.05;letter-spacing:-.045em;margin:0 0 22px}
-.sub{font-size:clamp(18px,2vw,21px);color:var(--muted);max-width:560px;margin:0 auto 34px;line-height:1.5}
-.cta{display:flex;justify-content:center;flex-wrap:wrap;gap:12px}
-@media (max-width:520px){.br{display:none}}
-.meta{font-size:13px;color:var(--dim);margin:16px 0 0}
-.frame{margin:clamp(56px,8vw,88px) auto 0;max-width:1200px;padding:0 24px;position:relative}
-.frame::before{content:"";position:absolute;inset:-8% 10% auto;height:70%;background:radial-gradient(closest-side,rgba(255,138,40,.13),transparent);filter:blur(30px);z-index:0}
-.frame .shot{position:relative;z-index:1;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.12);box-shadow:0 40px 120px -30px rgba(0,0,0,.9);animation:rise .9s cubic-bezier(.2,.7,.2,1) both .1s}
-@keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
-
-/* 두 톤 문장 */
-.statement{padding:clamp(96px,14vw,168px) 0 clamp(72px,10vw,120px)}
-.statement p{font-size:clamp(26px,3.6vw,40px);font-weight:600;line-height:1.3;letter-spacing:-.03em;margin:0;max-width:900px}
-.statement span{color:var(--dim)}
-
-/* 기능 */
-h2{font-size:clamp(32px,4.4vw,52px);font-weight:700;letter-spacing:-.04em;line-height:1.1;margin:0 0 40px}
-.bento{display:grid;grid-template-columns:repeat(6,1fr);gap:16px}
-.tile{background:var(--surface);border:1px solid var(--line);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;min-height:420px}
-.tile .t{padding:30px 32px 0}
-.tile h3{font-size:22px;font-weight:700;letter-spacing:-.025em;margin:0 0 8px}
-.tile p{color:var(--muted);margin:0;font-size:16px;max-width:36em}
-.tile .img{margin-top:auto;padding:28px 0 0 32px}
-.tile .img img{border-radius:12px 0 0 0;border:1px solid var(--line);border-right:0;border-bottom:0;width:100%;object-fit:cover;object-position:left top}
-.span4{grid-column:span 4}.span2{grid-column:span 2}.span3{grid-column:span 3}.span6{grid-column:span 6}
-.tile.phone .img{padding:28px 32px 0;display:flex;justify-content:center}
-.tile.phone .img img{width:62%;border-radius:20px 20px 0 0;border:1px solid var(--line);border-bottom:0}
-.tile.wide{display:grid;grid-template-columns:5fr 7fr;min-height:0}
-.tile.wide .t{padding:36px 32px}
-.tile.wide .img{margin:0;padding:36px 0 0}
-.a-img{height:300px}.a-img img{height:100%}
-.list{margin:18px 0 0;padding:0;list-style:none;color:var(--muted);font-size:15px}
-.list li{padding:8px 0;border-top:1px solid var(--line)}
-@media (max-width:900px){.span4,.span2,.span3{grid-column:span 6}.tile.wide{grid-template-columns:1fr}.tile.wide .img{padding:0 0 0 32px}}
-
-.formats{display:flex;flex-wrap:wrap;gap:10px 28px;align-items:baseline;margin-top:56px;padding-top:28px;border-top:1px solid var(--line);color:var(--muted);font-size:15px}
-.formats b{color:var(--text);font-weight:600;margin-right:8px}
-
-/* 다운로드 */
-.dl{padding:clamp(112px,14vw,176px) 0}
-.dl h2{text-align:center;margin-bottom:14px}
-.dl .lead{text-align:center;color:var(--muted);margin:0 auto 56px;max-width:520px}
-.opts{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:22px;overflow:hidden}
-.opt{padding:40px;background:var(--surface)}
-.opt+.opt{border-left:1px solid var(--line)}
-.opt h3{font-size:24px;font-weight:700;letter-spacing:-.03em;margin:0 0 6px}
-.opt .v{color:var(--muted);font-size:14px;margin:0 0 24px;min-height:22px}
-.steps{margin:28px 0 0;padding:0;list-style:none;counter-reset:s;font-size:15px;color:var(--muted)}
-.steps li{counter-increment:s;display:flex;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
-.steps li::before{content:counter(s);color:var(--text);font-weight:600;min-width:14px}
-@media (max-width:760px){.opts{grid-template-columns:1fr}.opt+.opt{border-left:0;border-top:1px solid var(--line)}.opt{padding:30px 24px}}
-
-/* 질문 */
-.faq{padding:0 0 clamp(96px,12vw,140px)}
-.faq .w{display:grid;grid-template-columns:1fr 2fr;gap:40px}
-.faq details{border-top:1px solid var(--line);padding:20px 0}
-.faq details:last-child{border-bottom:1px solid var(--line)}
-.faq summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:20px;font-weight:600;font-size:17px}
-.faq summary::-webkit-details-marker{display:none}
-.faq summary::after{content:"";width:10px;height:10px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);margin-top:4px;flex:none;transition:transform .2s}
-.faq details[open] summary::after{transform:rotate(-135deg);margin-top:9px}
-.faq details p{color:var(--muted);margin:12px 0 0;font-size:16px}
-@media (max-width:760px){.faq .w{grid-template-columns:1fr;gap:8px}}
-
-footer{border-top:1px solid var(--line);padding:32px 0 48px;font-size:13px;color:var(--dim)}
-footer .w{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:center}
-.brand{display:flex;align-items:center;gap:8px;color:var(--muted);font-weight:600;letter-spacing:.02em}
-.brand svg{width:22px;height:22px}
-footer nav{display:flex;gap:22px;margin-left:auto}
-footer a:hover{color:var(--text)}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
+.top{position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
+.top .w{height:60px;display:flex;align-items:center;gap:28px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px}.brand img{border-radius:7px}
+.top nav{display:flex;gap:22px;margin-left:auto;font-size:14px;color:var(--ink2)}.top nav a:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 18px;border-radius:10px;font:600 15px var(--font);border:1.5px solid var(--ink);color:var(--ink);background:none;cursor:pointer}
+.btn.acc{background:var(--acc);border-color:var(--acc);color:#1b1004}.btn.acc:hover{background:#ff9a45;border-color:#ff9a45}
+.btn.sm{height:36px;font-size:14px;padding:0 14px}
+.mbtn{display:none;margin-left:auto;background:none;border:0;width:44px;height:44px;cursor:pointer;color:var(--ink)}
+.msheet{display:none;position:fixed;left:0;right:0;bottom:0;top:calc(60px + env(safe-area-inset-top,0px));background:var(--bg);z-index:29;padding:20px 24px 60px;overflow:auto}
+.msheet.open{display:block}.msheet a{display:block;font-size:24px;font-weight:700;padding:12px 0;border-bottom:1px solid var(--line)}
+@media (max-width:820px){.top nav,.top .btn{display:none}.mbtn{display:block}}
+.hero{padding:72px 0 0}
+.kicker{font:600 14px var(--font);color:var(--ink2);margin:0 0 18px}.kicker b{color:var(--acc)}
+h1{font-size:clamp(44px,7.2vw,84px);font-weight:800;letter-spacing:-.045em;line-height:1.02;margin:0 0 20px}
+.sub{font-size:clamp(18px,1.9vw,21px);color:var(--ink2);max-width:580px;margin:0 0 30px}
+.cta{display:flex;gap:10px;flex-wrap:wrap}
+.ad{margin-top:56px;aspect-ratio:1366/768;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 50px 120px -40px rgba(14,26,51,.55),0 0 0 1px rgba(14,26,51,.08)}
+.ad video{display:block;width:100%;height:100%;object-fit:cover}
+.adnote{font-size:13px;color:#8a93a6;margin:10px 0 0}
+.adsteps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;list-style:none;padding:0;margin:20px 0 0}
+.adsteps li{font-size:15px;color:var(--ink2);transition:color .3s}.adsteps li.on{color:var(--ink);font-weight:700}
+.adsteps b{font:700 13px var(--mono);color:var(--acc);margin-right:8px}
+.adsteps i{display:block;height:3px;border-radius:2px;background:var(--line);margin-bottom:12px;overflow:hidden}.adsteps i::after{content:"";display:block;height:100%;width:var(--p,0%);background:var(--acc)}
+@media (max-width:640px){.adsteps{grid-template-columns:1fr 1fr;gap:12px 14px}.adsteps li{font-size:13px}.ad{border-radius:10px;margin-top:40px}}
+.sec{padding:112px 0 0}
+.lbl{font:600 12px var(--mono);color:var(--ink2);letter-spacing:.04em;margin:0 0 10px}
+h2{font-size:clamp(32px,4.4vw,48px);font-weight:800;letter-spacing:-.04em;line-height:1.1;margin:0 0 12px}
+.desc{color:var(--ink2);max-width:600px;margin:0 0 36px}
+.feat{display:grid;grid-template-columns:5fr 7fr;gap:clamp(28px,5vw,64px);align-items:center;padding:40px 0;border-top:1px solid var(--line)}
+.feat:nth-of-type(even){grid-template-columns:7fr 5fr}.feat:nth-of-type(even) .ft{order:2}
+.feat h3{font-size:clamp(24px,2.6vw,30px);font-weight:800;letter-spacing:-.03em;line-height:1.2;margin:0 0 10px}
+.feat p{color:var(--ink2);margin:0 0 14px}.feat ul{list-style:none;padding:0;margin:0;font-size:15px;color:var(--ink2)}.feat li{padding:6px 0;border-top:1px solid var(--line)}
+.feat .shot{border-radius:14px;overflow:hidden;border:1px solid var(--line);box-shadow:0 30px 70px -35px rgba(14,26,51,.45)}
+.feat .shot.phone{max-width:280px;justify-self:center}
+@media (max-width:820px){.feat,.feat:nth-of-type(even){grid-template-columns:1fr}.feat:nth-of-type(even) .ft{order:0}}
+.files{display:flex;flex-wrap:wrap;gap:8px 28px;padding:24px 0;border-top:1px solid var(--line);font-size:15px;color:var(--ink2)}.files b{color:var(--ink);margin-right:8px}
+.ai{margin-top:112px;background:var(--navy);color:var(--on);padding:88px 0}
+.ai .lbl,.ai .desc{color:var(--onm)}
+.aigrid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.flow{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.flow li{display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:center;background:var(--navy2);border-radius:10px;padding:12px 16px;font-size:15px}
+.flow li b{font:600 12px var(--mono);color:var(--acc)}
+.ai .shot{border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.12)}
+@media (max-width:860px){.aigrid{grid-template-columns:1fr}}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.box{border:1px solid var(--line);border-radius:16px;background:#fff;padding:28px}.box h3{margin:0 0 4px;font-size:21px}.box .v{color:var(--ink2);font-size:14px;margin:0 0 18px;min-height:22px}
+.box ol{margin:18px 0 0;padding-left:18px;color:var(--ink2);font-size:14px}.box li{padding:3px 0}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+.faq{max-width:780px}.faq details{border-top:1px solid var(--line);padding:18px 0}.faq details:last-child{border-bottom:1px solid var(--line)}
+.faq summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:16px;font-weight:700}.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";font:400 20px var(--mono);color:var(--ink2)}.faq details[open] summary::after{content:"–"}.faq details p{color:var(--ink2);margin:10px 0 0;font-size:16px}
+footer{margin-top:112px;border-top:1px solid var(--line);padding:28px 0 44px;font-size:13px;color:var(--ink2)}
+footer .w{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center}footer .brand{font-size:14px}footer nav{display:flex;gap:18px;margin-left:auto}footer a:hover{color:var(--ink)}
+.rise{opacity:0;transform:translateY(18px);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1)}.rise.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.rise{opacity:1;transform:none}}
 </style>
 </head>
 <body>
-
-<header class="nav">
+<header class="top">
   <div class="w">
-    <a class="logo" href="#top"><img src="img/icon.png" alt="" width="24" height="24">멜로디 스케치패드</a>
-    <nav aria-label="페이지 안 이동"><a href="#features">기능</a><a href="#download">다운로드</a><a href="#faq">질문</a></nav>
-    <a class="pill solid" href="/">웹에서 시작</a>
+    <a class="brand" href="#top"><img src="img/icon.png" alt="" width="28" height="28">멜로디 스케치패드</a>
+    <nav aria-label="페이지 안 이동"><a href="#features">기능</a><a href="#ai">음악 AI</a><a href="#download">다운로드</a><a href="#faq">질문</a></nav>
+    <a class="btn sm acc" href="/">웹에서 시작</a>
+    <button class="mbtn" id="mbtn" type="button" aria-label="메뉴 열기" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7h14M3 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
   </div>
 </header>
+<nav class="msheet" id="msheet" aria-label="전체 메뉴"><a href="#features">기능</a><a href="#ai">음악 AI</a><a href="#download">다운로드</a><a href="#faq">질문</a><a href="/">웹에서 시작</a></nav>
 
 <main id="top">
   <section class="hero">
     <div class="w">
-      <img class="icon" src="img/icon.png" alt="" width="72" height="72">
-      <a class="badge" href="#features"><i aria-hidden="true"></i>5.2 음악 AI와 커뮤니티 추가</a>
+      <p class="kicker"><b>●</b> 무료 · 광고 없음 · 웹과 Windows</p>
       <h1>떠오른 멜로디를<br>바로 곡으로.</h1>
-      <p class="sub">피아노 롤부터 믹서, 음악 AI까지.<br class="br"> 브라우저에서 설치 없이 쓰는 무료 작곡 도구.</p>
-      <div class="cta">
-        <a class="pill solid lg" id="dlBtn" href="https://github.com/RefractaSpace/melody-sketchpad/releases/latest/download/MelodySketchpad-Setup.exe">Windows용 다운로드</a>
-        <a class="pill ghost lg" href="/">웹에서 바로 시작</a>
-      </div>
-      <p class="meta" id="dlMeta">Windows 10, 11 (64비트)</p>
+      <p class="sub">피아노 롤에 멜로디를 적고, 음악 AI에게 베이스와 드럼을 맡깁니다. 설치 없이 브라우저에서 바로 쓰는 작곡 도구.</p>
+      <div class="cta"><a class="btn acc" href="/">웹에서 바로 시작</a><a class="btn" href="#download">Windows용 내려받기</a></div>
     </div>
-    <div class="frame"><div class="shot"><img src="img/workspace.jpg" alt="작업 화면: 플레이리스트, 채널 랙, 피아노 롤, 악기 브라우저, 믹서가 한 화면에 있다" width="1440" height="900"></div></div>
-  </section>
-
-  <section class="statement">
-    <div class="w"><p>하나의 화면에서 끝까지. <span>패턴을 만들고, 플레이리스트에 배치하고, 믹서에서 다듬고, WAV와 MP3로 내보냅니다. 템포가 97번 바뀌는 곡도 모든 음이 3.5ms 이내로 맞습니다.</span></p></div>
-  </section>
-
-  <section id="features">
     <div class="w">
-      <h2>기능 살펴보기.</h2>
-      <div class="bento">
-        <article class="tile span4">
-          <div class="t"><h3>음악 AI</h3><p>"잔잔한 밤 피아노"처럼 적으면 멜로디, 반주, 드럼, 코드를 갖춘 패턴이 만들어집니다. 쓰던 멜로디 이어 쓰기와 코드 추천까지.</p></div>
-          <div class="img a-img"><img src="img/ai.jpg" alt="AI 대화상자와 AI가 만든 패턴" width="1400" height="875" loading="lazy"></div>
-        </article>
-        <article class="tile span2 phone">
-          <div class="t"><h3>어디서나</h3><p>설치 없이 브라우저에서. 휴대폰과 태블릿에서도 열립니다.</p></div>
-          <div class="img"><img src="img/phone.jpg" alt="휴대폰에서 연 화면" width="520" height="1125" loading="lazy"></div>
-        </article>
-        <article class="tile span3">
-          <div class="t"><h3>소리 만들기</h3><p>FM과 웨이브테이블 신스, 세기 3층 피아노, 이펙트 11가지와 자동화.</p></div>
-          <div class="img"><img src="img/mixer.jpg" alt="믹서 창" width="1400" height="875" loading="lazy"></div>
-        </article>
-        <article class="tile span3">
-          <div class="t"><h3>녹음과 편집</h3><p>MIDI 건반, 자판, 마이크로 녹음하고 파형을 보며 자르고 늘립니다.</p></div>
-          <div class="img"><img src="img/sample.jpg" alt="샘플 편집 창의 파형과 편집 버튼" width="1400" height="1023" loading="lazy"></div>
-        </article>
-        <article class="tile span6 wide">
-          <div class="t"><h3>커뮤니티</h3><p>곡을 올리고, 다른 사람의 곡을 듣고, 복사본을 열어 살펴봅니다. 계정 하나로 웹과 앱의 곡이 이어집니다.</p>
-            <ul class="list"><li>좋아요와 댓글</li><li>최신순, 인기순, 태그 검색</li><li>곡마다 음 배치 미리보기</li></ul></div>
-          <div class="img"><img src="img/community.jpg" alt="커뮤니티 페이지의 곡 카드" width="1400" height="824" loading="lazy"></div>
-        </article>
-      </div>
-      <div class="formats"><span><b>열기</b>MIDI, MSK, 악보 텍스트</span><span><b>내보내기</b>WAV, MP3, 스템, MIDI</span><span><b>저장</b>브라우저, 계정, 파일</span></div>
+      <div class="ad"><video id="demoVid" muted loop playsinline preload="metadata" poster="video/poster.jpg" data-steps="0,10.27,17.7,26.42,33.3" aria-label="실제 스케치패드 화면 녹화: 피아노 롤에 멜로디 8음을 찍고, 음악 AI에 '신나는 여름 축제, 드럼'을 입력해 8마디를 만든 뒤, AI 멜로디 채널을 골라 재생하는 모습"><source src="video/demo.webm" type="video/webm"><source src="video/demo.mp4" type="video/mp4"></video></div>
+      <p class="adnote">실제 앱 화면을 녹화했습니다. AI가 곡을 짓는 약 8초는 1.6초로 줄여서 보여 줍니다.</p>
+      <ol class="adsteps" aria-hidden="true"><li><i></i><b>1</b>멜로디를 찍고</li><li><i></i><b>2</b>AI에게 한 줄</li><li><i></i><b>3</b>베이스 · 드럼 · 반주</li><li><i></i><b>4</b>바로 재생</li></ol>
     </div>
   </section>
 
-  <section class="dl" id="download">
+  <section class="sec" id="features" aria-labelledby="h-feat">
     <div class="w">
-      <h2>지금 시작하기.</h2>
-      <p class="lead">무료이며 광고가 없습니다. 웹과 앱의 기능은 같습니다.</p>
-      <div class="opts">
-        <div class="opt">
-          <h3>Windows 앱</h3>
-          <p class="v" id="dlVer">Windows 10, 11 (64비트)</p>
-          <a class="pill solid lg" id="dlBtn2" href="https://github.com/RefractaSpace/melody-sketchpad/releases/latest/download/MelodySketchpad-Setup.exe">다운로드</a>
-          <ol class="steps">
-            <li>설치 프로그램 실행</li>
-            <li>"PC 보호" 창이 뜨면 추가 정보 → 실행 (코드 서명 준비 중)</li>
-            <li>설치 폴더 선택 후 설치, 이후 업데이트는 자동</li>
-          </ol>
-        </div>
-        <div class="opt">
-          <h3>웹</h3>
-          <p class="v">크롬, 엣지, 사파리 · 맥, 태블릿, 휴대폰</p>
-          <a class="pill ghost lg" href="/">웹에서 바로 시작</a>
-          <ol class="steps">
-            <li>설치 없이 바로 열림</li>
-            <li>곡은 브라우저에 저장, 로그인하면 계정에도 저장</li>
-            <li>한 번 연 뒤에는 인터넷 없이 편집과 재생 가능</li>
-          </ol>
-        </div>
-      </div>
+      <p class="lbl rise">FEATURES</p>
+      <h2 class="rise" id="h-feat">하나의 화면에서 곡 한 곡.</h2>
+      <p class="desc rise">패턴을 만들고, 플레이리스트에 배치하고, 믹서에서 다듬고, 파일로 내보냅니다.</p>
+      <div class="feat rise"><div class="ft"><h3>패턴을 쌓아 곡으로.</h3><p>피아노 롤에서 멜로디를 적고, 채널 랙에서 드럼을 찍고, 플레이리스트에 조각을 배치합니다.</p>
+        <ul><li>피아노 롤 · 채널 랙 · 플레이리스트</li><li>코드 줄, 퀀타이즈, 스윙, 박자표</li><li>템포 지도, 자동화</li></ul></div>
+        <div class="shot"><img src="img/workspace.jpg" alt="플레이리스트, 채널 랙, 피아노 롤, 믹서가 함께 보이는 작업 화면" width="1440" height="900" loading="lazy"></div></div>
+      <div class="feat rise"><div class="ft"><h3>소리를 다듬는 믹서.</h3><p>채널마다 볼륨과 팬, 이펙트 칸을 두고 곡 전체의 소리를 맞춥니다.</p>
+        <ul><li>채널마다 이펙트 칸 5개</li><li>리버브, 딜레이, EQ, 필터, 디스토션 등</li><li>마스터 이펙트, 버스</li></ul></div>
+        <div class="shot"><img src="img/mixer.jpg" alt="채널별 볼륨 막대와 이펙트 칸이 있는 믹서" width="1400" height="875" loading="lazy"></div></div>
+      <div class="feat rise"><div class="ft"><h3>신스, 샘플, 녹음.</h3><p>신스로 소리를 만들고, 샘플을 불러와 자르고, 마이크로 직접 녹음합니다.</p>
+        <ul><li>신스: 발진기, 필터, ADSR, LFO, FM</li><li>샘플러: 구간 반복, 조각, 늘이기, 음높이</li><li>MIDI 건반, 자판 건반, 오디오 녹음</li></ul></div>
+        <div class="shot"><img src="img/sample.jpg" alt="샘플 파형과 편집 도구" width="1400" height="875" loading="lazy"></div></div>
+      <div class="feat rise"><div class="ft"><h3>만든 곡을 나누기.</h3><p>커뮤니티에 곡을 올리고, 다른 사람의 곡을 열어서 듣고, 좋아요와 댓글을 남깁니다.</p>
+        <ul><li>최신 · 인기 · 검색</li><li>로그인하면 곡을 계정에 저장</li><li>내 페이지에서 곡 관리</li></ul></div>
+        <div class="shot"><img src="img/community.jpg" alt="커뮤니티 곡 목록과 음 배치 미리보기" width="1400" height="875" loading="lazy"></div></div>
+      <div class="feat rise"><div class="ft"><h3>휴대폰에서도.</h3><p>같은 주소로 휴대폰과 태블릿에서 열립니다. 이동 중에 떠오른 멜로디를 바로 적어 둡니다.</p>
+        <ul><li>설치 없이 브라우저에서</li><li>한 번 연 뒤에는 인터넷 없이 편집과 재생</li></ul></div>
+        <div class="shot phone"><img src="img/phone.jpg" alt="휴대폰에서 연 스케치패드" width="520" height="1125" loading="lazy"></div></div>
+      <div class="files rise"><span><b>불러오기</b>MIDI, MSK, 악보 텍스트</span><span><b>내보내기</b>WAV, MP3, MIDI, MSK, 채널별 스템</span></div>
     </div>
   </section>
 
-  <section class="faq" id="faq" aria-labelledby="h-faq">
-    <div class="w">
-      <h2 id="h-faq">질문.</h2>
+  <section class="ai" id="ai" aria-labelledby="h-ai">
+    <div class="w aigrid">
       <div>
-        <details><summary>무료인가요?</summary><p>네, 무료이고 광고도 없습니다. 음악 AI는 내 컴퓨터(브라우저) 안에서 실행되므로 비용이 들지 않습니다.</p></details>
-        <details><summary>인터넷 없이도 쓸 수 있나요?</summary><p>한 번 연 뒤에는 곡 편집과 재생에 인터넷이 필요 없습니다. 피아노 소리와 음악 AI 모델은 처음 한 번만 내려받으며, 계정과 커뮤니티는 인터넷 연결이 필요합니다.</p></details>
-        <details><summary>만든 곡은 어디에 저장되나요?</summary><p>기본적으로 내 브라우저(또는 앱) 안에 저장됩니다. 로그인하면 서버의 내 계정에도 올릴 수 있고, 언제든 .msk, MIDI, WAV로 내려받을 수 있습니다.</p></details>
-        <details><summary>맥 앱도 있나요?</summary><p>현재는 Windows 앱만 제공합니다. 맥에서는 웹 버전을 사용하면 되고, 기능은 같습니다.</p></details>
-        <details><summary>FL Studio 곡을 열 수 있나요?</summary><p>FL Studio 프로젝트(.flp)는 직접 열 수 없습니다. FL Studio에서 MIDI로 내보낸 뒤 열면 음과 템포를 가져올 수 있습니다.</p></details>
+        <p class="lbl rise">MUSIC AI</p>
+        <h2 class="rise" id="h-ai">한 줄을 적으면,<br>베이스와 드럼까지.</h2>
+        <p class="desc rise">멜로디·베이스·드럼은 음악으로 학습한 신경망이, 반주·코드 추천·피드백은 음악 규칙이 맡습니다. 신경망은 처음 한 번 내려받은 뒤 내 컴퓨터(브라우저)에서 실행됩니다.</p>
+        <ol class="flow">
+          <li><b>MELODY</b>코드 위에서 멜로디를 여러 번 짓고 가장 좋은 것</li>
+          <li><b>BASS</b>같은 신경망이 낮은 음역에서</li>
+          <li><b>DRUMS</b>드럼 신경망이 비트를 이어서</li>
+          <li><b>CHORDS</b>내 멜로디에 어울리는 코드 추천</li>
+          <li><b>FEEDBACK</b>곡을 보고 좋은 점과 고칠 점</li>
+        </ol>
+      </div>
+      <div class="shot"><img src="img/ai.jpg" alt="음악 AI 대화상자와 AI가 만든 패턴" width="1440" height="900" loading="lazy"></div>
+    </div>
+  </section>
+
+  <section class="sec" id="download" aria-labelledby="h-dl">
+    <div class="w">
+      <p class="lbl rise">DOWNLOAD</p>
+      <h2 class="rise" id="h-dl">지금 시작하기.</h2>
+      <p class="desc rise">무료이며 광고가 없습니다. 웹과 Windows 앱의 기능은 같습니다.</p>
+      <div class="two">
+        <div class="box"><h3>Windows 앱</h3><p class="v" id="dlVer">Windows 10, 11 (64비트)</p><a class="btn acc" href="https://github.com/RefractaSpace/melody-sketchpad/releases/latest/download/MelodySketchpad-Setup.exe">내려받기</a>
+          <ol><li>설치 프로그램 실행</li><li>"PC 보호" 창이 뜨면 추가 정보 → 실행</li><li>설치 폴더 선택, 이후 업데이트는 자동</li></ol></div>
+        <div class="box"><h3>웹</h3><p class="v">크롬, 엣지, 사파리 · 맥, 태블릿, 휴대폰</p><a class="btn" href="/">웹에서 바로 시작</a>
+          <ol><li>설치 없이 바로 열림</li><li>곡은 브라우저에, 로그인하면 계정에도 저장</li><li>한 번 연 뒤에는 인터넷 없이 편집·재생</li></ol></div>
       </div>
     </div>
+  </section>
+
+  <section class="sec" id="faq" aria-labelledby="h-faq">
+    <div class="w"><div class="faq">
+      <p class="lbl rise">FAQ</p>
+      <h2 class="rise" id="h-faq">자주 묻는 질문.</h2>
+      <details><summary>정말 무료인가요?</summary><p>네. 무료이고 광고도 없습니다. 음악 AI도 내 컴퓨터(브라우저) 안에서 실행되므로 비용이 들지 않습니다.</p></details>
+      <details><summary>음악 AI는 인터넷이 필요한가요?</summary><p>처음 한 번 모델을 내려받을 때만 필요합니다. 곡을 짓는 시간은 컴퓨터 사양에 따라 다릅니다.</p></details>
+      <details><summary>만든 곡은 어디에 저장되나요?</summary><p>기본으로 브라우저에 저장됩니다. 로그인하면 계정에도 저장되어 다른 기기에서 열 수 있습니다. 파일(MSK, MIDI, WAV, MP3)로 내보낼 수도 있습니다.</p></details>
+      <details><summary>맥 앱도 있나요?</summary><p>현재는 Windows 앱만 제공합니다. 맥에서는 웹 버전을 쓰면 되고, 기능은 같습니다.</p></details>
+      <details><summary>FL Studio 파일을 열 수 있나요?</summary><p>FL Studio 프로젝트 파일(.flp)은 열 수 없습니다. MIDI 파일로 내보낸 뒤 불러오면 음 데이터를 가져올 수 있습니다.</p></details>
+    </div></div>
   </section>
 </main>
 
 <footer>
   <div class="w">
-    <span class="brand"><svg viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="32" rx="27" ry="12" transform="rotate(-24 32 32)" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="9" fill="#FF8A28"/><circle cx="55" cy="21.5" r="4.5" fill="currentColor"/></svg>REFRACTA</span>
-    <span id="verLine">© 2026 REFRACTA</span>
+    <span class="brand"><img src="img/icon.png" alt="" width="22" height="22">멜로디 스케치패드</span>
+    <span>© 2026 멜로디 스케치패드</span>
     <nav aria-label="바닥 링크"><a href="/">웹 앱</a><a href="https://github.com/RefractaSpace/melody-sketchpad/releases" id="notesLink">릴리스 노트</a><a href="https://github.com/RefractaSpace/melody-sketchpad">GitHub</a></nav>
   </div>
 </footer>
 
 <script>
-// 최신 앱 정보 — 우리 서버가 릴리스 파일(latest.yml)을 읽어 10분마다 새로 알려 줌
-fetch('/api/release').then(r => r.ok ? r.json() : null).then(rel => {
-  if (!rel || !rel.version) return; const mb = Math.round(rel.size / 1048576), d = new Date(rel.date).toLocaleDateString('ko-KR', {year:'numeric', month:'long', day:'numeric'});
-  document.getElementById('dlMeta').textContent = `버전 ${rel.version}, ${mb}MB, Windows 10, 11 (64비트)`;
-  document.getElementById('dlVer').textContent = `버전 ${rel.version} (${mb}MB), ${d} 출시`;
-  document.getElementById('verLine').textContent = `© 2026 REFRACTA, 멜로디 스케치패드 ${rel.version}`;
-  document.getElementById('notesLink').href = rel.notes;
-}).catch(() => {});
+(() => { const b = document.getElementById('mbtn'), s = document.getElementById('msheet'); const set = on => { s.classList.toggle('open', on); b.setAttribute('aria-expanded', on); b.setAttribute('aria-label', on ? '메뉴 닫기' : '메뉴 열기'); document.body.style.overflow = on ? 'hidden' : ''; };
+  b.onclick = () => set(!s.classList.contains('open')); s.onclick = e => { if (e.target.closest('a')) set(false); }; document.addEventListener('keydown', e => { if (e.key === 'Escape') set(false); }); })();
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), {threshold:.2});
+document.querySelectorAll('.rise').forEach(el => REDUCE ? el.classList.add('in') : io.observe(el));
+// 실제 앱 녹화: 보일 때만 재생, 단계 표시는 영상 시간에 맞춤, 움직임 줄이기면 멈춘 채 조작 막대
+(() => {
+  const v = document.getElementById('demoVid'), els = [...document.querySelectorAll('.adsteps li')], B = v.dataset.steps.split(',').map(Number);
+  const paint = () => { const t = v.currentTime; els.forEach((el, i) => { const p = Math.max(0, Math.min(1, (t - B[i]) / (B[i + 1] - B[i]))); el.classList.toggle('on', t >= B[i] && t < B[i + 1]); el.querySelector('i').style.setProperty('--p', (p * 100).toFixed(1) + '%'); }); };
+  v.addEventListener('timeupdate', paint);
+  if (REDUCE) { v.controls = true; els.forEach(el => { el.classList.add('on'); el.querySelector('i').style.setProperty('--p', '100%'); }); return; }
+  new IntersectionObserver(es => { if (es[0].isIntersecting) v.play().catch(() => { v.controls = true; }); else v.pause(); }, {threshold:.2}).observe(v);
+  let raf = 0; const loop = () => { paint(); if (!v.paused) raf = requestAnimationFrame(loop); }; v.addEventListener('play', () => { cancelAnimationFrame(raf); loop(); });
+})();
+fetch('/api/release').then(r => r.ok ? r.json() : null).then(rel => { if (!rel || !rel.version) return; const mb = Math.round(rel.size / 1048576); document.getElementById('dlVer').textContent = `버전 ${rel.version} (${mb}MB) · Windows 10, 11 (64비트)`; document.getElementById('notesLink').href = rel.notes; }).catch(() => {});
 </script>
 </body>
 </html>
