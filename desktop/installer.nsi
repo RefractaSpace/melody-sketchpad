@@ -14,11 +14,11 @@ RequestExecutionLevel user
 SetCompressor /SOLID lzma
 VIProductVersion "${VERSION}.0"
 VIAddVersionKey "ProductName" "${APPNAME}"
-VIAddVersionKey "CompanyName" "REFRACTA"
+VIAddVersionKey "CompanyName" "Melody Sketchpad"
 VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "FileDescription" "${APPNAME} 설치"
-VIAddVersionKey "LegalCopyright" "© REFRACTA"
+VIAddVersionKey "LegalCopyright" "© Melody Sketchpad"
 
 !include "MUI2.nsh"
 !define MUI_ICON "icon.ico"
@@ -46,7 +46,7 @@ Section "설치"
   ; 제어판 "앱 제거"
   WriteRegStr HKCU "${UNKEY}" "DisplayName" "${APPNAME}"
   WriteRegStr HKCU "${UNKEY}" "DisplayVersion" "${VERSION}"
-  WriteRegStr HKCU "${UNKEY}" "Publisher" "REFRACTA"
+  WriteRegStr HKCU "${UNKEY}" "Publisher" "Melody Sketchpad"
   WriteRegStr HKCU "${UNKEY}" "DisplayIcon" "$INSTDIR\icon.ico"
   WriteRegStr HKCU "${UNKEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNKEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
