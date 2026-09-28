@@ -43,8 +43,14 @@ a{color:inherit;text-decoration:none}img{display:block;max-width:100%;height:aut
 h1{font-size:clamp(44px,7.2vw,84px);font-weight:800;letter-spacing:-.045em;line-height:1.02;margin:0 0 20px}
 .sub{font-size:clamp(18px,1.9vw,21px);color:var(--ink2);max-width:560px;margin:0 0 30px}
 .cta{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.roll{margin-top:56px;position:relative;height:240px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff}
-.roll canvas{position:absolute;inset:0;width:100%;height:100%}
+
+.ad{margin-top:56px;aspect-ratio:1120/640;border-radius:16px;overflow:hidden;background:#1b1e24;box-shadow:0 50px 120px -40px rgba(14,26,51,.55),0 0 0 1px rgba(14,26,51,.08)}
+.ad canvas{display:block;width:100%;height:100%}
+.adsteps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;list-style:none;padding:0;margin:20px 0 0}
+.adsteps li{font-size:15px;color:var(--ink2);transition:color .3s}.adsteps li.on{color:var(--ink);font-weight:700}
+.adsteps b{font:700 13px var(--mono);color:var(--acc);margin-right:8px}
+.adsteps i{display:block;height:3px;border-radius:2px;background:var(--line);margin-bottom:12px;overflow:hidden}.adsteps i::after{content:"";display:block;height:100%;width:var(--p,0%);background:var(--acc)}
+@media (max-width:640px){.adsteps{grid-template-columns:1fr 1fr;gap:12px 14px}.adsteps li{font-size:13px}.ad{border-radius:10px;margin-top:40px}}
 
 /* 섹션 공통 */
 .sec{padding:112px 0 0}
@@ -140,8 +146,9 @@ footer .fn{flex-basis:100%;font-size:12px;color:#8a93a6;margin:0}footer nav{disp
       <p class="sub">피아노 롤에 음을 찍고, 음악 AI에게 반주와 편곡을 맡깁니다. 웹과 Windows에서 쓰는 작곡 도구.</p>
       <div class="cta"><a class="btn acc" href="/">웹에서 바로 시작</a><a class="btn" href="#lineup">모델 고르기</a></div>
     </div>
-    <div class="roll" role="img" aria-label="인트로부터 아웃트로까지 곡 구성을 보여 주는 피아노 롤 그림">
-      <canvas id="roll" aria-hidden="true"></canvas>
+    <div class="w">
+      <div class="ad" role="img" aria-label="시연 애니메이션: 피아노 롤에 멜로디를 몇 음 찍고, 음악 AI에 '신나는 여름 축제, 드럼'을 입력해 만들기를 누르면 베이스·반주·드럼과 곡 구성이 채워지고 재생되는 모습"><canvas id="ad"></canvas></div>
+      <ol class="adsteps" aria-hidden="true"><li><i></i><b>1</b>멜로디를 찍고</li><li><i></i><b>2</b>AI에게 한 줄</li><li><i></i><b>3</b>반주 · 드럼 · 편곡</li><li><i></i><b>4</b>바로 재생</li></ol>
     </div>
   </section>
 
@@ -266,36 +273,99 @@ document.querySelectorAll('.steps').forEach(el => { const p = el.dataset.p, c = 
 const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), {threshold:.25});
 document.querySelectorAll('.rise, .pl, .gen').forEach(el => REDUCE ? el.classList.add('in') : io.observe(el));
-// 첫 화면 피아노 롤: 재생선이 36마디를 계속 훑고, 지나간 음이 켜짐 (소리 없음, 곡 구성 그림)
+// 첫 화면 시연 애니메이션: 광고처럼 커서가 앱을 직접 씀 (17.5초 반복)
 (() => {
-  const cv = document.getElementById('roll'), box = cv.parentElement;
-  const secs = [[0, 4, .35], [4, 12, .65], [12, 20, 1], [20, 24, .55], [24, 32, 1], [32, 36, .3]], COLS = ['#5B8DEF', '#3FB58A', '#E9A23B', '#D9607A'], NAMES = ['인트로', '벌스', '후렴', '브리지', '후렴', '아웃트로'];
-  let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647, notes = [];
-  for (const [b0, b1, e] of secs) for (let b = b0; b < b1; b++) for (let k = 0; k < 16; k++) {
-    if (rnd() < .18 * e + .05) notes.push({t:b + k / 16, l:(1 + Math.floor(rnd() * 3)) / 16, y:.2 + rnd() * .3, c:0});
-    if (k % 4 === 0 && rnd() < .7 * e + .2) notes.push({t:b + k / 16, l:.22, y:.56 + rnd() * .12, c:1});
-    if (k % 8 === 0) notes.push({t:b + k / 16, l:.45, y:.77 + rnd() * .06, c:2});
-    if (e > .6 && k % 2 === 0 && rnd() < .8) notes.push({t:b + k / 16, l:.04, y:.91, c:3});
+  const cv = document.getElementById('ad'), box = cv.parentElement, stepEls = [...document.querySelectorAll('.adsteps li')];
+  const W = 1120, H = 640, LOOP = 17.5, FONT = '"Pretendard Variable",Pretendard,system-ui,sans-serif';
+  const C = {bg:'#1b1e24', title:'#131519', tool:'#22262e', panel:'#1e2228', grid:'#262b33', grid2:'#323844', text:'#e7eaf0', mute:'#8b93a3', acc:'#FF8A28', lane:['#5B8DEF', '#3FB58A', '#E9A23B', '#D9607A']};
+  const TB = 34, TL = 46, LP = 190, RL = 26, STRIP = 92, mx = LP, my = TB + TL + RL, mw = W - LP, mh = H - my - STRIP, BARS = 8, bw = mw / BARS, lh = mh / 4;
+  const NAMES = ['멜로디', '베이스', '반주', '드럼'], PLAY = {x:14, y:TB + 9, w:40, h:28}, AIB = {x:W - 196, y:TB + 9, w:74, h:28};
+  const DLG = {w:470, h:258}; DLG.x = mx + (mw - DLG.w) / 2; DLG.y = my + 34; const GO = {x:DLG.x + DLG.w - 24 - 108, y:DLG.y + DLG.h - 24 - 40, w:108, h:40};
+  const PROMPT = '신나는 여름 축제, 드럼';
+  // 음: [트랙, 시작(마디), 길이(마디), 높이(0~1), 나타나는 시각]
+  const notes = [], user = [[0, .35], [.25, .5], [.5, .42], [.75, .28], [1.25, .55], [1.5, .45], [1.75, .6], [2, .38]];
+  user.forEach(([t, y], i) => notes.push({L:0, t, l:t === .75 || t === 2 ? .5 : .25, y, at:.6 + i * .45, user:true}));
+  let sd = 11; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647, ai = (L, t) => 9.9 + L * .22 + t / BARS * 1.5;
+  for (let t = 2.5; t < 8; t += .25) if (rnd() < .62) notes.push({L:0, t, l:rnd() < .3 ? .5 : .25, y:.2 + rnd() * .5, at:ai(0, t)});
+  for (let t = 0; t < 8; t += .5) notes.push({L:1, t, l:.45, y:.55 + (Math.floor(t) % 4) * .08, at:ai(1, t)});
+  for (let t = 0; t < 8; t++) [.25, .45, .65].forEach(y => notes.push({L:2, t, l:.95, y, at:ai(2, t)}));
+  for (let t = 0; t < 8; t += .125) { const k = Math.round(t * 8) % 8; notes.push({L:3, t, l:.06, y:k % 4 === 0 ? .78 : k % 4 === 2 ? .5 : .2, at:ai(3, t), dim:k % 2 === 1}); }
+  const SECS = [['인트로', 0, 1], ['벌스', 1, 3], ['후렴', 3, 5], ['브리지', 5, 6], ['후렴', 6, 8]];
+  const center = r => [r.x + r.w / 2, r.y + r.h / 2], nPos = n => [mx + n.t * bw + Math.max(6, n.l * bw / 2), my + n.L * lh + 10 + n.y * (lh - 26) + 4];
+  const keys = [[0, mx + mw * .6, my + mh * .7, 0]]; user.forEach((u, i) => { const [x, y] = nPos(notes[i]); keys.push([.6 + i * .45, x, y, 1]); });
+  keys.push([4.9, ...center(AIB), 1], [5.6, DLG.x + 180, DLG.y + 96, 0], [7.9, ...center(GO), 1], [9.7, GO.x + 40, GO.y + 90, 0], [12.4, ...center(PLAY), 1], [13.4, mx + mw * .78, my + mh * .82, 0], [LOOP, mx + mw * .6, my + mh * .7, 0]);
+  const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2, clamp = x => Math.max(0, Math.min(1, x));
+  const back = x => { x = clamp(x); const c = 1.70158; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+  function cursor(t) { let i = 0; while (i < keys.length - 1 && keys[i + 1][0] <= t) i++; const a = keys[i], b = keys[Math.min(i + 1, keys.length - 1)];
+    if (a === b || t <= a[0]) return [a[1], a[2]]; const moveStart = Math.max(a[0], b[0] - .42), p = ease(clamp((t - moveStart) / (b[0] - moveStart))); return [a[1] + (b[1] - a[1]) * p, a[2] + (b[2] - a[2]) * p]; }
+  let x, scale = 1;
+  const rr = (X, Y, w, h, r, fill, stroke) => { x.beginPath(); (x.roundRect || x.rect).call(x, X, Y, w, h, r); if (fill) { x.fillStyle = fill; x.fill(); } if (stroke) { x.strokeStyle = stroke; x.lineWidth = 1.2; x.stroke(); } };
+  const txt = (s, X, Y, size, color, weight = 500, align = 'left') => { x.font = `${weight} ${size}px ${FONT}`; x.fillStyle = color; x.textAlign = align; x.textBaseline = 'middle'; x.fillText(s, X, Y); };
+  function frame(t, still) {
+    x.save(); x.setTransform(scale, 0, 0, scale, 0, 0); x.clearRect(0, 0, W, H); x.fillStyle = C.bg; x.fillRect(0, 0, W, H);
+    // 제목 줄 · 도구 줄
+    x.fillStyle = C.title; x.fillRect(0, 0, W, TB); txt('멜로디 스케치패드 · 새 곡', W / 2, TB / 2, 13, C.mute, 500, 'center');
+    x.fillStyle = C.tool; x.fillRect(0, TB, W, TL);
+    const playing = t >= 12.4 && t < 16.6;
+    rr(PLAY.x, PLAY.y, PLAY.w, PLAY.h, 6, playing ? C.acc : '#2f3440'); x.fillStyle = playing ? '#1b1004' : C.text; x.beginPath();
+    if (playing) { x.fillRect(PLAY.x + 14, PLAY.y + 8, 4, 12); x.fillRect(PLAY.x + 22, PLAY.y + 8, 4, 12); } else { x.moveTo(PLAY.x + 16, PLAY.y + 7); x.lineTo(PLAY.x + 27, PLAY.y + 14); x.lineTo(PLAY.x + 16, PLAY.y + 21); x.fill(); }
+    txt('112 BPM', 72, TB + TL / 2, 14, C.text, 600); txt('C 장조', 150, TB + TL / 2, 14, C.mute);
+    const aiHot = t > 4.55 && t < 5.2; rr(AIB.x, AIB.y, AIB.w, AIB.h, 6, aiHot ? 'rgba(255,138,40,.18)' : null, C.acc); txt('✨ AI', AIB.x + AIB.w / 2, AIB.y + AIB.h / 2 + 1, 13, C.acc, 700, 'center');
+    txt('내보내기', W - 70, TB + TL / 2, 13, C.mute, 500, 'center');
+    // 왼쪽 채널 목록 + 레벨 미터
+    x.fillStyle = C.panel; x.fillRect(0, TB + TL, LP, H - TB - TL); x.fillStyle = C.grid2; x.fillRect(LP - 1, TB + TL, 1, H - TB - TL);
+    txt('채널', 16, TB + TL + RL / 2, 11, C.mute, 600);
+    const ph = playing ? clamp((t - 12.5) / 4) * BARS : -1;
+    for (let L = 0; L < 4; L++) { const a = L === 0 ? 1 : clamp((t - (9.75 + L * .22)) / .3); if (a <= 0) continue; x.globalAlpha = a; const y0 = my + L * lh;
+      rr(16, y0 + lh / 2 - 6, 12, 12, 3, C.lane[L]); txt(NAMES[L], 38, y0 + lh / 2, 14, C.text, 600);
+      let lvl = 0; if (ph >= 0) { let last = -9; for (const n of notes) if (n.L === L && n.t <= ph && n.at <= t) last = Math.max(last, n.t); lvl = clamp(1 - (ph - last) * (L === 3 ? 6 : 2.5)); }
+      rr(LP - 42, y0 + lh / 2 - 14, 6, 28, 3, '#2c313b'); const mh2 = 28 * lvl; rr(LP - 42, y0 + lh / 2 + 14 - mh2, 6, mh2, 3, lvl > .8 ? C.acc : C.lane[L]);
+      x.globalAlpha = 1; x.fillStyle = C.grid; x.fillRect(0, y0 + lh, LP - 1, 1); }
+    // 눈금자 + 격자
+    x.fillStyle = '#20242b'; x.fillRect(mx, my - RL, mw, RL);
+    for (let b = 0; b <= BARS; b++) { const X = mx + b * bw; x.fillStyle = C.grid2; x.fillRect(X, my - RL, 1, mh + RL); if (b < BARS) txt(String(b + 1), X + 8, my - RL / 2, 11, C.mute, 600); for (let q = 1; q < 4; q++) { x.fillStyle = C.grid; x.fillRect(X + q * bw / 4, my, 1, mh); } }
+    for (let L = 1; L < 4; L++) { x.fillStyle = C.grid2; x.fillRect(mx, my + L * lh, mw, 1); }
+    // 음
+    for (const n of notes) { if (t < n.at) continue; const p = back((t - n.at) / .28), [cx] = nPos(n); const X = mx + n.t * bw + 1, w = Math.max(4, n.l * bw - 3), h = n.L === 3 ? 6 : 9, Y = my + n.L * lh + 10 + n.y * (lh - 26);
+      x.save(); x.translate(cx, Y + h / 2); x.scale(p, p); x.translate(-cx, -(Y + h / 2)); x.globalAlpha = n.dim ? .55 : 1;
+      rr(X, Y, w, h, 3, C.lane[n.L]); if (ph >= n.t && ph < n.t + Math.max(n.l, .12)) { x.globalAlpha = .55; rr(X - 1, Y - 1, w + 2, h + 2, 4, '#fff'); } x.restore(); }
+    // 곡 구성 줄
+    const sy = H - STRIP; x.fillStyle = '#181b20'; x.fillRect(mx, sy, mw, STRIP); x.fillStyle = C.grid2; x.fillRect(0, sy, W, 1);
+    x.fillStyle = C.panel; x.fillRect(0, sy + 1, LP - 1, STRIP); txt('곡 구성', 16, sy + 22, 11, C.mute, 600);
+    SECS.forEach(([nm, a, b], i) => { const k = back((t - (10.5 + i * .16)) / .4); if (t < 10.5 + i * .16) return; const X = mx + a * bw + 3, w = (b - a) * bw - 6, Y = sy + 22 + (1 - k) * 40;
+      x.globalAlpha = clamp(k); rr(X, Y, w, 48, 8, nm === '후렴' ? 'rgba(255,138,40,.22)' : 'rgba(91,141,239,.18)', nm === '후렴' ? 'rgba(255,138,40,.6)' : 'rgba(91,141,239,.45)'); txt(nm, X + 12, Y + 24, 13, C.text, 700); x.globalAlpha = 1; });
+    // 재생선
+    if (ph >= 0) { const X = mx + ph * bw; x.fillStyle = 'rgba(255,138,40,.14)'; x.fillRect(X - 30, my - RL, 30, mh + RL + STRIP); x.fillStyle = C.acc; x.fillRect(X - 1, my - RL, 2.5, mh + RL + STRIP); }
+    // 음악 AI 창
+    const open = clamp((t - 5.0) / .3) * (1 - clamp((t - 9.45) / .3));
+    if (open > 0) { x.fillStyle = `rgba(8,10,14,${.45 * open})`; x.fillRect(0, TB + TL, W, H); x.save(); const k = .92 + .08 * back(open); x.globalAlpha = open;
+      x.translate(DLG.x + DLG.w / 2, DLG.y + DLG.h / 2); x.scale(k, k); x.translate(-(DLG.x + DLG.w / 2), -(DLG.y + DLG.h / 2));
+      rr(DLG.x, DLG.y, DLG.w, DLG.h, 14, '#262a33', '#3a404c'); txt('✨ 음악 AI', DLG.x + 24, DLG.y + 32, 17, C.text, 700); txt('어떤 곡을 만들까요?', DLG.x + 24, DLG.y + 58, 13, C.mute);
+      rr(DLG.x + 24, DLG.y + 76, DLG.w - 48, 44, 9, '#1b1e24', t > 5.4 && t < 7.8 ? C.acc : '#3a404c');
+      const shown = PROMPT.slice(0, Math.floor(clamp((t - 5.55) / 1.9) * PROMPT.length)); txt(shown, DLG.x + 40, DLG.y + 99, 15, C.text, 500);
+      if (t > 5.4 && t < 7.9 && Math.floor(t * 2.5) % 2 === 0) { x.font = `500 15px ${FONT}`; x.fillStyle = C.acc; x.fillRect(DLG.x + 41 + x.measureText(shown).width, DLG.y + 88, 2, 22); }
+      if (t < 8.0) { ['잔잔한', '신나는', '슬픈', '밝은'].forEach((c, i) => { const X = DLG.x + 24 + i * 76; rr(X, DLG.y + 134, 66, 28, 14, c === '신나는' && t > 5.55 ? 'rgba(255,138,40,.18)' : '#1f232a', '#3a404c'); txt(c, X + 33, DLG.y + 148, 12, C.text, 600, 'center'); }); }
+      else { const p = clamp((t - 8.05) / 1.3); rr(DLG.x + 24, DLG.y + 140, DLG.w - 48, 6, 3, '#1b1e24'); rr(DLG.x + 24, DLG.y + 140, (DLG.w - 48) * p, 6, 3, C.acc);
+        const st = ['멜로디', '베이스', '반주', '드럼'], cur = Math.min(3, Math.floor(p * 4)); st.forEach((s2, i) => txt((i ? '→ ' : '') + s2, DLG.x + 24 + i * 96, DLG.y + 164, 12, i <= cur ? C.text : C.mute, i === cur ? 700 : 500)); }
+      const goHot = t > 7.6 && t < 8.1; rr(GO.x, GO.y, GO.w, GO.h, 9, goHot ? '#ff9a45' : C.acc); txt(t < 8.0 ? '만들기' : '짓는 중…', GO.x + GO.w / 2, GO.y + GO.h / 2 + 1, 14, '#1b1004', 700, 'center'); x.restore(); }
+    // 커서 + 클릭 파동
+    if (!still) { const [cx, cy] = cursor(t); for (const k of keys) if (k[3] && t >= k[0] && t < k[0] + .4) { const q = (t - k[0]) / .4; x.strokeStyle = `rgba(255,138,40,${1 - q})`; x.lineWidth = 2; x.beginPath(); x.arc(k[1], k[2], 6 + q * 18, 0, Math.PI * 2); x.stroke(); }
+      x.save(); x.translate(cx, cy); x.beginPath(); x.moveTo(0, 0); x.lineTo(0, 20); x.lineTo(5, 15.5); x.lineTo(8.5, 23); x.lineTo(11.5, 21.6); x.lineTo(8.2, 14.4); x.lineTo(14.5, 14.2); x.closePath(); x.fillStyle = '#fff'; x.fill(); x.strokeStyle = '#111'; x.lineWidth = 1.3; x.stroke(); x.restore(); }
+    // 끝에서 부드럽게 처음으로
+    const fade = clamp((t - 16.7) / .5) + clamp(1 - t / .35) * 0; if (fade > 0) { x.fillStyle = `rgba(27,30,36,${fade})`; x.fillRect(0, TB + TL, W, H); }
+    x.restore();
+    // 광고식 단계 표시
+    const B = [0, 4.9, 9.6, 12.4, LOOP]; stepEls.forEach((el, i) => { const p = still ? 1 : clamp((t - B[i]) / (B[i + 1] - B[i])); el.classList.toggle('on', still || (t >= B[i] && t < B[i + 1])); el.querySelector('i').style.setProperty('--p', (p * 100).toFixed(1) + '%'); });
   }
-  const LOOP = 12000; let W = 0, H = 0, x = null, raf = 0, visible = true, t0 = performance.now();
-  function size() { const r = box.getBoundingClientRect(), d = devicePixelRatio || 1; W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; x = cv.getContext('2d'); x.setTransform(d, 0, 0, d, 0, 0); }
-  function draw(p) {   // p: 0~1 재생선 위치, null이면 전부 켜진 정지 그림
-    const bw = W / 36, head = p == null ? 99 : p * 36; x.clearRect(0, 0, W, H);
-    for (let b = 0; b <= 36; b++) { x.fillStyle = b % 4 ? '#EEF1F5' : '#E1E5EC'; x.fillRect(Math.round(b * bw), 0, 1, H); }
-    x.font = '600 10px ui-monospace,Menlo,monospace';
-    NAMES.forEach((n, i) => { const on = head >= secs[i][0] && head < secs[i][1]; x.fillStyle = on ? '#14213D' : '#9aa3b5'; x.fillText(n, secs[i][0] * bw + 6, 14); });
-    for (const n of notes) {
-      const since = head - n.t; if (since < 0) { x.globalAlpha = .22; } else { x.globalAlpha = .95; }
-      const pop = since >= 0 && since < .25 ? 1 - since / .25 : 0, hh = (n.c === 3 ? 4 : 7) + pop * 4;
-      x.fillStyle = COLS[n.c]; x.beginPath(); (x.roundRect || x.rect).call(x, n.t * bw, n.y * H - pop * 2, Math.max(2, n.l * bw - 1), hh, 2); x.fill();
-    }
-    x.globalAlpha = 1; if (p != null) { x.fillStyle = 'rgba(255,138,40,.12)'; x.fillRect(p * W - 24, 0, 24, H); x.fillStyle = '#FF8A28'; x.fillRect(p * W - 1, 0, 2.5, H); }
-  }
-  const loop = now => { draw(((now - t0) % LOOP) / LOOP); if (visible && !document.hidden) raf = requestAnimationFrame(loop); };
-  const start = () => { cancelAnimationFrame(raf); if (REDUCE) { draw(null); return; } raf = requestAnimationFrame(loop); };
+  function size() { const r = box.getBoundingClientRect(), d = devicePixelRatio || 1; cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d); x = cv.getContext('2d'); scale = r.width / W * d; }
+  let raf = 0, visible = true, t0 = performance.now(), fixed = null;
+  const loop = now => { frame(fixed ?? ((now - t0) / 1000) % LOOP, false); if (fixed == null && visible && !document.hidden) raf = requestAnimationFrame(loop); };
+  const start = () => { cancelAnimationFrame(raf); if (REDUCE) { frame(12.3, true); return; } raf = requestAnimationFrame(loop); };
+  window.adSeek = t => { fixed = t; cancelAnimationFrame(raf); frame(t, false); };   // 확인용
   new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible) start(); else cancelAnimationFrame(raf); }).observe(box);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && visible) start(); });
-  addEventListener('resize', () => { size(); if (REDUCE) draw(null); }); size(); start();
+  addEventListener('resize', () => { size(); if (REDUCE || fixed != null) frame(fixed ?? 12.3, REDUCE); });
+  size(); (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { size(); start(); });
 })();
 // 가족 앱 채널 랙: 재생선이 16칸을 돌고, 켜진 칸에 닿으면 반짝 (화면에 보일 때만)
 (() => {
