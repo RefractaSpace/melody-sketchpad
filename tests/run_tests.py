@@ -18,7 +18,7 @@ async def main():
     tmp = tempfile.mkdtemp()
     async with async_playwright() as p:
         b = await p.chromium.launch(args=['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'])
-        ctx = await b.new_context(viewport={'width': 1440, 'height': 1000}, color_scheme='dark', accept_downloads=True)
+        ctx = await b.new_context(viewport={'width': 1440, 'height': 1100}, color_scheme='dark', accept_downloads=True)
         pg = await ctx.new_page(); errs = []
         pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.on('console', lambda m: errs.append('console: ' + m.text) if m.type == 'error' else None)
@@ -37,7 +37,7 @@ async def main():
             else: await pg.mouse.click(x, y, button=button)
         chan = lambda name: J(f"S.channels.findIndex(c=>c.name==='{name}')")
 
-        check('불러오기: 오류 없음 · 창 5개 열림', not errs and await J("!document.getElementById('boot') && WINS.every(winOpen)"), '; '.join(errs[:2]))
+        check('불러오기: 오류 없음 · 화면 높이에 맞는 기본 창 (높은 화면 5개 / 낮은 화면 3개)', not errs and await J("!document.getElementById('boot') && ['playlist','rack','roll'].every(winOpen) && (WINS.every(winOpen) || (!winOpen('browser') && !winOpen('mixer')))"), '; '.join(errs[:2]))
         await pg.wait_for_function("Object.keys(PIANO).length>0", timeout=15000)
         check('녹음 피아노 준비 (뒤에서 불러오기)', await J("Object.keys(PIANO).length") == 21)
 
@@ -265,9 +265,9 @@ async def main():
           const k=s=>JSON.stringify([s.patterns.map(p=>p.color),s.playlist.clips.map(c=>[c.bar,c.len||0,c.off||0]).sort()]);return [k(S)===k(d),k(S)===k(t),k(S)]})()""")
         check('조각 길이·시작·패턴 색이 MSK·악보에 저장됨', col[0] and col[1], col[2])
         lp = await ctx.new_page(); await lp.set_viewport_size({'width': 1366, 'height': 768}); await lp.goto(URL); await lp.wait_for_timeout(1200)
-        lay = await lp.evaluate("(()=>{const r=document.getElementById('win-roll').getBoundingClientRect();return {rows:Math.floor(view().vh/ROWH),bottom:Math.round(r.bottom),tb:Math.round(document.querySelector('.tb').getBoundingClientRect().height)}})()")
+        lay = await lp.evaluate("(()=>{const r=document.getElementById('win-roll').getBoundingClientRect();return {rows:Math.floor(view().vh/ROWH),bottom:Math.round(r.bottom),tb:Math.round(document.querySelector('.tb').getBoundingClientRect().height),act:Math.round(document.querySelector('footer.actions').getBoundingClientRect().bottom),ai:Math.round(document.getElementById('aiBtn').getBoundingClientRect().bottom)}})()")
         await lp.close()
-        check('노트북 화면(1366×768): 피아노 롤 20줄 이상 · 화면 안에 다 보임', lay['rows'] >= 20 and lay['bottom'] <= 768 and lay['tb'] < 70, str(lay))
+        check('노트북 화면(1366×768): 피아노 롤 18줄 이상 · 아래 버튼 줄(✨ AI 포함)까지 화면 안', lay['rows'] >= 18 and lay['bottom'] <= 768 and lay['tb'] < 70 and lay['act'] <= 768 and lay['ai'] <= 768, str(lay))
         # 자판 건반 · MIDI 건반 · 녹음
         await J("""(()=>{const s=normalize(blank());s.bpm=120;s.patterns[0].bars=1;s.patterns[0].chords=Array(4).fill(null);s.playMode='pat';S=s;startTick=0;refreshAll();$('loop').setAttribute('aria-pressed','true')})()""")
         await pg.click('#typeKeys'); await J("setRec(true);play()"); await pg.wait_for_timeout(250)

@@ -11,8 +11,12 @@ const winEl = n => $('win-' + n);
 const stacked = () => window.matchMedia('(max-width:760px)').matches;
 const winOpen = n => !winEl(n).hidden;
 function defaultLayout() {
-  const W = Math.max(900, ws.clientWidth), top = ws.getBoundingClientRect().top + scrollY, avail = Math.max(560, innerHeight - top - 14);
-  if (innerHeight < 900) {
+  // 작업 영역 아래에 오는 것(아래 버튼 줄·도움말·간격·여백)의 실제 높이를 빼야 아래 버튼 줄이 화면 안에 들어옴
+  const app = ws.parentElement, acs = getComputedStyle(app), gap = parseFloat(acs.rowGap) || 0; let below = parseFloat(acs.paddingBottom) || 0;
+  for (let e = ws.nextElementSibling; e; e = e.nextElementSibling) if (getComputedStyle(e).display !== 'none') below += e.getBoundingClientRect().height + gap;
+  const W = Math.max(900, ws.clientWidth), top = ws.getBoundingClientRect().top + scrollY, avail = Math.max(440, Math.floor(innerHeight - top - below - 26));
+  const tallRoll = avail - (clamp(Math.round(avail * .26), 150, 210) + clamp(Math.round(avail * .29), 170, 236) + 12);
+  if (innerHeight < 900 || tallRoll < 420) {   // 높은 화면 배치에서 피아노 롤이 420px(약 12줄)도 안 되면 노트북 배치로 (피아노 롤이 우선)
     // 노트북처럼 낮은 화면: 왼쪽에 플레이리스트+채널 랙, 오른쪽 전체를 피아노 롤. 브라우저·믹서는 F8·F9로
     const L = clamp(Math.round(W * 0.36), 380, 560), plH = Math.round(avail * 0.42);
     return {
@@ -24,7 +28,8 @@ function defaultLayout() {
     };
   }
   // 높은 화면: 위 플레이리스트 · 가운데 채널 랙+믹서 · 아래 피아노 롤, 왼쪽 브라우저
-  const L = 266, R = W - L, plH = 210, midH = 236, rollY = plH + midH + 12, rollH = Math.max(360, avail - rollY);
+  // 위 두 줄은 쓸 수 있는 높이에 비례해 줄어듦 → 피아노 롤이 나머지를 차지하고 아래 버튼 줄은 화면 안에
+  const L = 266, R = W - L, plH = clamp(Math.round(avail * .26), 150, 210), midH = clamp(Math.round(avail * .29), 170, 236), rollY = plH + midH + 12, rollH = Math.max(280, avail - rollY);
   return {
     browser: {x:0, y:0, w:L - 6, h:rollY + rollH, open:true},
     playlist:{x:L, y:0, w:R, h:plH, open:true},
