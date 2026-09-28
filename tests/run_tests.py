@@ -543,6 +543,9 @@ async def main():
         ui = await J("""({ai:!!$('aiBtn'),comm:!!$('commBtn'),about:($('aboutLink')||{}).href||'',eng:[...$('aiEngine').options].map(o=>o.value).join(','),tabs:document.querySelectorAll('#aiTabs button').length,report:!!$('cmpReport'),hide:!!$('cmpHide'),mypage:!!$('myPage')})""")
         check('AI·커뮤니티·내 페이지·소개 링크 화면 요소', ui['ai'] and ui['comm'] and ui['about'].endswith('/download/') and ui['eng'] == 'music,local,claude' and ui['tabs'] == 4 and ui['report'] and ui['hide'] and ui['mypage'], json.dumps(ui, ensure_ascii=False))
 
+        dup = await J("""(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id),seen={},d=[];ids.forEach(i=>{if(seen[i]&&!d.includes(i))d.push(i);seen[i]=1});return {d,n:ids.length,cz:['czGo','czPrompt','czAudio','czMp3','czOpen'].every(i=>!!document.getElementById(i)),hidden:getComputedStyle($('composerApp')).display==='none'&&!$('composerApp').offsetHeight}})()""")
+        check('같은 id가 두 번 없음 · AI 작곡기 요소 (평소에는 화면에서 안 보임)', not dup['d'] and dup['cz'] and dup['hidden'], f"id {dup['n']}개, 중복 {dup['d']}")
+
         await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
         stacked = await J("getComputedStyle(document.getElementById('win-roll')).position")
         check('휴대폰 폭에서는 창이 위아래로 쌓임', stacked == 'static', stacked)

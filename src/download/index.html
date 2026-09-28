@@ -106,6 +106,33 @@ h2{font-size:clamp(32px,4.4vw,52px);font-weight:700;letter-spacing:-.04em;line-h
 .faq details p{color:var(--muted);margin:12px 0 0;font-size:16px}
 @media (max-width:760px){.faq .w{grid-template-columns:1fr;gap:8px}}
 
+
+.listen{padding:0 0 clamp(72px,10vw,120px)}.lead-l{color:var(--muted);max-width:640px;margin:-18px 0 32px}
+.player{display:flex;gap:20px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:22px 26px}
+.pp{flex:none;width:56px;height:56px;border-radius:50%;border:0;background:var(--text);color:#000;display:grid;place-items:center;cursor:pointer}.pp svg{width:24px;height:24px}
+.pbody{flex:1;min-width:0}.ptitle{font-weight:700;margin-bottom:12px}.ptitle span{display:block;font-weight:400;font-size:14px;color:var(--muted);margin-top:2px}
+.ptrack{height:6px;background:var(--line);border-radius:3px;cursor:pointer;overflow:hidden}.ptrack i{display:block;height:100%;width:0;background:var(--accent)}
+.ptime{display:flex;justify-content:space-between;font-size:13px;color:var(--dim);margin-top:8px;font-variant-numeric:tabular-nums}
+.composer-sec{padding:clamp(96px,12vw,150px) 0}.split{display:grid;grid-template-columns:1fr 1fr;gap:clamp(32px,5vw,72px);align-items:center}
+.muted-p{color:var(--muted);max-width:560px}.ticks{list-style:none;padding:0;margin:22px 0 0;color:var(--muted)}.ticks li{padding:10px 0;border-top:1px solid var(--line)}
+.shot-s img{border-radius:22px;border:1px solid var(--line);box-shadow:0 30px 90px -30px rgba(0,0,0,.9)}
+.lineup{padding:clamp(40px,6vw,80px) 0 clamp(96px,12vw,150px)}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:28px 24px;display:flex;flex-direction:column}
+.card.pro{border-color:#3a3a40;background:linear-gradient(180deg,#17171b,var(--surface))}
+.card h3{font-size:20px;font-weight:700;letter-spacing:-.02em;margin:0}.price{font-size:28px;font-weight:700;letter-spacing:-.03em;margin:10px 0 4px}.desc{color:var(--muted);font-size:14px;margin:0 0 20px;min-height:44px}
+.card ul{list-style:none;padding:0;margin:22px 0 0;font-size:14px;color:var(--muted)}.card li{padding:8px 0;border-top:1px solid var(--line)}
+.pill.soon{border:1px dashed #3a3a3f;color:var(--muted);cursor:default;align-self:flex-start}.card .pill{align-self:flex-start}
+.cmp-wrap{margin-top:40px;overflow-x:auto;border:1px solid var(--line);border-radius:22px}
+.cmp{width:100%;border-collapse:collapse;font-size:15px;min-width:620px}.cmp caption{text-align:left;padding:20px 24px 8px;font-weight:700}
+.cmp th,.cmp td{padding:14px 18px;border-top:1px solid var(--line);text-align:center}.cmp th[scope=row]{text-align:left;font-weight:500;color:var(--muted)}.cmp thead th{font-weight:700;border-top:0}
+.updates{padding:0 0 clamp(96px,12vw,150px)}.gens{list-style:none;padding:0;margin:36px 0 0;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-width:720px}
+.gens li{border:1px solid var(--line);border-radius:18px;padding:22px 18px;text-align:center}.gens b{display:block;font-size:34px;font-weight:700;letter-spacing:-.04em}.gens span{font-size:14px;color:var(--muted)}
+.gens .own{background:var(--text);color:#000;border-color:var(--text)}.gens .own span{color:#333}.gens .free b{color:var(--text)}.gens .off span{color:var(--accent)}
+.family{padding:0 0 clamp(96px,12vw,150px)}.apps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:32px}
+.app{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:24px}.app h3{margin:0 0 8px;font-size:18px}.app p{color:var(--muted);font-size:14px;margin:0 0 16px;min-height:42px}.app b{font-size:14px;font-weight:600}
+@media (max-width:980px){.cards,.apps{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:760px){.split{grid-template-columns:1fr}.cards,.apps{grid-template-columns:1fr}.gens{grid-template-columns:repeat(2,1fr)}.player{padding:18px}}
 footer{border-top:1px solid var(--line);padding:32px 0 48px;font-size:13px;color:var(--dim)}
 footer .w{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:center}
 .brand{display:flex;align-items:center;gap:8px;color:var(--muted);font-weight:600;letter-spacing:.02em}
@@ -119,7 +146,7 @@ footer a:hover{color:var(--text)}
 <header class="nav">
   <div class="w">
     <a class="logo" href="#top"><img src="img/icon.png" alt="" width="24" height="24">멜로디 스케치패드</a>
-    <nav aria-label="페이지 안 이동"><a href="#features">기능</a><a href="#download">다운로드</a><a href="#faq">질문</a></nav>
+    <nav aria-label="페이지 안 이동"><a href="#features">기능</a><a href="#lineup">라인업</a><a href="#family">가족 앱</a><a href="#download">다운로드</a></nav>
     <a class="pill solid" href="/">웹에서 시작</a>
   </div>
 </header>
@@ -128,7 +155,7 @@ footer a:hover{color:var(--text)}
   <section class="hero">
     <div class="w">
       <img class="icon" src="img/icon.png" alt="" width="72" height="72">
-      <a class="badge" href="#features"><i aria-hidden="true"></i>5.2 음악 AI와 커뮤니티 추가</a>
+      <a class="badge" href="#lineup"><i aria-hidden="true"></i>스케치패드 6 시리즈 출시 예정</a>
       <h1>떠오른 멜로디를<br>바로 곡으로.</h1>
       <p class="sub">피아노 롤부터 믹서, 음악 AI까지.<br class="br"> 브라우저에서 설치 없이 쓰는 무료 작곡 도구.</p>
       <div class="cta">
@@ -138,6 +165,21 @@ footer a:hover{color:var(--text)}
       <p class="meta" id="dlMeta">Windows 10, 11 (64비트)</p>
     </div>
     <div class="frame"><div class="shot"><img src="img/workspace.jpg" alt="작업 화면: 플레이리스트, 채널 랙, 피아노 롤, 악기 브라우저, 믹서가 한 화면에 있다" width="1440" height="900"></div></div>
+  </section>
+
+
+  <section class="listen" id="listen" aria-labelledby="h-listen">
+    <div class="w">
+      <h2 id="h-listen">한 줄이면 곡 한 곡.</h2>
+      <p class="lead-l">"신나는 여름 축제, 드럼" 한 줄로 음악 AI 2가 만든 36마디입니다. 멜로디부터 반주, 베이스, 드럼, 편곡까지 사람의 손을 거치지 않았습니다.</p>
+      <div class="player">
+        <button class="pp" id="demoBtn" aria-label="데모 곡 재생"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="demoIcon" d="M8 5v14l11-7z" fill="currentColor"/></svg></button>
+        <div class="pbody"><div class="ptitle">신나는 여름 축제 <span>음악 AI 2 · 인트로 · 벌스 · 후렴 · 브리지 · 후렴 · 아웃트로</span></div>
+          <div class="ptrack" id="demoTrack" role="slider" aria-label="재생 위치" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="demoFill"></i></div>
+          <div class="ptime"><span id="demoCur">0:00</span><span id="demoDur">1:26</span></div></div>
+        <audio id="demoAudio" src="audio/ai2-demo.mp3" preload="metadata"></audio>
+      </div>
+    </div>
   </section>
 
   <section class="statement">
@@ -174,10 +216,74 @@ footer a:hover{color:var(--text)}
     </div>
   </section>
 
+
+  <section class="composer-sec" id="composer" aria-labelledby="h-comp">
+    <div class="w split">
+      <div><h2 id="h-comp">작곡을 몰라도.</h2>
+        <p class="muted-p">스케치패드 AI 작곡기는 분위기를 적고 버튼 하나를 누르면 곡을 완성합니다. 피아노 롤도 믹서도 필요 없습니다. 마음에 들면 MP3로 저장하거나 스케치패드에서 이어서 다듬습니다.</p>
+        <ul class="ticks"><li>짧게 8마디 또는 곡 전체 36마디</li><li>만든 곡은 내 프로젝트에 자동 저장</li><li>스케치패드 6 Pro와 6 Max에 포함</li></ul></div>
+      <div class="shot-s"><img src="img/composer.jpg" alt="AI 작곡기 화면: 분위기 입력, 길이 선택, 완성된 곡의 음 배치 그림과 재생 막대" width="650" height="760" loading="lazy"></div>
+    </div>
+  </section>
+
+  <section class="lineup" id="lineup" aria-labelledby="h-lineup">
+    <div class="w">
+      <h2 id="h-lineup">나에게 맞는 스케치패드.</h2>
+      <div class="cards">
+        <article class="card"><h3>SE</h3><p class="price">무료</p><p class="desc">웹에서 바로. 작곡의 기본.</p><a class="pill ghost" href="/">웹에서 시작</a>
+          <ul><li>채널 8개</li><li>피아노와 기본 악기</li><li>이펙트 3종</li><li>WAV 내보내기</li><li>음악 AI 하루 3번</li></ul></article>
+        <article class="card"><h3>스케치패드 6</h3><p class="price">₩49,000</p><p class="desc">웹과 Windows 앱. 거의 모든 기능.</p><span class="pill soon">출시 예정</span>
+          <ul><li>채널 16개, 모든 악기와 신스</li><li>이펙트 11종, 자동화</li><li>MP3 · MIDI 내보내기</li><li>보컬 녹음 + 자동 음정 보정</li><li>음악 AI 2 하루 30번</li><li>튜너 포함</li></ul></article>
+        <article class="card pro"><h3>스케치패드 6 Pro</h3><p class="price">₩89,000</p><p class="desc">모든 편집 기능과 무제한 AI.</p><span class="pill soon">출시 예정</span>
+          <ul><li>6의 모든 기능</li><li>채널별 스템, 버스, 마스터 이펙트</li><li>샘플 늘이기 · 음높이 바꾸기</li><li>음정 보정 곡선 편집</li><li>음악 AI 2 무제한</li><li>튜너 · AI 작곡기 포함</li></ul></article>
+        <article class="card"><h3>스케치패드 6 Max</h3><p class="price">₩119,000</p><p class="desc">더 많이 저장하고, 모든 것을 포함.</p><span class="pill soon">출시 예정</span>
+          <ul><li>6 Pro의 모든 기능</li><li>계정 곡 저장 무제한</li><li>PC 3대에 설치</li><li>사운드 · 프리셋 팩 전부</li><li>새 기능 먼저 써 보기</li><li>가족 앱 전부 포함</li></ul></article>
+      </div>
+      <div class="cmp-wrap" role="region" aria-label="모델 비교 표" tabindex="0">
+        <table class="cmp"><caption>모델 비교</caption>
+          <thead><tr><th scope="col"></th><th scope="col">SE</th><th scope="col">6</th><th scope="col">6 Pro</th><th scope="col">6 Max</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Windows 앱</th><td>–</td><td>●</td><td>●</td><td>●</td></tr>
+            <tr><th scope="row">채널</th><td>8</td><td>16</td><td>16</td><td>16</td></tr>
+            <tr><th scope="row">신스 · 샘플러</th><td>–</td><td>●</td><td>●</td><td>●</td></tr>
+            <tr><th scope="row">보컬 녹음 + 음정 보정</th><td>–</td><td>자동</td><td>곡선 편집</td><td>곡선 편집</td></tr>
+            <tr><th scope="row">음악 AI 2</th><td>하루 3번</td><td>하루 30번</td><td>무제한</td><td>무제한</td></tr>
+            <tr><th scope="row">스템 · 버스 · 샘플 늘이기</th><td>–</td><td>–</td><td>●</td><td>●</td></tr>
+            <tr><th scope="row">계정 곡 저장</th><td>3곡</td><td>50곡</td><td>500곡</td><td>무제한</td></tr>
+            <tr><th scope="row">설치할 수 있는 PC</th><td>–</td><td>1대</td><td>2대</td><td>3대</td></tr>
+            <tr><th scope="row">가족 앱</th><td>플레이어</td><td>+ 튜너</td><td>+ AI 작곡기</td><td>전부</td></tr>
+          </tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <section class="updates" aria-labelledby="h-up">
+    <div class="w">
+      <h2 id="h-up">한 번 사면, 세 세대.</h2>
+      <p class="muted-p">스케치패드 6을 사면 6은 물론 7과 8도 추가 비용 없이 받습니다. 그다음 세대부터는 30% 할인된 가격으로 업그레이드합니다.</p>
+      <ol class="gens" aria-label="업데이트 예시">
+        <li class="own"><b>6</b><span>구입</span></li><li class="free"><b>7</b><span>무료</span></li><li class="free"><b>8</b><span>무료</span></li><li class="off"><b>9</b><span>30% 할인</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="family" id="family" aria-labelledby="h-fam">
+    <div class="w">
+      <h2 id="h-fam">가족 앱.</h2>
+      <p class="muted-p">하나만 필요할 때를 위한 작은 앱들입니다. 스케치패드 6 시리즈에는 모델에 따라 함께 들어 있습니다.</p>
+      <div class="apps">
+        <div class="app"><h3>플레이어</h3><p>곡을 듣고, 링크로 나눕니다.</p><b>무료</b></div>
+        <div class="app"><h3>튜너</h3><p>노래를 녹음하면 음정을 맞춰 줍니다.</p><b>₩9,900 · 6 이상 포함</b></div>
+        <div class="app"><h3>AI 작곡기</h3><p>한 줄로 곡 한 곡을 만듭니다.</p><b>₩19,900 · 6 Pro 이상 포함</b></div>
+        <div class="app"><h3>신스</h3><p>나만의 소리를 만들고 연주합니다.</p><b>₩14,900 · 6 Max 포함</b></div>
+      </div>
+    </div>
+  </section>
+
   <section class="dl" id="download">
     <div class="w">
       <h2>지금 시작하기.</h2>
-      <p class="lead">무료이며 광고가 없습니다. 웹과 앱의 기능은 같습니다.</p>
+      <p class="lead">스케치패드 6 시리즈가 나오기 전까지, 지금 버전은 무료입니다. 이미 내려받은 5.x는 6이 나와도 계속 쓸 수 있습니다.</p>
       <div class="opts">
         <div class="opt">
           <h3>Windows 앱</h3>
@@ -207,7 +313,9 @@ footer a:hover{color:var(--text)}
     <div class="w">
       <h2 id="h-faq">질문.</h2>
       <div>
-        <details><summary>무료인가요?</summary><p>네, 무료이고 광고도 없습니다. 음악 AI는 내 컴퓨터(브라우저) 안에서 실행되므로 비용이 들지 않습니다.</p></details>
+        <details><summary>무료로도 쓸 수 있나요?</summary><p>네. 웹의 SE는 계속 무료이고 광고도 없습니다. 지금 내려받은 5.x도 계속 쓸 수 있습니다. 6 시리즈의 새 기능과 Windows 앱 6은 유료입니다.</p></details>
+        <details><summary>6을 사면 업데이트는 언제까지 받나요?</summary><p>산 세대와 다음 두 세대까지 무료입니다. 6을 사면 6, 7, 8을 받고, 9부터는 30% 할인된 가격으로 업그레이드할 수 있습니다.</p></details>
+        <details><summary>6 Pro와 6 Max는 무엇이 다른가요?</summary><p>편집 기능과 음악 AI는 같습니다. 6 Max는 계정 곡 저장이 무제한이고, PC 3대에 설치할 수 있으며, 사운드 팩과 가족 앱이 모두 들어 있습니다.</p></details>
         <details><summary>인터넷 없이도 쓸 수 있나요?</summary><p>한 번 연 뒤에는 곡 편집과 재생에 인터넷이 필요 없습니다. 피아노 소리와 음악 AI 모델은 처음 한 번만 내려받으며, 계정과 커뮤니티는 인터넷 연결이 필요합니다.</p></details>
         <details><summary>만든 곡은 어디에 저장되나요?</summary><p>기본적으로 내 브라우저(또는 앱) 안에 저장됩니다. 로그인하면 서버의 내 계정에도 올릴 수 있고, 언제든 .msk, MIDI, WAV로 내려받을 수 있습니다.</p></details>
         <details><summary>맥 앱도 있나요?</summary><p>현재는 Windows 앱만 제공합니다. 맥에서는 웹 버전을 사용하면 되고, 기능은 같습니다.</p></details>
@@ -226,6 +334,18 @@ footer a:hover{color:var(--text)}
 </footer>
 
 <script>
+
+// 데모 곡 플레이어
+(() => { const a = document.getElementById('demoAudio'), btn = document.getElementById('demoBtn'), icon = document.getElementById('demoIcon'), tr = document.getElementById('demoTrack'), fill = document.getElementById('demoFill');
+  const fmt = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+  btn.onclick = () => a.paused ? a.play() : a.pause();
+  a.onplay = () => { icon.setAttribute('d', 'M7 5h4v14H7zM13 5h4v14h-4z'); btn.setAttribute('aria-label', '데모 곡 멈춤'); };
+  a.onpause = () => { icon.setAttribute('d', 'M8 5v14l11-7z'); btn.setAttribute('aria-label', '데모 곡 재생'); };
+  a.onloadedmetadata = () => document.getElementById('demoDur').textContent = fmt(a.duration);
+  a.ontimeupdate = () => { const p = a.duration ? a.currentTime / a.duration * 100 : 0; fill.style.width = p + '%'; tr.setAttribute('aria-valuenow', Math.round(p)); document.getElementById('demoCur').textContent = fmt(a.currentTime); };
+  tr.onclick = e => { const r = tr.getBoundingClientRect(); if (a.duration) a.currentTime = (e.clientX - r.left) / r.width * a.duration; };
+  tr.onkeydown = e => { if (!a.duration) return; if (e.key === 'ArrowRight') a.currentTime = Math.min(a.duration, a.currentTime + 5); if (e.key === 'ArrowLeft') a.currentTime = Math.max(0, a.currentTime - 5); };
+})();
 // 최신 앱 정보 — 우리 서버가 릴리스 파일(latest.yml)을 읽어 10분마다 새로 알려 줌
 fetch('/api/release').then(r => r.ok ? r.json() : null).then(rel => {
   if (!rel || !rel.version) return; const mb = Math.round(rel.size / 1048576), d = new Date(rel.date).toLocaleDateString('ko-KR', {year:'numeric', month:'long', day:'numeric'});

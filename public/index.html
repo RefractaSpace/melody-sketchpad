@@ -181,6 +181,31 @@
   </div>
   <div class="drow"><button class="tbtn" id="convOpen" disabled>이 곡을 새 프로젝트로 열기</button><button class="tbtn solid" id="convClose">닫기</button></div>
 </dialog>
+<section id="composerApp" hidden aria-labelledby="czTitle">
+  <div class="cz-wrap">
+    <header class="cz-top"><span class="cz-brand"><img src="apple-touch-icon.png" alt="" width="28" height="28">스케치패드 AI 작곡기</span><a class="cz-link" href="/" id="czToDaw">스케치패드 열기</a></header>
+    <h1 id="czTitle">어떤 곡을 만들까요?</h1>
+    <p class="cz-sub">분위기를 적으면 음악 AI가 멜로디, 반주, 베이스, 드럼을 짓고 편곡까지 합니다.</p>
+    <label class="cz-sr" for="czPrompt">만들 곡 설명</label>
+    <textarea id="czPrompt" rows="2" maxlength="200" placeholder="예: 비 오는 밤에 듣는 잔잔한 피아노"></textarea>
+    <div class="cz-chips" role="group" aria-label="분위기 예시">
+      <button type="button" data-p="잔잔한 밤 피아노">잔잔한</button><button type="button" data-p="신나는 여름 축제, 드럼">신나는</button><button type="button" data-p="슬픈 발라드">슬픈</button><button type="button" data-p="밝은 팝, 드럼">밝은</button><button type="button" data-p="꿈꾸는 듯한 로파이">몽환적인</button>
+    </div>
+    <div class="cz-row">
+      <div class="cz-seg" role="radiogroup" aria-label="길이"><button type="button" role="radio" aria-checked="false" data-len="8">짧게 · 8마디</button><button type="button" role="radio" aria-checked="true" data-len="song">곡 전체 · 36마디</button></div>
+      <button type="button" class="cz-go" id="czGo">만들기</button>
+    </div>
+    <p class="cz-status" id="czStatus" role="status" aria-live="polite"></p>
+    <div class="cz-bar" id="czBar" hidden><i></i></div>
+    <section class="cz-result" id="czResult" hidden aria-label="만든 곡">
+      <canvas id="czThumb" aria-hidden="true"></canvas>
+      <div class="cz-meta"><b id="czName"></b><span id="czInfo"></span></div>
+      <audio id="czAudio" controls preload="auto"></audio>
+      <div class="cz-actions"><button type="button" id="czAgain">다시 만들기</button><button type="button" id="czMp3">MP3 저장</button><a id="czOpen" href="/">스케치패드에서 열기</a></div>
+    </section>
+    <p class="cz-foot">처음 한 번은 음악 AI 모델을 내려받습니다. 만든 곡은 내 프로젝트에 저장됩니다.</p>
+  </div>
+</section>
 <section id="commPage" class="mypage" hidden aria-labelledby="cmTitle">
   <div class="mp-wrap">
     <header class="mp-top"><button class="tbtn" id="cmBack">← 작업 화면으로</button><h2 id="cmTitle">커뮤니티</h2><button class="tbtn solid" id="cmPublish">지금 곡 게시하기</button></header>
