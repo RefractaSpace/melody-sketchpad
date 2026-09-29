@@ -552,6 +552,22 @@ async def main():
         dup = await J("""(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id),seen={},d=[];ids.forEach(i=>{if(seen[i]&&!d.includes(i))d.push(i);seen[i]=1});return {d,n:ids.length,cz:['czGo','czPrompt','czAudio','czMp3','czOpen'].every(i=>!!document.getElementById(i)),hidden:getComputedStyle($('composerApp')).display==='none'&&!$('composerApp').offsetHeight}})()""")
         check('같은 id가 두 번 없음 · AI 작곡기 요소 (평소에는 화면에서 안 보임)', not dup['d'] and dup['cz'] and dup['hidden'], f"id {dup['n']}개, 중복 {dup['d']}")
 
+        # 6: 드럼 키트 (드럼을 피아노 롤에서 찍기)
+        kit = await J("""(async()=>{const snap=JSON.stringify(S);const r={};
+          S=normalize(blank()); S.ch=0; refreshAll(); addChannel('synth','kit'); const ch=curCh(); r.inst=ch.inst; r.name=ch.name; r.snap=[kitSnap(38),kitSnap(60),kitSnap(35)];
+          r.msk=MSK_INST.indexOf('kit'); r.before=S.channels.length; const nn=normalize(JSON.parse(JSON.stringify(S))); r.keep=nn.channels.some(c=>c.inst==='kit'); r.norm=nn.channels.length+':'+nn.channels.slice(-3).map(c=>c.inst).join('/');
+          S.bpm=120; S.playMode='pattern'; const P=curPat(); for(const c of S.channels) P.notes[c.id]=[]; P.notes[ch.id]=KIT.map(([p],i)=>({p,s:i*24,l:12,v:.9}));
+          const b=await renderWav(); let d; if(b&&b.getChannelData){d=b.getChannelData(0);r.sr=b.sampleRate}else{const u=b instanceof Uint8Array?b:new Uint8Array(b);const dv=new DataView(u.buffer,u.byteOffset);r.sr=dv.getUint32(24,true);const n=(u.length-44)>>1;d=new Float32Array(n);const ch2=dv.getUint16(22,true);for(let i=0;i<n;i+=ch2)d[i/ch2|0]=dv.getInt16(44+i*2,true)/32768;}
+          const spt=r.sr*60/120/48; r.peaks=KIT.map((_,i)=>{let m=0;for(let k=Math.floor(i*24*spt);k<Math.floor((i*24+22)*spt)&&k<d.length;k++)m=Math.max(m,Math.abs(d[k]));return +m.toFixed(3)});
+          const mb=midiBytes(); r.midi=false; r.midiHat=false; for(let i=0;i<mb.length-1;i++){if(mb[i]===0x99&&mb[i+1]===38)r.midi=true; if(mb[i]===0x99&&mb[i+1]===42)r.midiHat=true}
+          S=normalize(blank()); refreshAll(); const k1=S.channels.findIndex(c=>c.inst==='kick'),s1=S.channels.findIndex(c=>c.inst==='snare');
+          const Q=curPat(); Q.notes[S.channels[k1].id]=[{p:72,s:0,l:6,v:1},{p:72,s:96,l:6,v:1}]; Q.notes[S.channels[s1].id]=[{p:72,s:48,l:6,v:.8}];
+          const drumIds=S.channels.filter(c=>c.kind==='drum').map(c=>c.id); r.drumN=drumIds.length; r.expect=S.patterns.reduce((s,P)=>s+drumIds.reduce((u,id)=>u+(P.notes[id]||[]).length,0),0); const m=mergeToKit(); const kc=S.channels.find(c=>c.inst==='kit'); r.merge={m, drumsLeft:S.channels.filter(c=>c.kind==='drum').length, ps:(curPat().notes[kc.id]||[]).map(n=>n.p).join(',')};
+          S=normalize(JSON.parse(snap)); save(); refreshAll(); return r})()""")
+        check('드럼 키트: 채널 추가 · 가장 가까운 드럼 줄로 · 파일 번호 · 불러와도 유지', kit['inst'] == 'kit' and kit['name'] == '드럼 키트' and kit['snap'] == [38, 49, 36] and kit['msk'] == 13 and kit['keep'], str({k: kit.get(k) for k in ('snap', 'msk', 'keep', 'before', 'norm', 'inst')}))
+        check('드럼 키트: 드럼 14종이 모두 소리 남 (렌더링한 소리의 봉우리)', len(kit['peaks']) == 14 and min(kit['peaks']) > 0.02, str(kit['peaks']))
+        check('드럼 키트: MIDI 저장은 10번 채널·GM 번호로 (스네어 38·닫힌 햇 42) · 드럼 채널 합치기', kit['midi'] and kit['midiHat'] and kit['merge']['m']['channels'] == kit['drumN'] and kit['merge']['m']['notes'] == kit['expect'] and kit['merge']['drumsLeft'] == 0 and kit['merge']['ps'] == '36,38,36', str(kit['merge']) + f" · 합치기 전 드럼 음 {kit['expect']}개")
+
         await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
         stacked = await J("getComputedStyle(document.getElementById('win-roll')).position")
         check('휴대폰 폭에서는 창이 위아래로 쌓임', stacked == 'static', stacked)

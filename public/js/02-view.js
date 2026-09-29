@@ -98,7 +98,7 @@ function drawRoll() {
     if (hot) { x.fillStyle = CS.bg; x.fill(); x.lineWidth = 2; x.strokeStyle = CS.note; x.stroke(); }
     else { x.globalAlpha = 0.4 + 0.6 * n.v; x.fillStyle = CS.note; x.fill(); x.globalAlpha = 1; }
     if (sel.has(n)) { rr(x, X + 3, Y + 3.5, Wn - 5, ROWH - 7, 2); x.lineWidth = 1.5; x.strokeStyle = hot ? CS.note : CS['note-ink']; x.setLineDash([3, 2]); x.stroke(); x.setLineDash([]); }
-    if (Wn > 30 && ROWH >= 16) { x.fillStyle = hot ? CS.note : CS['note-ink']; x.fillText(curCh().inst === 'kit' ? (KIT_ROW[n.p] ? KIT_ROW[n.p].nm : '') : nn(n.p), X + 6, Y + ROWH / 2); }
+    if (Wn > 30 && ROWH >= 16) { x.fillStyle = hot ? CS.note : CS['note-ink']; x.fillText(nn(n.p), X + 6, Y + ROWH / 2); }
     x.fillStyle = hot ? CS.note : CS['note-ink']; x.globalAlpha = .5; x.fillRect(X + Wn - 4, Y + 5, 1.5, ROWH - 10); x.globalAlpha = 1;
   }
   if (drag && drag.mode === 'band') {
