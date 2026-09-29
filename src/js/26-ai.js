@@ -1,4 +1,4 @@
-/* 26-ai.js — ✨ AI: 작곡 · 코드 추천 · 피드백
+/* 26-ai.js — AI: 작곡 · 코드 추천 · 피드백
    엔진 두 가지: 기본 AI(앱 안에서 음악 규칙으로 계산, 바로 동작) / Claude(서버 /api/ai, 로그인 + Vercel 결제 카드 필요)
    Claude가 막히면 기본 AI로 자동 전환해요. 두 엔진 모두 같은 JSON 모양을 돌려줘서 곡에 넣는 코드는 하나예요. */
 const AI_API = (window.MSK_SERVER || '') + '/api/ai', NN = 'C C# D D# E F F# G G# A A# B'.split(' ');
@@ -75,7 +75,7 @@ function localChords(melody, bars, perBar) {
 function localFeedback() {
   const all = [], byCh = {}; S.channels.forEach(c => byCh[c.id] = {c, notes:[]});
   S.patterns.forEach(P => Object.entries(P.notes).forEach(([id, a]) => a.forEach(n => { if (byCh[id]) { byCh[id].notes.push(n); all.push({...n, c:byCh[id].c}); } })));
-  if (!all.length) return '• 아직 음이 없어요. ✨ AI → 작곡으로 시작해 보거나 피아노 롤에 몇 음 찍어 보세요.';
+  if (!all.length) return '• 아직 음이 없어요. AI → 작곡으로 시작해 보거나 피아노 롤에 몇 음 찍어 보세요.';
   const inst = Object.values(byCh).filter(x => x.c.kind !== 'drum' && x.notes.length), melo = inst.sort((a, b) => b.notes.reduce((s, n) => s + n.p, 0) / b.notes.length - a.notes.reduce((s, n) => s + n.p, 0) / a.notes.length)[0];
   const good = [], tip = [], melN = (melo ? melo.notes : []).slice().sort((a, b) => a.s - b.s);
   const out = all.filter(n => n.c.kind !== 'drum' && !inKey(n.p % 12)).length / Math.max(1, all.filter(n => n.c.kind !== 'drum').length);
@@ -87,7 +87,7 @@ function localFeedback() {
     if (uniq <= 3 && melN.length > 12) tip.push(`멜로디에 쓴 음이 ${uniq}가지뿐이에요 — 경과음을 넣어 보세요`); }
   if (out > .15) tip.push(`조(${names()[S.root]} ${S.mode === 'minor' ? '단조' : '장조'}) 밖의 음이 ${Math.round(out * 100)}%예요 — 일부러가 아니라면 조를 다시 확인해 보세요`); else good.push(`음 대부분(${Math.round((1 - out) * 100)}%)이 조 안에 있어서 안정적이에요`);
   if (vsd < .03) tip.push('모든 음의 세기가 거의 같아요 — 센박을 조금 세게, 여린박을 약하게 하면 사람이 친 것처럼 들려요'); else good.push('음 세기에 변화가 있어서 살아 있게 들려요');
-  if (!chordsN) tip.push('코드 줄이 비어 있어요 — ✨ AI → 코드 추천으로 멜로디에 맞는 코드를 넣어 보세요');
+  if (!chordsN) tip.push('코드 줄이 비어 있어요 — AI → 코드 추천으로 멜로디에 맞는 코드를 넣어 보세요');
   if (!drums && S.bpm >= 110) tip.push(`${S.bpm} BPM인데 드럼이 없어요 — 킥·스네어만 넣어도 힘이 생겨요`);
   if (!S.playlist.clips.length) tip.push('플레이리스트가 비어 있어요 — 패턴을 인트로·벌스·후렴으로 나눠 배치하면 곡이 돼요');
   else { const b = songBars(); if (b < 16) tip.push(`곡이 ${b}마디로 짧아요 — 후렴을 한 번 더 반복하고 끝맺음을 붙여 보세요`); else good.push(`곡 길이 ${b}마디, 조각 ${S.playlist.clips.length}개로 구조가 있어요`); }

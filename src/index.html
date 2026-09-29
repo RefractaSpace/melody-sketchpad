@@ -26,7 +26,7 @@
       </div>
       <button class="ib play" id="play" aria-label="재생" title="재생 / 정지 (스페이스)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg></button>
       <button class="ib rec" id="recBtn" aria-pressed="false" aria-label="녹음 대기" title="녹음 대기 (R): 켠 채로 재생하면서 MIDI 건반·자판 건반을 치면 지금 채널에 찍혀요"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/></svg></button>
-      <button class="tbtn xs typek" id="typeKeys" aria-pressed="false" title="컴퓨터 자판을 건반으로 (Z줄·Q줄, -/=로 옥타브, Esc로 끄기)">⌨ 자판 건반</button>
+      <button class="tbtn xs typek" id="typeKeys" aria-pressed="false" title="컴퓨터 자판을 건반으로 (Z줄·Q줄, -/=로 옥타브, Esc로 끄기)">자판 건반</button>
       <div class="lcd" title="템포와 재생 위치">
         <input id="bpm" type="number" min="60" max="300" step="0.01" value="150" aria-label="BPM (소수점 가능, 예: 126.5)"><span class="u">BPM</span>
         <span class="div" aria-hidden="true"></span>
@@ -63,7 +63,7 @@
     </section>
 
     <section class="win" id="win-playlist" data-win="playlist" aria-label="플레이리스트">
-      <header class="wh"><b>플레이리스트</b><span class="wsub" id="plHint">패턴을 골라 빈칸을 누르면 놓여요 · 끌어서 옮기기 · 오른쪽 클릭으로 지우기 · 두 번 누르면 피아노 롤</span><select id="saTarget" class="xs" aria-label="곡 자동화 대상"></select><select id="saParam" class="xs" aria-label="곡 자동화 값" hidden></select><button class="tbtn xs" id="vocRec" aria-pressed="false" title="곡을 틀면서 마이크로 녹음 → 시작 위치에 오디오 클립 (오디오 파일은 여기에 끌어다 놓기)">🎤 녹음</button><button class="tbtn xs" id="tempoBtn" title="곡 중간에 템포가 바뀌는 곳 (SONG 재생·WAV·MIDI에 적용)">템포 지도</button><button class="wx" data-close="playlist" aria-label="플레이리스트 닫기">×</button></header>
+      <header class="wh"><b>플레이리스트</b><span class="wsub" id="plHint">패턴을 골라 빈칸을 누르면 놓여요 · 끌어서 옮기기 · 오른쪽 클릭으로 지우기 · 두 번 누르면 피아노 롤</span><select id="saTarget" class="xs" aria-label="곡 자동화 대상"></select><select id="saParam" class="xs" aria-label="곡 자동화 값" hidden></select><button class="tbtn xs ic-mic" id="vocRec" aria-pressed="false" title="곡을 틀면서 마이크로 녹음 → 시작 위치에 오디오 클립 (오디오 파일은 여기에 끌어다 놓기)">녹음</button><button class="tbtn xs" id="tempoBtn" title="곡 중간에 템포가 바뀌는 곳 (SONG 재생·WAV·MIDI에 적용)">템포 지도</button><button class="wx" data-close="playlist" aria-label="플레이리스트 닫기">×</button></header>
       <div class="wb pl" id="plWrap"><div class="plhead" id="plHead"></div><div class="plbox" id="plBox"><canvas id="plRuler" aria-label="곡 눈금자. 누르면 그 위치부터 재생"></canvas><canvas id="plCanvas" tabindex="0" aria-label="플레이리스트. 패턴 조각을 시간 위에 배치해요"></canvas></div></div>
     </section>
 
@@ -115,23 +115,10 @@
 
   <footer class="actions">
     <label class="pname"><span class="vh">곡 이름</span><input id="projName" maxlength="40" aria-label="곡 이름"></label>
-    <button class="tbtn" id="projBtn">내 프로젝트</button>
-    <button class="tbtn solid" id="copy" title="곡을 악보 텍스트로 복사 (대화에 붙이거나 다시 불러올 수 있어요)">악보 복사</button>
-    <button class="tbtn" id="scoreIn" title="악보 글이나 곡 코드를 붙여 넣기">붙여넣기</button>
-    <button class="tbtn" id="convBtn">파일 변환기</button>
-    <button class="tbtn" id="midi" hidden>MIDI 저장</button>
-    <a class="tbtn" id="aboutLink" href="https://melody-sketchpad.vercel.app/download/" target="_blank" rel="noopener" title="소개 · Windows 앱 내려받기">소개 · 다운로드</a>
-    <button class="tbtn" id="aiBtn" title="AI 작곡 · 코드 추천 · 피드백">✨ AI</button>
-    <button class="tbtn" id="commBtn" title="다른 사람 곡 듣기 · 내 곡 게시">🌐 커뮤니티</button>
-    <button class="tbtn" id="cloudBtn" title="서버에 곡 저장·열기 (저장소 키로 여러 기기에서)">☁ 서버</button>
-    <button class="tbtn" id="saveProj" hidden title="우리 형식 .msk로 저장 (내 샘플까지, 압축)">저장 (.msk)</button>
-    <button class="tbtn" id="wav" hidden>오디오 저장 (zip)</button>
-    <button class="tbtn" id="loadProj" title="MSK · MIDI · 프로젝트(.json) · 악보(.txt) — 파일 내용을 보고 형식을 알아봐요">불러오기</button>
-    <input type="file" id="fileIn" hidden>
-    <button class="tbtn" id="clear">새 곡</button>
+    <div class="fm"><button class="tbtn ic-menu" id="fileMenuBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="fileMenu">파일</button><div class="fm-pop" id="fileMenu" role="menu" aria-label="파일" hidden><button class="tbtn" id="clear">새 곡</button><button class="tbtn" id="projBtn">내 프로젝트</button><button class="tbtn" id="loadProj" title="MSK · MIDI · 프로젝트(.json) · 악보(.txt) — 파일 내용을 보고 형식을 알아봐요">불러오기</button><button class="tbtn" id="saveProj" hidden title="우리 형식 .msk로 저장 (내 샘플까지, 압축)">저장 (.msk)</button><hr><button class="tbtn" id="wav" hidden>오디오 저장 (zip)</button><button class="tbtn" id="midi" hidden>MIDI 저장</button><hr><button class="tbtn solid" id="copy" title="곡을 악보 텍스트로 복사 (대화에 붙이거나 다시 불러올 수 있어요)">악보 복사</button><button class="tbtn" id="scoreIn" title="악보 글이나 곡 코드를 붙여 넣기">악보 붙여넣기</button><button class="tbtn" id="convBtn">파일 변환기</button><hr><a class="tbtn" id="aboutLink" href="https://melody-sketchpad.vercel.app/download/" target="_blank" rel="noopener" title="소개 · Windows 앱 내려받기">소개 · 다운로드</a><input type="file" id="fileIn" hidden></div></div><button class="tbtn ic-ai" id="aiBtn" title="AI 작곡 · 코드 추천 · 피드백">AI</button><button class="tbtn ic-people" id="commBtn" title="다른 사람 곡 듣기 · 내 곡 게시">커뮤니티</button><button class="tbtn ic-user" id="cloudBtn" title="서버에 곡 저장·열기 (저장소 키로 여러 기기에서)">로그인</button>
     <span class="status" id="status" role="status" aria-live="polite"></span>
     <span class="vh" id="sr" aria-live="assertive"></span>
-  </footer>
+</footer>
   <textarea class="out" id="out" readonly aria-label="복사할 악보"></textarea>
 
   <details class="help">
@@ -144,8 +131,8 @@
     <b>플레이리스트</b> 맨 위 패턴 칸에서 패턴을 고른 뒤 빈칸을 누르면 놓여요. 끌어서 옮기고, 오른쪽 클릭(길게 누르기)으로 지우고, 두 번 누르면 그 패턴의 피아노 롤이 열려요. 눈금자를 누르면 그 위치부터 재생돼요.
     <b>브라우저</b> 악기·드럼 키트를 눌러 미리 듣고, "채널로" 버튼으로 채널 랙에 더해요.
     <b>악보 텍스트</b> "악보 복사"는 곡을 글(악보 형식)로 복사해요. 이 글을 대화에 붙이면 AI가 곡을 읽을 수 있고, AI가 이 형식으로 쓴 곡은 "악보 붙여넣기"로 바로 불러올 수 있어요. <b>저장</b>은 우리 형식 .msk로 해요 (작고 빠르고, 내 샘플까지 담겨요). <b>불러오기</b>는 파일 이름이 아니라 내용을 스캔해서 형식을 알아봐요. <b>곡 코드</b>(MSK1.…)는 곡을 글자로 바꾼 것이라 메시지로 보내고 "붙여넣기"로 열 수 있어요. <b>파일 변환기</b>는 모든 형식을 서로 바꾸고 오디오(.wav)도 만들어요.
-    <b>오디오 클립</b> 🎤 녹음하거나 소리 파일을 플레이리스트에 끌어다 놓아요. 끌어 옮기기 · 양 끝 끌어 자르기 · Shift+누르기로 나누기 · 두 번 누르면 샘플 편집 · 오른쪽 클릭으로 지우기.
-    <b>건반·녹음</b> ⌨ 자판 건반을 켜면 Z줄·Q줄이 피아노 건반이 돼요 (-/=로 옥타브). ⚙에서 MIDI 건반을 연결할 수 있어요. ● 녹음을 켜고 재생하면서 치면 지금 채널에 찍혀요 (반복할 때마다 겹쳐 녹음). 믹서의 채널마다 🎤로 마이크 소리를 녹음해 그 채널 소리로 쓸 수 있어요.
+    <b>오디오 클립</b> 녹음하거나 소리 파일을 플레이리스트에 끌어다 놓아요. 끌어 옮기기 · 양 끝 끌어 자르기 · Shift+누르기로 나누기 · 두 번 누르면 샘플 편집 · 오른쪽 클릭으로 지우기.
+    <b>건반·녹음</b> 자판 건반을 켜면 Z줄·Q줄이 피아노 건반이 돼요 (-/=로 옥타브). 설정에서 MIDI 건반을 연결할 수 있어요. ● 녹음을 켜고 재생하면서 치면 지금 채널에 찍혀요 (반복할 때마다 겹쳐 녹음). 믹서의 채널마다 녹음 버튼으로 마이크 소리를 녹음해 그 채널 소리로 쓸 수 있어요.
     <b>키보드</b> 피아노 롤을 Tab으로 선택한 뒤 방향키로 이동, Enter로 찍기·지우기, +/−로 길이, [ ]로 세기. <b>MIDI 불러오기</b>는 채널마다 나눠서 패턴 하나로 가져와요. 작업은 이 기기에 자동 저장돼요.</p>
     <p class="credit">피아노 소리: Salamander Grand Piano V3 — Alexander Holm, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC-BY 3.0</a> (잘라서 변환함)</p>
   </details>
@@ -219,7 +206,7 @@
   <canvas id="cmpThumb" style="width:100%;height:120px;display:block;border-radius:8px" aria-hidden="true"></canvas>
   <h2 id="cmpTitle"></h2><p class="dsub" id="cmpMeta"></p>
   <p class="dsub" id="cmpHiddenNote" hidden style="color:#e9a23b"></p><p id="cmpDesc" style="white-space:pre-wrap;margin:6px 0"></p><p class="dsub" id="cmpTags"></p>
-  <div class="drow"><span><button class="tbtn solid" id="cmpPlay">▶ 열어서 듣기</button> <button class="tbtn" id="cmpLike" aria-pressed="false">♡ 좋아요</button></span><span><button class="tbtn xs" id="cmpReport" hidden>신고</button> <button class="tbtn xs" id="cmpHide" hidden>숨기기</button> <button class="tbtn xs" id="cmpDel" hidden>글 지우기</button> <button class="tbtn" id="cmpClose">닫기</button></span></div>
+  <div class="drow"><span><button class="tbtn solid" id="cmpPlay">▶ 열어서 듣기</button> <button class="tbtn ic-heart" id="cmpLike" aria-pressed="false">좋아요</button></span><span><button class="tbtn xs" id="cmpReport" hidden>신고</button> <button class="tbtn xs" id="cmpHide" hidden>숨기기</button> <button class="tbtn xs" id="cmpDel" hidden>글 지우기</button> <button class="tbtn" id="cmpClose">닫기</button></span></div>
   <h3 style="font-size:14px;margin:12px 0 6px">댓글</h3><div id="cmpComments" class="cm-cmts"></div>
   <div class="drow" id="cmpCmtBox"><input id="cmpInput" class="xs" style="flex:1" maxlength="500" placeholder="댓글 쓰기 (엔터로 등록)" aria-label="댓글"><button class="tbtn" id="cmpSend">등록</button></div>
   <p class="dsub" id="cmpLoginHint" hidden>좋아요·댓글은 로그인하면 쓸 수 있어요.</p>
@@ -233,7 +220,7 @@
   <div class="drow"><span></span><span><button class="tbtn" id="cmPubCancel">취소</button> <button class="tbtn solid" id="cmPubGo">게시</button></span></div>
 </dialog>
 <dialog id="aiDlg" aria-labelledby="aiH" style="max-width:620px;width:94vw">
-  <h2 id="aiH">✨ AI</h2>
+  <h2 id="aiH">AI</h2>
   <div class="drow"><label class="xs">엔진 <select id="aiEngine"><option value="music">음악 AI (음악으로 학습한 신경망 · Magenta)</option><option value="local">규칙 AI (음악 규칙 계산 · 가볍고 인터넷 없이)</option><option value="claude">Claude (서버 · 로그인 필요)</option></select></label></div>
   <div class="drow" id="aiTabs" role="tablist"><span><button class="tbtn solid" data-t="compose" role="tab">작곡</button> <button class="tbtn" data-t="continue" role="tab">이어 쓰기</button> <button class="tbtn" data-t="chords" role="tab">코드 추천</button> <button class="tbtn" data-t="feedback" role="tab">피드백</button></span></div>
   <section data-p="compose"><label class="xs">어떤 음악? <textarea id="aiPrompt" rows="2" style="width:100%" placeholder="예: 신나는 여름 축제 느낌, 드럼 넣어서 / 잔잔한 밤 피아노"></textarea></label>
@@ -340,6 +327,7 @@
 <script src="js/28-music-ai.js" defer></script>
 <script src="js/29-music-ai2.js" defer></script>
 <script src="js/30-composer.js" defer></script>
+<script src="js/31-ui6.js" defer></script>
 <script src="js/99-app.js" defer></script>
 <script>window.PIANO_SRC = "piano-samples.js";   // 녹음 피아노: 앱이 뜬 뒤에 불러와요 (먼저 받으면 app.js와 속도를 나눠 먹어서)</script>
 </body>

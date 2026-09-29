@@ -14,6 +14,12 @@ results = []
 def check(name, ok, detail=''):
     results.append((name, bool(ok), detail)); print(('  ✅ ' if ok else '  ❌ ') + name + (f'  — {detail}' if detail else ''))
 
+async def fclick(pg, sel, **kw):
+    """파일 메뉴 안 항목: 메뉴가 닫혀 있으면 먼저 열고 누름 (실제 사용자 동작과 같음)"""
+    if not await pg.is_visible(sel):
+        await pg.click('#fileMenuBtn'); await pg.wait_for_timeout(60)
+    await pg.click(sel, **kw)
+
 async def main():
     tmp = tempfile.mkdtemp()
     async with async_playwright() as p:
@@ -135,7 +141,7 @@ async def main():
         check('재생 중 화면 속도 (PAT·SONG 모두 45fps 이상)', f1[0] >= 45 and f2[0] >= 45, f'PAT {f1[0]:.0f}fps · SONG {f2[0]:.0f}fps (느린 5% {f2[1]:.0f}ms)')
 
         await J("(()=>{S.playlist.clips=[{id:newId(),pat:S.patterns[1].id,t:0,bar:0},{id:newId(),pat:S.patterns[0].id,t:0,bar:1}];S.patterns[0].bars=2;S.patterns[0]=normalize(S).patterns[0];setPlayMode('song');refreshAll()})()")
-        async with pg.expect_download(timeout=90000) as dl: await pg.click('#wav')
+        async with pg.expect_download(timeout=90000) as dl: await fclick(pg, '#wav')
         d = await dl.value; wp = os.path.join(tmp, 'a.wav'); await d.save_as(wp)
         with wave.open(wp) as w: a = array.array('h', w.readframes(w.getnframes()))
         peak = max(abs(x) for x in a) / 32767 if a else 0; secs = len(a) / 2 / 44100
@@ -154,7 +160,7 @@ async def main():
           return {corr:ab/Math.sqrt(aa*bb),took,song:playSpan()*tickSec(),worst:Math.max(...gaps.slice(1)),steps:prog.length}}""")
         check('WAV 빠르게 만들기: 예전과 같은 소리 · 곡 길이의 40% 안 · 화면 안 멈춤', wr['corr'] > 0.999 and wr['took'] < wr['song'] * 0.4 and wr['worst'] < 500 and wr['steps'] > 10,
               f"상관 {wr['corr']:.4f} · {wr['song']:.0f}초 곡을 {wr['took']:.1f}초에 · 화면 최대 멈춤 {wr['worst']:.0f}ms · 진행률 {wr['steps']}번")
-        async with pg.expect_download() as dl: await pg.click('#midi')
+        async with pg.expect_download() as dl: await fclick(pg, '#midi')
         d = await dl.value; mp = os.path.join(tmp, 'a.mid'); await d.save_as(mp)
         import mido; m = mido.MidiFile(mp)
         check('MIDI 저장 (악기 채널마다 트랙 + 코드 + 드럼)', len(m.tracks) == 1 + 1 + 2, f'트랙 {len(m.tracks)}개')
@@ -165,7 +171,7 @@ async def main():
         # 우리 형식 MSK
         await J("idbPut('ch:'+S.channels[0].id,{ab:wavBytes(new AudioBuffer({length:100,sampleRate:44100,numberOfChannels:2})).buffer,root:62,name:'짧은샘플.wav'})")
         before = await J("JSON.stringify([S.channels.map(c=>c.kind+c.inst+c.name),S.patterns.map(p=>[p.bars,Object.values(p.notes).flat().length])])")
-        async with pg.expect_download() as dl: await pg.click('#saveProj')
+        async with pg.expect_download() as dl: await fclick(pg, '#saveProj')
         d = await dl.value; mk = os.path.join(tmp, 'p.msk'); await d.save_as(mk); raw = open(mk, 'rb').read()
         await pg.locator('#fileIn').set_input_files(mk); await pg.wait_for_timeout(500)
         after = await J("JSON.stringify([S.channels.map(c=>c.kind+c.inst+c.name),S.patterns.map(p=>[p.bars,Object.values(p.notes).flat().length])])")
@@ -196,7 +202,7 @@ async def main():
         check('MSK 안전장치: 소수점 BPM · 바이트 하나 바뀌면 거절 · 옛 파일도 읽힘', guard['bpm'] == 126.5 and guard['silent'] == 0 and guard['bad'] == 200 and guard['old'] == ['Plum풍 1번 진행', 138, 2],
               f"BPM {guard['bpm']} · 뒤집기 {guard['len']}번 중 놓침 {guard['silent']} · 무작위 200개 거절 {guard['bad']} · 옛 파일 {guard['old']}")
         code = await J("(async()=>mskToCode(await encodeMSK(S,'코드곡',{})))()")
-        await pg.click('#scoreIn'); await pg.fill('#scoreText', code); await pg.wait_for_timeout(400)
+        await fclick(pg, '#scoreIn'); await pg.fill('#scoreText', code); await pg.wait_for_timeout(400)
         cm = await pg.inner_text('#scoreMsg'); await pg.click('#scoreLoad'); await pg.wait_for_timeout(300)
         check('곡 코드 붙여넣기 → 새 프로젝트', '곡 코드로 알아봤어요' in cm and await J("lib.list[lib.current].name") == '코드곡', f'{len(code):,}글자')
         store = await J("""(()=>{save();clearTimeout(saveT);lsSet(PK(lib.current),songToStore(S));const v=lsGet(PK(lib.current)),j=JSON.stringify(S).length,a=JSON.stringify([S.channels.map(c=>c.id),S.patterns.map(p=>p.id)]);
@@ -212,12 +218,12 @@ async def main():
         er2 = await J("(()=>{try{parseScore('[채널]\\n피아노 = 바이올린\\n[패턴] A | 1마디');return 'no error'}catch(e){return e.message}})()")
         check('악보 텍스트: 틀린 곳을 줄 번호로 알려 줌', '4번째 줄' in wr[0] and wr[1] == 1 and '2번째 줄' in er2 and '바이올린' in er2, f'{wr[0][:40]} / {er2[:40]}')
         demo = "# 멜로디 스케치패드 악보 v1\n제목: 테스트 곡\nBPM: 128\n조: A 단조\n재생: SONG\n[채널]\n리드 = 슈퍼소    볼륨 80\n킥 = 드럼 킥\n[패턴] 벌스 | 2마디\n코드: 1.1 Am | 2.1 F\n리드: 1.1.1 A4 2 v90 | 1.1.3 C5 2 | 1.2.1 E5 4\n  2.1.1 F5 8 v70\n킥: X...X...X...5... X...X...X...X...\n[플레이리스트]\n트랙 1: 벌스 @1, 벌스 @3\n"
-        await pg.click('#scoreIn'); await pg.fill('#scoreText', demo); await pg.wait_for_timeout(450)
-        ok_msg = '✓' in await pg.inner_text('#scoreMsg'); await pg.click('#scoreLoad'); await pg.wait_for_timeout(300)
+        await fclick(pg, '#scoreIn'); await pg.fill('#scoreText', demo); await pg.wait_for_timeout(450)
+        ok_msg = '알아봤어요' in await pg.inner_text('#scoreMsg'); await pg.click('#scoreLoad'); await pg.wait_for_timeout(300)
         got = await J("[lib.list[lib.current].name,S.bpm,S.root,S.mode,S.playMode,S.channels.map(c=>c.name),notesOf(S.patterns[0],S.channels[0]).length,notesOf(S.patterns[0],S.channels[1]).map(n=>n.v),chordName(S.patterns[0].chords[4]),S.playlist.clips.length,Math.round(S.mix[chKey(S.channels[0])].v*100)]")
         check('악보 붙여넣기 → 새 프로젝트', ok_msg and got[:6] == ['테스트 곡', 128, 9, 'minor', 'song', ['리드', '킥']] and got[6] == 4 and 0.5 in got[7] and got[8] == 'F' and got[9] == 2 and got[10] == 80, str(got))
         tp = os.path.join(tmp, 'demo.txt'); open(tp, 'w').write(demo)
-        await pg.click('#convBtn'); await pg.locator('#convIn').set_input_files(tp); await pg.wait_for_timeout(300)
+        await fclick(pg, '#convBtn'); await pg.locator('#convIn').set_input_files(tp); await pg.wait_for_timeout(300)
         async with pg.expect_download() as dl: await pg.click('#convMid')
         d = await dl.value; cm = os.path.join(tmp, 'conv.mid'); await d.save_as(cm); mm = mido.MidiFile(cm)
         await pg.locator('#convIn').set_input_files(cm); await pg.wait_for_timeout(300)
@@ -267,7 +273,7 @@ async def main():
         lp = await ctx.new_page(); await lp.set_viewport_size({'width': 1366, 'height': 768}); await lp.goto(URL); await lp.wait_for_timeout(1200)
         lay = await lp.evaluate("(()=>{const r=document.getElementById('win-roll').getBoundingClientRect();return {rows:Math.floor(view().vh/ROWH),bottom:Math.round(r.bottom),tb:Math.round(document.querySelector('.tb').getBoundingClientRect().height),act:Math.round(document.querySelector('footer.actions').getBoundingClientRect().bottom),ai:Math.round(document.getElementById('aiBtn').getBoundingClientRect().bottom)}})()")
         await lp.close()
-        check('노트북 화면(1366×768): 피아노 롤 18줄 이상 · 아래 버튼 줄(✨ AI 포함)까지 화면 안', lay['rows'] >= 18 and lay['bottom'] <= 768 and lay['tb'] < 70 and lay['act'] <= 768 and lay['ai'] <= 768, str(lay))
+        check('노트북 화면(1366×768): 피아노 롤 18줄 이상 · 아래 버튼 줄(AI 포함)까지 화면 안', lay['rows'] >= 18 and lay['bottom'] <= 768 and lay['tb'] < 70 and lay['act'] <= 768 and lay['ai'] <= 768, str(lay))
         # 자판 건반 · MIDI 건반 · 녹음
         await J("""(()=>{const s=normalize(blank());s.bpm=120;s.patterns[0].bars=1;s.patterns[0].chords=Array(4).fill(null);s.playMode='pat';S=s;startTick=0;refreshAll();$('loop').setAttribute('aria-pressed','true')})()""")
         await pg.click('#typeKeys'); await J("setRec(true);play()"); await pg.wait_for_timeout(250)
@@ -310,7 +316,7 @@ async def main():
         ref.sort(); err = max(abs(a - b) for a, b in zip(ref, app['times'])) if len(ref) == len(app['times']) else 99
         check('축제, 청춘 v16: 템포 변화 전부 → 음 1,152개 시각이 원본 MIDI와 일치', app['n'] > 50 and app['mode'] == 'song' and err < 0.01, f"바뀌는 곳 {app['n']}개 · 기본 {app['bpm']} · 최대 오차 {err*1000:.2f}ms · 곡 길이 {app['len']:.1f}초")
         rt3 = await J("""(async()=>{const d=(await decodeMSK(await encodeMSK(S,'x',{}))).song,t=parseScore(withSong(S,()=>scoreText('x'))).song,k=a=>JSON.stringify(a.map(x=>[x.t,x.bpm]));return [k(d.tempo)===k(S.tempo),k(t.tempo)===k(S.tempo)]})()""")
-        async with pg.expect_download() as dl: await pg.click('#midi')
+        async with pg.expect_download() as dl: await fclick(pg, '#midi')
         d = await dl.value; tp2 = os.path.join(tmp, 'tempo_out.mid'); await d.save_as(tp2)
         check('템포 지도가 MSK·악보·MIDI 저장에 담김', rt3 == [True, True] and abs(mido.MidiFile(tp2).length - mm.length) < 0.05, f'MSK·악보 {rt3} · 저장한 MIDI {mido.MidiFile(tp2).length:.2f}초 (원본 {mm.length:.2f}초)')
         # 믹서 이펙트 칸 · 자동화
@@ -335,7 +341,7 @@ async def main():
         left = await J("curPat().auto[curCh().id].vol.length"); await pg.select_option('#laneMode', 'vel')
         await pg.locator('#mixerStrips .strip.trk').first.locator('select[aria-label$="이펙트 1"]').select_option('comp'); await pg.wait_for_timeout(150)
         fxs = await J("JSON.stringify(S.mix[chKey(S.channels[0])].fx.map(f=>f.type))")
-        rt4 = await J("""(async()=>{S.mix[chKey(S.channels[1])].fx=[{type:'lpf',a:.4,b:.2},{type:'chorus',a:.6,b:.3}];S.patterns[0].auto[S.channels[0].id].cut=[{s:0,v:.2},{s:96,v:.9}];S=normalize(S);
+        rt4 = await J(r"""(async()=>{S.mix[chKey(S.channels[1])].fx=[{type:'lpf',a:.4,b:.2},{type:'chorus',a:.6,b:.3}];S.patterns[0].auto[S.channels[0].id].cut=[{s:0,v:.2},{s:96,v:.9}];S=normalize(S);
           const d=(await decodeMSK(await encodeMSK(S,'x',{}))).song,t=parseScore(withSong(S,()=>scoreText('x'))).song,k=s=>JSON.stringify([s.channels.map(c=>(s.mix[chKey(c)].fx||[]).map(f=>[f.type,Math.round(f.a*100),Math.round(f.b*100)])),s.patterns.map(p=>s.channels.map(c=>{const A=(p.auto||{})[c.id]||{};return ['vol','cut'].map(q=>(A[q]||[]).map(x=>[x.s,Math.round(x.v*100)]))}))]);
           return [k(S)===k(d),k(S)===k(t).replace(/\[\[\["[a-z]+",\d+,\d+\](,\["[a-z]+",\d+,\d+\])*\]/g,'')||true, (a=>JSON.stringify(a))(t.channels.map(c=>['vol','cut'].map(q=>(((t.patterns[0].auto||{})[c.id]||{})[q]||[]).map(x=>[x.s,Math.round(x.v*100)]))))===(a=>JSON.stringify(a))(S.channels.map(c=>['vol','cut'].map(q=>(((S.patterns[0].auto||{})[c.id]||{})[q]||[]).map(x=>[x.s,Math.round(x.v*100)]))))]})()""")
         check('자동화 줄 편집(점 찍기·두 번 눌러 지우기) · 믹서에서 이펙트 끼우기 · MSK·악보 저장', pts.count('[') == 3 and left == 1 and fxs == '["comp"]' and rt4[0] and rt4[2], f'점 {pts} → 지운 뒤 {left}개 · 이펙트 {fxs} · 저장 {rt4}')
@@ -356,7 +362,7 @@ async def main():
         await pg.select_option('#qzMode', 'both'); await pg.click('#qzBtn')
         qz = await J("curNotes().map(n=>[n.p,n.s,n.l,Math.round(n.v*10)]).sort((a,b)=>a[1]-b[1])")
         check('퀀타이즈 (시작+길이, 겹친 음 합치기)', qz == [[60, 0, 24, 8], [64, 36, 12, 8], [67, 48, 12, 9]], str(qz))
-        await pg.click('#convBtn'); await pg.click('#convCur'); await pg.wait_for_timeout(300)
+        await fclick(pg, '#convBtn'); await pg.click('#convCur'); await pg.wait_for_timeout(300)
         async with pg.expect_download(timeout=90000) as dl: await pg.click('#convMp3')
         d = await dl.value; mp = os.path.join(tmp, 'x.mp3'); await d.save_as(mp)
         mb = open(mp, 'rb').read()
@@ -433,7 +439,7 @@ async def main():
         await pg.click('.more-btn'); await pg.select_option('#meterSel', '3/4'); await pg.wait_for_timeout(150)
         m1 = await J("({bar:BAR_T,beats:BEATS,bars:curPat().bars,notes:curNotes().map(n=>n.s),chord:curPat().chords.findIndex(Boolean),steps:document.querySelectorAll('#rackBody .rrow')[1].querySelectorAll('.st').length,slots:document.querySelectorAll('#chordRow > *').length})")
         rt = await J("""(async()=>{S.swing=.4;const d=normalize((await decodeMSK(await encodeMSK(S,'x',{}))).song),t=parseScore(withSong(S,()=>scoreText('x'))).song;return [d.meter.join('/'),d.swing,t.meter.join('/'),t.swing,t.patterns[0].notes[t.channels[0].id].map(n=>n.s).join(',')]})()""")
-        async with pg.expect_download() as dl: await pg.click('#midi')
+        async with pg.expect_download() as dl: await fclick(pg, '#midi')
         d = await dl.value; mp3 = os.path.join(tmp, 'm34.mid'); await d.save_as(mp3)
         ts = [(m.numerator, m.denominator) for m in mido.MidiFile(mp3).tracks[0] if m.type == 'time_signature']
         mm = mido.MidiFile(ticks_per_beat=480); tr = mido.MidiTrack(); mm.tracks.append(tr)

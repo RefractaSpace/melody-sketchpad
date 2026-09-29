@@ -1,4 +1,4 @@
-/* 27-community.js — 🌐 커뮤니티: 곡 게시 · 목록(최신·인기·검색) · 좋아요 · 댓글 · 열어서 듣기 */
+/* 27-community.js — 커뮤니티: 곡 게시 · 목록(최신·인기·검색) · 좋아요 · 댓글 · 열어서 듣기 */
 const CM_API = (window.MSK_SERVER || '') + '/api/community';
 let cmSort = 'new', cmCur = null, cmT = 0, cmAdmin = false;
 const cmAuthH = () => { const a = authInfo(); return a ? {authorization:'Bearer ' + a.token} : {}; };
@@ -17,7 +17,7 @@ async function cmLoad() {
   for (const p of posts) {
     const card = document.createElement('button'); card.className = 'mp-song cm-card'; card.setAttribute('aria-label', `${p.title}, ${p.author}, 좋아요 ${p.likes}, 댓글 ${p.comments}`);
     const cv = document.createElement('canvas'); cv.setAttribute('aria-hidden', 'true');
-    const info = document.createElement('div'); info.className = 'mp-info'; info.innerHTML = `<b></b><small class="cm-by"></small><small>${p.bpm ? p.bpm + ' BPM · ' : ''}${p.bars ? p.bars + '마디 · ' : ''}${ago(p.created)}</small><small class="cm-counts">♥ ${p.likes} · 💬 ${p.comments}${p.hidden ? ' · 숨겨짐' : ''}${p.reports ? ' · 신고 ' + p.reports : ''}</small>`;
+    const info = document.createElement('div'); info.className = 'mp-info'; info.innerHTML = `<b></b><small class="cm-by"></small><small>${p.bpm ? p.bpm + ' BPM · ' : ''}${p.bars ? p.bars + '마디 · ' : ''}${ago(p.created)}</small><small class="cm-counts" aria-label="좋아요 ${p.likes}, 댓글 ${p.comments}"><i class="ic-heart-on" aria-hidden="true"></i>${p.likes} · <i class="ic-comment" aria-hidden="true"></i>${p.comments}${p.hidden ? ' · 숨겨짐' : ''}${p.reports ? ' · 신고 ' + p.reports : ''}</small>`;
     info.querySelector('b').textContent = p.title; info.querySelector('.cm-by').textContent = '@' + p.author + (p.tags.length ? ' · #' + p.tags.join(' #') : '');
     card.append(cv, info); g.appendChild(card); card.onclick = () => cmOpen(p.id);
     cmSong(p.id).then(r => drawThumb(cv, r.song)).catch(() => {});
@@ -27,7 +27,7 @@ async function cmOpen(id) {
   let post; try { post = (await (await cmCall('?id=' + id)).json()).post; } catch (e) { status('글을 못 열었어요: ' + e.message); return; }
   cmCur = post; $('cmpTitle').textContent = post.title; $('cmpMeta').textContent = `@${post.author} · ${new Date(post.created).toLocaleString('ko-KR', {dateStyle:'medium', timeStyle:'short'})}${post.bpm ? ' · ' + post.bpm + ' BPM' : ''}${post.bars ? ' · ' + post.bars + '마디' : ''}`;
   $('cmpDesc').textContent = post.desc || '(설명 없음)'; $('cmpTags').textContent = post.tags.map(t => '#' + t).join(' ');
-  $('cmpLike').textContent = `${post.liked ? '♥' : '♡'} 좋아요 ${post.likes}`; $('cmpLike').setAttribute('aria-pressed', post.liked);
+  $('cmpLike').textContent = `좋아요 ${post.likes}`; $('cmpLike').classList.toggle('ic-heart-on', !!post.liked); $('cmpLike').classList.toggle('ic-heart', !post.liked); $('cmpLike').setAttribute('aria-pressed', post.liked);
   const me = (authInfo() || {}).username; $('cmpDel').hidden = !(me === post.author || post.admin);
   $('cmpReport').hidden = !me || me === post.author; $('cmpReport').textContent = post.reported ? '신고함' : '신고'; $('cmpReport').disabled = !!post.reported;
   $('cmpHide').hidden = !post.admin; $('cmpHide').textContent = post.hidden ? '보이기' : '숨기기';
@@ -47,7 +47,7 @@ function cmComments() {
     L.appendChild(d); }
 }
 $('cmpPlay').onclick = async () => { try { const r = await cmSong(cmCur.id); $('cmPost').close(); closeCommunity(); await openLoaded({song:r.song, name:cmCur.title, from:'커뮤니티', samples:r.samples, warnings:[]}); status(`@${cmCur.author}의 "${cmCur.title}"을 새 곡으로 열었어요 (원본은 그대로).`); } catch (e) { status('열지 못했어요: ' + e.message); } };
-$('cmpLike').onclick = async () => { if (!authInfo()) { status('좋아요는 로그인하면 누를 수 있어요.'); return; } try { const j = await (await cmCall(`?action=like&id=${cmCur.id}`, {method:'POST'})).json(); cmCur.likes = j.likes; cmCur.liked = j.liked; $('cmpLike').textContent = `${j.liked ? '♥' : '♡'} 좋아요 ${j.likes}`; $('cmpLike').setAttribute('aria-pressed', j.liked); } catch (e) { status(e.message); } };
+$('cmpLike').onclick = async () => { if (!authInfo()) { status('좋아요는 로그인하면 누를 수 있어요.'); return; } try { const j = await (await cmCall(`?action=like&id=${cmCur.id}`, {method:'POST'})).json(); cmCur.likes = j.likes; cmCur.liked = j.liked; $('cmpLike').textContent = `좋아요 ${j.likes}`; $('cmpLike').classList.toggle('ic-heart-on', !!j.liked); $('cmpLike').classList.toggle('ic-heart', !j.liked); $('cmpLike').setAttribute('aria-pressed', j.liked); } catch (e) { status(e.message); } };
 $('cmpSend').onclick = async () => { const text = $('cmpInput').value.trim(); if (!text) return; try { const j = await (await cmCall(`?action=comment&id=${cmCur.id}`, {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({text})})).json(); cmCur.comments.push(j.comment); $('cmpInput').value = ''; cmComments(); } catch (e) { status(e.message); } };
 $('cmpInput').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) $('cmpSend').click(); };
 $('cmpDel').onclick = async () => { if (!confirm(`"${cmCur.title}" 글을 지울까요? 댓글·좋아요도 함께 지워져요.`)) return; try { await cmCall('?id=' + cmCur.id, {method:'DELETE'}); $('cmPost').close(); cmLoad(); status('글을 지웠어요.'); } catch (e) { status(e.message); } };

@@ -21,10 +21,10 @@ async function scoreCheck(selectErr) {
   const kind = sniffFormat(new TextEncoder().encode(text.slice(0, 4096)));
   try {
     const r = await loadAny(text, '붙여 넣은 곡');
-    listMsg(scoreMsg, `✓ ${r.from}로 알아봤어요: ${r.name !== '붙여 넣은 곡' ? '"' + r.name + '" · ' : ''}${songSummary(r.song)}` + (r.warnings.length ? ` · 알림 ${r.warnings.length}개` : ''), r.warnings);
+    listMsg(scoreMsg, `${r.from}로 알아봤어요: ${r.name !== '붙여 넣은 곡' ? '"' + r.name + '" · ' : ''}${songSummary(r.song)}` + (r.warnings.length ? ` · 알림 ${r.warnings.length}개` : ''), r.warnings);
     return pasted = r;
   } catch (e) {
-    listMsg(scoreMsg, '✗ ' + (kind === 'unknown' ? '' : FORMAT_NAME[kind] + ': ') + e.message, null);
+    listMsg(scoreMsg, '' + (kind === 'unknown' ? '' : FORMAT_NAME[kind] + ': ') + e.message, null);
     if (selectErr && e.line) { const ls = text.split('\n'); let a = 0; for (let k = 0; k < e.line - 1; k++) a += ls[k].length + 1; scoreTA.focus(); scoreTA.setSelectionRange(a, a + ls[e.line - 1].length); }
     return null;
   }
@@ -62,7 +62,7 @@ $('convPick').onclick = () => $('convIn').click();
 $('convIn').onchange = async () => {
   const f = $('convIn').files[0]; $('convIn').value = ''; if (!f) return;
   try { conv = await loadAny(f); convShow(); announce(`${conv.from} 파일로 알아봤어요. 바꿀 형식을 골라 주세요.`); }
-  catch (e) { conv = null; convShow(); listMsg($('convInfo'), '✗ 읽지 못했어요: ' + (e.message || '알 수 없는 형식'), null); }
+  catch (e) { conv = null; convShow(); listMsg($('convInfo'), '읽지 못했어요: ' + (e.message || '알 수 없는 형식'), null); }
 };
 $('convCur').onclick = async () => { save(); const song = normalize(JSON.parse(JSON.stringify(S))), sm = await songSamples(song);
   conv = {song, name:lib.list[lib.current].name, from:'지금 곡', warnings:[], samples:Object.entries(sm).map(([slot, v]) => ({slot, name:v.name, root:v.root, ab:v.ab}))}; convShow(); };
@@ -70,7 +70,7 @@ const convSampleMap = () => Object.fromEntries((conv.samples || []).map(s => [s.
 $('convMsk').onclick = async () => convSave('msk', await encodeMSK(conv.song, conv.name, convSampleMap()), 'application/octet-stream');
 $('convCode').onclick = async () => {
   const code = mskToCode(await encodeMSK(conv.song, conv.name, {})), out = $('out'); out.value = code;
-  try { await navigator.clipboard.writeText(code); listMsg($('convInfo'), `✓ 곡 코드를 복사했어요 (${code.length.toLocaleString()}글자). "붙여넣기"에 넣으면 이 곡이 열려요. 내 샘플은 빠져요.`, null); }
+  try { await navigator.clipboard.writeText(code); listMsg($('convInfo'), `곡 코드를 복사했어요 (${code.length.toLocaleString()}글자). "붙여넣기"에 넣으면 이 곡이 열려요. 내 샘플은 빠져요.`, null); }
   catch (e) { out.style.display = 'block'; out.focus(); out.select(); listMsg($('convInfo'), '자동 복사가 막혀 있어요. 아래 곡 코드를 길게 눌러 복사해 주세요.', null); }
 };
 $('convTxt').onclick = () => convSave('txt', withSong(conv.song, () => scoreText(conv.name)), 'text/plain;charset=utf-8');
@@ -85,17 +85,17 @@ $('convWav').onclick = async () => {
 // 오래 걸리는 오디오 만들기 공통: 버튼에 진행률, 끝나면 되돌림
 async function convBusy(id, label, job) {
   const b = $(id); CONV_BTNS.forEach(x => $(x).disabled = true);
-  try { await job(t => b.textContent = t); } catch (e) { listMsg($('convInfo'), '✗ ' + (e.message || '만들지 못했어요'), null); }
+  try { await job(t => b.textContent = t); } catch (e) { listMsg($('convInfo'), '' + (e.message || '만들지 못했어요'), null); }
   finally { b.textContent = label; convShow(); }
 }
 $('convMp3').onclick = () => convBusy('convMp3', 'MP3 (.mp3)', async show => {
   const w = await withSongAsync(convSongForAudio(), () => renderWav(p => show(`소리 만드는 중 ${Math.floor(p * 100)}%`)));
   const m = await wavToMp3(w, p => show(`MP3로 바꾸는 중 ${Math.floor(p * 100)}%`)); await convSave('mp3', m, 'audio/mpeg');
-  listMsg($('convInfo'), `✓ MP3 ${(m.length / 1e6).toFixed(1)}MB (WAV ${(w.length / 1e6).toFixed(1)}MB의 ${Math.round(m.length / w.length * 100)}%)`, null);
+  listMsg($('convInfo'), `MP3 ${(m.length / 1e6).toFixed(1)}MB (WAV ${(w.length / 1e6).toFixed(1)}MB의 ${Math.round(m.length / w.length * 100)}%)`, null);
 });
 $('convStem').onclick = () => convBusy('convStem', '스템 (채널별 WAV .zip)', async show => {
   const files = await withSongAsync(convSongForAudio(), () => renderStems((p, name) => show(`스템 ${Math.floor(p * 100)}% · ${name}`)));
   if (!files.length) throw new Error('소리 나는 채널이 없어요'); await convSave('zip', zipFiles(files), 'application/zip');
-  listMsg($('convInfo'), `✓ 스템 ${files.length}개: ${files.map(f => f[0].replace(/\.wav$/, '')).join(', ')}`, null);
+  listMsg($('convInfo'), `스템 ${files.length}개: ${files.map(f => f[0].replace(/\.wav$/, '')).join(', ')}`, null);
 });
 $('convOpen').onclick = async () => { $('convDlg').close(); await openLoaded({...conv, song:normalize(JSON.parse(JSON.stringify(conv.song)))}); status(`"${conv.name}"을 새 프로젝트로 열었어요.`); };
