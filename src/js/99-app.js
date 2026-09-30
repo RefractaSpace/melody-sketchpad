@@ -47,6 +47,7 @@ function refreshAll() {
   const ns = new Set(curNotes()); for (const n of [...sel]) if (!ns.has(n)) sel.delete(n);
   $('selBar').hidden = sel.size === 0;
   syncControls(); refreshTitles(); drawAll(); buildRack(); buildMixer(); drawPlaylist(); buildBrowser();
+  if (typeof applyTier === 'function') applyTier();   // 6: 등급에 맞는 악기만 목록에
 }
 $('bpm').onchange = () => { S.bpm = clamp(Math.round((+$('bpm').value || 150) * 100) / 100, 60, 300); $('bpm').value = S.bpm; save(); if (E) applyMix(E, S.mix); };
 rootSel.onchange = () => { S.root = +rootSel.value; save(); drawAll(); };

@@ -571,6 +571,31 @@ async def main():
           S=normalize(JSON.parse(snap)); save(); refreshAll(); return r})()""")
         check('샘플 악기: 새 악기 15개만 샘플 · 내려받기 · 건반과 세기로 고르기 (피아노 등 기존 악기는 그대로)', not smp.get('off') and not smp.get('loadFail') and smp.get('insts', 0) >= 15 and smp.get('hasViolin') and not smp.get('hasPiano') and smp.get('bufs', 0) > 10 and smp.get('pick'), str(smp))
 
+        # 6: 등급별 악기
+        tier = await J("""(async()=>{const r={}; const before=myTier();
+          for(const t of ['se','six','pro','max']){setTier(t);
+            const vis=[...$('chAdd').querySelectorAll('option[value^="synth:"]')].filter(o=>!o.hidden).map(o=>o.value.slice(6));
+            r[t]={n:vis.length, gm:vis.filter(v=>/^gm\\d+$/.test(v)).length, vio:vis.includes('violin'),
+                  max:vis.includes('pianoMax'), base:vis.includes('piano')};}
+          setTier('se');
+          r.sub={violin:playInst('violin'), pianoMax:playInst('pianoMax'), piano:playInst('piano')};
+          const snap=JSON.stringify(S);
+          S=normalize(blank()); S.channels[0].inst='violin'; refreshAll();
+          const P=curPat(); for(const c of S.channels) P.notes[c.id]=[]; P.notes[S.channels[0].id]=[{p:72,s:0,l:48,v:.9}];
+          S.bpm=120; S.playMode='pattern';
+          const b=await renderWav(); const u=b instanceof Uint8Array?b:new Uint8Array(b); const dv=new DataView(u.buffer,u.byteOffset);
+          const n=(u.length-44)>>1; let mx=0; for(let i=0;i<n;i++){const v=Math.abs(dv.getInt16(44+i*2,true))/32768; if(v>mx)mx=v}
+          r.peak=+mx.toFixed(3); r.keep=S.channels[0].inst==='violin';
+          setTier(before||'max'); S=normalize(JSON.parse(snap)); save(); refreshAll(); return r})()""")
+        check('등급별 악기: SE는 합성만 · 6은 표준 128개 · Pro는 오케스트라 · Max는 피아노 Max',
+              tier['se']['gm'] == 0 and not tier['se']['vio'] and tier['se']['base']
+              and tier['six']['gm'] == 128 and not tier['six']['vio']
+              and tier['pro']['vio'] and not tier['pro']['max'] and tier['max']['max'],
+              f"SE {tier['se']['n']} · 6 {tier['six']['n']} · Pro {tier['pro']['n']} · Max {tier['max']['n']}")
+        check('등급: 잠긴 악기를 쓰는 곡도 비슷한 소리로 재생되고 악기 이름은 그대로',
+              tier['sub']['violin'] == 'strings' and tier['sub']['piano'] == 'piano' and tier['peak'] > 0.02 and tier['keep'],
+              str(tier['sub']) + f" · 소리 {tier['peak']} · 이름유지 {tier['keep']}")
+
         # 6: 악기 145개 · 라이선스 표기
         big = await J("""(async()=>{const idx=await smpIndex(); const r={n:Object.keys(idx).length};
           r.gm=Object.keys(idx).filter(k=>/^gm\\d+$/.test(k)).length; r.piano=!!idx.pianoPro&&!!idx.pianoMax;

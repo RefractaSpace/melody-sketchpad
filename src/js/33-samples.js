@@ -61,7 +61,8 @@ function smpPick(pack, p, v) {                     // 가장 크게 들릴 하�
 }
 // 샘플로 한 음 재생. 낼 수 있으면 true (못 내면 부르는 쪽이 합성으로)
 function smpPlay(EE, ch, p, t, d, v, dest) {
-  const pack = SMP.ready[ch.inst]; if (!pack) { smpLoad(ch.inst); return false; }
+  const inst = typeof playInst === 'function' ? playInst(ch.inst) : ch.inst;   // 등급에 따라 대신할 악기
+  const pack = SMP.ready[inst]; if (!pack) { smpLoad(inst); return false; }
   const hits = smpPickAll(pack, p, v); if (!hits.length) return false;
   for (const hit of hits) {
     const src = EE.ac.createBufferSource(); src.buffer = hit.buf;
