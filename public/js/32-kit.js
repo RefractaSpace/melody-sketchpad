@@ -1,14 +1,19 @@
 /* 32-kit.js — 6: 드럼 키트. 드럼을 피아노 롤에서 음처럼 찍음 (줄 = 표준 GM 드럼 번호)
-   킥·스네어·박수·닫힌 햇·크래시는 기존 드럼 소리, 나머지 9개는 여기서 합성. 뒤에 실제 녹음 샘플로 바꿀 자리. */
-const KIT = [[36, 'kick', '킥'], [37, 'rim', '림'], [38, 'snare', '스네어'], [39, 'clap', '박수'], [41, 'tomL', '로우 탐'], [42, 'hatC', '닫힌 햇'], [44, 'hatP', '페달 햇'],
-  [45, 'tomM', '미드 탐'], [46, 'hatO', '열린 햇'], [48, 'tomH', '하이 탐'], [49, 'crash', '크래시'], [51, 'ride', '라이드'], [56, 'bell', '카우벨'], [70, 'shaker', '셰이커']];
-const KIT_ROW = {}; KIT.forEach(([p, id, nm], i) => KIT_ROW[p] = {id, nm, i});
-// 다른 GM 번호도 비슷한 소리로 (MIDI 건반·파일에서 들어올 때)
+   줄은 36~49 빈틈없이, 저장·MIDI는 GM 번호. 킥·스네어·박수·닫힌 햇·크래시는 기존 드럼 소리, 나머지 9개는 여기서 합성. 뒤에 실제 녹음 샘플로 바꿀 자리. */
+// 드럼 키트 줄: 피아노 롤에서는 36~49의 14줄을 빈틈없이 쓰고 (아래부터 킥 → 셰이커), 소리·MIDI에서는 표준 GM 드럼 번호로 바꿈
+const KIT = [[36, 36, 'kick', '킥'], [37, 37, 'rim', '림'], [38, 38, 'snare', '스네어'], [39, 39, 'clap', '박수'],
+  [40, 42, 'hatC', '닫힌 햇'], [41, 44, 'hatP', '페달 햇'], [42, 46, 'hatO', '열린 햇'],
+  [43, 41, 'tomL', '로우 탐'], [44, 45, 'tomM', '미드 탐'], [45, 48, 'tomH', '하이 탐'],
+  [46, 49, 'crash', '크래시'], [47, 51, 'ride', '라이드'], [48, 56, 'bell', '카우벨'], [49, 70, 'shaker', '셰이커']];
+const KIT_ROW = {}, KIT_BY_GM = {}; KIT.forEach(([p, gm, id, nm], i) => { KIT_ROW[p] = {gm, id, nm, i}; KIT_BY_GM[gm] = p; });
+// 다른 GM 번호도 비슷한 드럼 줄로 (MIDI 파일·건반에서 들어올 때)
 const KIT_ALIAS = {35:36, 40:38, 43:41, 47:45, 50:48, 52:49, 55:49, 57:49, 53:51, 59:51, 54:70, 69:70, 82:70, 31:37, 33:37};
-const kitSnap = p => { if (KIT_ROW[p]) return p; let best = 36; for (const [q] of KIT) if (Math.abs(q - p) < Math.abs(best - p)) best = q; return best; };
+const kitFromGm = gm => KIT_BY_GM[KIT_ALIAS[gm] || gm];
+const kitToGm = p => KIT_ROW[p] ? KIT_ROW[p].gm : 36;
+const kitSnap = p => Math.max(36, Math.min(49, Math.round(p)));   // 줄이 빈틈없으니 범위 안으로만
 function kitNoise(ac) { if (ac._kitNoise) return ac._kitNoise; const b = ac.createBuffer(1, ac.sampleRate, ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return ac._kitNoise = b; }
 function kitHit(p, t, EE, vel, key) {
-  EE = EE || E; vel = vel == null ? 1 : vel; const row = KIT_ROW[KIT_ALIAS[p] || p]; if (!row) return;
+  EE = EE || E; vel = vel == null ? 1 : vel; const row = KIT_ROW[p]; if (!row) return;
   const id = row.id, ac = EE.ac, dest = getCh(EE, key).inp;
   if (id === 'kick' || id === 'snare' || id === 'clap' || id === 'crash') { drumHit(id, t, EE, vel, key); return; }
   if (id === 'hatC' || id === 'hatP') { chokeOpenHat(EE, t); drumHit('hat', t, EE, vel * (id === 'hatP' ? .6 : 1), key); return; }
@@ -31,10 +36,10 @@ drawKeys = function () {
   kitDrawKeys0();
   if (!curCh() || curCh().inst !== 'kit') return;
   const x = kc.getContext('2d'), d = devicePixelRatio || 1; x.save(); x.setTransform(d, 0, 0, d, 0, 0);
-  x.fillStyle = CS['key-w']; x.fillRect(0, 0, KEYW, (HIGH - LOW + 1) * ROWH);
+  const ink = getComputedStyle(document.body).color; x.fillStyle = CS['row-out']; x.fillRect(0, 0, KEYW, (HIGH - LOW + 1) * ROWH);
   x.font = `600 ${Math.max(9, Math.min(11, ROWH - 3))}px ${getComputedStyle(document.body).fontFamily}`; x.textBaseline = 'middle'; x.textAlign = 'left';
   for (let p = HIGH; p >= LOW; p--) { const y = (HIGH - p) * ROWH, r = KIT_ROW[p];
-    if (r) { x.fillStyle = r.i % 2 ? CS['row-in'] : CS['row-root']; x.fillRect(0, y, KEYW, ROWH); x.fillStyle = CS.text || '#222'; x.fillText(r.nm, 6, y + ROWH / 2 + .5); }
+    if (r) { x.fillStyle = r.i % 2 ? CS['row-in'] : CS['row-root']; x.fillRect(0, y, KEYW, ROWH); x.fillStyle = ink; x.fillText(r.nm, 6, y + ROWH / 2 + .5); }
     x.fillStyle = CS['key-line']; x.fillRect(0, y + ROWH - .5, KEYW, 1); }
   x.restore();
 };
@@ -43,12 +48,12 @@ let kitSeen = null;
 const kitDrawRoll0 = drawRoll;
 drawRoll = function () {
   const c = curCh();
-  if (c && c.inst === 'kit' && kitSeen !== c.id) { kitSeen = c.id; const top = Math.max(0, Math.round((HIGH - 53) * ROWH - wrap.clientHeight / 2)); if (Math.abs(wrap.scrollTop - top) > 1) { wrap.scrollTop = top; drawKeys(); } }
+  if (c && c.inst === 'kit' && kitSeen !== c.id) { kitSeen = c.id; const top = Math.max(0, Math.round((HIGH - 42.5) * ROWH - wrap.clientHeight / 2)); if (Math.abs(wrap.scrollTop - top) > 1) { wrap.scrollTop = top; drawKeys(); } }
   else if (!c || c.inst !== 'kit') kitSeen = null;
   kitDrawRoll0();
 };
 // 드럼 채널(킥·스네어…)들을 드럼 키트 하나로 합치기 — 모든 패턴의 음을 옮기고 원래 채널은 지움 (되돌리기 가능)
-const KIT_FROM = {kick:36, snare:38, hat:42, clap:39, crash:49};
+const KIT_FROM = {kick:36, snare:38, hat:40, clap:39, crash:46};
 function mergeToKit() {
   const drums = S.channels.filter(c => c.kind === 'drum'); if (!drums.length) { status('합칠 드럼 채널이 없어요.'); return; }
   pushUndo(); let kit = S.channels.find(c => c.inst === 'kit'); if (!kit) { kit = newChannel('synth', 'kit'); S.channels.push(kit); }

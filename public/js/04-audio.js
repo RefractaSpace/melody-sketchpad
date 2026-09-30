@@ -239,7 +239,9 @@ function playTrackNote(EE, ch, p, t, d, v, b) {
   if (ch.kind === 'drum') { drumHit(ch.inst, t, EE, v, chKey(ch)); return; }
   if (ch.inst === 'kit') { kitHit(p, t, EE, v, chKey(ch)); return; }
   if (b) BEND = {r:Math.pow(2, b / 12), t0:t + Math.min(0.08, d * 0.25), t1:t + Math.max(0.02, d)};   // 음이 끝날수록 b반음까지 휨
-  try { voice(EE, ch.inst, p, t, d, v, getCh(EE, chKey(ch)).inp, ch.tone, chKey(ch)); } finally { BEND = null; }
+  const dest = getCh(EE, chKey(ch)).inp;
+  if (!b && typeof smpPlay === 'function' && smpPlay(EE, ch, p, t, d, v, dest)) { BEND = null; return; }   // 샘플이 준비됐으면 샘플로 (음 휘기는 합성으로)
+  try { voice(EE, ch.inst, p, t, d, v, dest, ch.tone, chKey(ch)); } finally { BEND = null; }
 }
 function preview(p, v) { ensureCtx(); playTrackNote(E, curTrack(), p, ctx.currentTime + 0.01, 0.3, v == null ? 0.9 : v); }
 

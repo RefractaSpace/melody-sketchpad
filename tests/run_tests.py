@@ -215,8 +215,8 @@ async def main():
         check('악보 텍스트: 곡 → 악보 → 곡 왕복이 같음', rt['same'] and not rt['warn'], str(rt['warn'][:2]))
         er = await J("(()=>{try{parseScore('BPM: 120\\n[채널]\\n피아노 = 피아노\\n[패턴] A | 1마디\\n피아노: 1.1.1 H5 2');return 'no error'}catch(e){return e.message}})()")
         wr = await J("(()=>{const r=parseScore('[채널]\\n피아노 = 피아노\\n[패턴] A | 1마디\\n피아노: 1.1.1 H5 2 | 1.2.1 C5 2');return [r.warnings.join(' / '), notesOf(r.song.patterns[0],r.song.channels[0]).length]})()")
-        er2 = await J("(()=>{try{parseScore('[채널]\\n피아노 = 바이올린\\n[패턴] A | 1마디');return 'no error'}catch(e){return e.message}})()")
-        check('악보 텍스트: 틀린 곳을 줄 번호로 알려 줌', '4번째 줄' in wr[0] and wr[1] == 1 and '2번째 줄' in er2 and '바이올린' in er2, f'{wr[0][:40]} / {er2[:40]}')
+        er2 = await J("(()=>{try{parseScore('[채널]\\n피아노 = 없는악기\\n[패턴] A | 1마디');return 'no error'}catch(e){return e.message}})()")   # 바이올린은 6에서 진짜 악기가 됨
+        check('악보 텍스트: 틀린 곳을 줄 번호로 알려 줌', '4번째 줄' in wr[0] and wr[1] == 1 and '2번째 줄' in er2 and '없는악기' in er2, f'{wr[0][:40]} / {er2[:40]}')
         demo = "# 멜로디 스케치패드 악보 v1\n제목: 테스트 곡\nBPM: 128\n조: A 단조\n재생: SONG\n[채널]\n리드 = 슈퍼소    볼륨 80\n킥 = 드럼 킥\n[패턴] 벌스 | 2마디\n코드: 1.1 Am | 2.1 F\n리드: 1.1.1 A4 2 v90 | 1.1.3 C5 2 | 1.2.1 E5 4\n  2.1.1 F5 8 v70\n킥: X...X...X...5... X...X...X...X...\n[플레이리스트]\n트랙 1: 벌스 @1, 벌스 @3\n"
         await fclick(pg, '#scoreIn'); await pg.fill('#scoreText', demo); await pg.wait_for_timeout(450)
         ok_msg = '알아봤어요' in await pg.inner_text('#scoreMsg'); await pg.click('#scoreLoad'); await pg.wait_for_timeout(300)
@@ -551,6 +551,26 @@ async def main():
 
         dup = await J("""(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id),seen={},d=[];ids.forEach(i=>{if(seen[i]&&!d.includes(i))d.push(i);seen[i]=1});return {d,n:ids.length,cz:['czGo','czPrompt','czAudio','czMp3','czOpen'].every(i=>!!document.getElementById(i)),hidden:getComputedStyle($('composerApp')).display==='none'&&!$('composerApp').offsetHeight}})()""")
         check('같은 id가 두 번 없음 · AI 작곡기 요소 (평소에는 화면에서 안 보임)', not dup['d'] and dup['cz'] and dup['hidden'], f"id {dup['n']}개, 중복 {dup['d']}")
+
+        # 6: 실제 녹음 샘플 악기
+        smp = await J("""(async()=>{const r={};
+          const idx=await smpIndex(); if(!idx) return {off:true};
+          r.insts=Object.keys(idx).length; r.hasViolin=!!idx.violin; r.hasPiano=!!idx.piano;
+          const pack=await smpLoad('violin'); if(!pack) return {...r, loadFail:true};
+          r.bufs=Object.keys(pack.bufs).length; r.gain=+pack.gain.toFixed(2);
+          const hi=smpPick(pack,72,0.9), lo=smpPick(pack,60,0.3);
+          r.pick=!!(hi&&hi.buf) && !!(lo&&lo.buf); r.diffVel = hi&&lo ? hi.buf!==lo.buf||hi.root!==lo.root : false;
+          const snap=JSON.stringify(S);
+          S=normalize(blank()); const c=S.channels[0]; c.inst='violin'; const P=curPat();
+          for(const ch of S.channels) P.notes[ch.id]=[]; P.notes[c.id]=[{p:72,s:0,l:48,v:.9}];
+          S.bpm=120; S.playMode='pattern'; refreshAll();
+          const b=await renderWav(); const u=b instanceof Uint8Array?b:new Uint8Array(b); const dv=new DataView(u.buffer,u.byteOffset);
+          const n=(u.length-44)>>1; let mx=0; for(let i=0;i<n;i++){const v=Math.abs(dv.getInt16(44+i*2,true))/32768; if(v>mx)mx=v}
+          r.peak=+mx.toFixed(3); r.msk=MSK_INST.indexOf('violin')>0 && MSK_INST.indexOf('xylo')>0;
+          r.keep=normalize(JSON.parse(JSON.stringify(S))).channels[0].inst==='violin';
+          S=normalize(JSON.parse(snap)); save(); refreshAll(); return r})()""")
+        check('샘플 악기: 새 악기 15개만 샘플 · 내려받기 · 건반과 세기로 고르기 (피아노 등 기존 악기는 그대로)', not smp.get('off') and not smp.get('loadFail') and smp.get('insts', 0) >= 15 and smp.get('hasViolin') and not smp.get('hasPiano') and smp.get('bufs', 0) > 10 and smp.get('pick'), str(smp))
+        check('샘플 악기: 실제로 소리 남 · 파일에 저장되고 불러와도 유지', smp.get('peak', 0) > 0.02 and smp.get('msk') and smp.get('keep'), f"소리 {smp.get('peak')} · 번호표 {smp.get('msk')} · 유지 {smp.get('keep')}")
 
         # 6: 드럼 키트 (드럼을 피아노 롤에서 찍기)
         kit = await J("""(async()=>{const snap=JSON.stringify(S);const r={};

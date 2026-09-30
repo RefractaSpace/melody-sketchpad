@@ -70,7 +70,7 @@ function midiBytes() {
   tr.push(mtrack(cev, '코드'));
   const dev = [], map = {kick:36, snare:38, hat:42, clap:39, crash:49};
   for (const c of S.channels) if (c.kind === 'drum') for (const n of F.notes[c.id] || []) { dev.push({t:n.s, o:1, b:[0x99, map[c.inst], Math.max(1, Math.round(n.v * 127))]}); dev.push({t:n.s + 6, o:0, b:[0x89, map[c.inst], 0]}); }
-  for (const c of S.channels) if (c.inst === 'kit') for (const n of F.notes[c.id] || []) { dev.push({t:n.s, o:1, b:[0x99, n.p, Math.max(1, Math.round(n.v * 127))]}); dev.push({t:n.s + Math.max(6, Math.min(n.l, 48)), o:0, b:[0x89, n.p, 0]}); }
+  for (const c of S.channels) if (c.inst === 'kit') for (const n of F.notes[c.id] || []) { const g = kitToGm(n.p); dev.push({t:n.s, o:1, b:[0x99, g, Math.max(1, Math.round(n.v * 127))]}); dev.push({t:n.s + Math.max(6, Math.min(n.l, 48)), o:0, b:[0x89, g, 0]}); }
   tr.push(mtrack(dev, '드럼'));
   return new Uint8Array([0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 1, 0, tr.length, 0, PPQ, ...tr.flat()]);
 }
