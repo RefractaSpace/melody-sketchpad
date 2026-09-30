@@ -14,14 +14,30 @@ function instTier(inst) {
        'trumpet','horn','trombone','tuba','marimba','glock','xylo'].includes(inst)) return 'pro';
   return 'se';                                  // 기존 합성 악기·드럼·드럼 키트
 }
+let serverTier = null;                            // 서버가 알려 준 등급 (이게 있으면 이걸 씀)
 function myTier() {
+  if (serverTier) return serverTier;
   try { const t = localStorage.getItem('msk.tier'); if (TIERS.includes(t)) return t; } catch (e) {}
   return 'se';
 }
+// 서버에 내 등급을 물어본다 (로그인했고 DB가 켜져 있을 때만 값이 옴)
+async function fetchTier() {
+  try {
+    const a = typeof authInfo === 'function' ? authInfo() : null;
+    const tok = a && a.token;
+    if (!tok) return null;                        // 로그인 안 했으면 물어볼 것도 없음
+    const r = await fetch((window.MSK_SERVER || '') + '/api/license', {headers:{authorization:'Bearer ' + tok}});
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (j && TIERS.includes(j.tier) && j.signedIn && !j.note) { serverTier = j.tier; applyTier(); return j.tier; }
+  } catch (e) {}
+  return null;
+}
 function setTier(t) {
   if (!TIERS.includes(t)) return false;
+  if (serverTier) { status(`등급은 서버에서 정해져요 (지금 ${TIER_NAME[serverTier]})`); return false; }   // 서버가 정한 뒤에는 못 바꿈
   try { localStorage.setItem('msk.tier', t); } catch (e) {}
-  applyTier(); status(`${TIER_NAME[t]} 등급으로 바꿨어요 · 악기 ${countUnlocked()}개`);
+  applyTier(); status(`${TIER_NAME[t]} 등급으로 바꿨어요 · 악기 ${countUnlocked()}개 (개발용)`);
   return true;
 }
 const canUse = inst => TIER_RANK[instTier(inst)] <= TIER_RANK[myTier()];
@@ -60,7 +76,7 @@ function tierNotice() {
 
 /* 첫 실행 때와 곡을 불러온 뒤 */
 (() => {
-  const go = () => { applyTier(); tierNotice(); };
+  const go = async () => { applyTier(); await fetchTier(); applyTier(); tierNotice(); };   // 서버 등급을 받은 뒤 목록을 그림
   if (document.readyState === 'complete') setTimeout(go, 300);
   else window.addEventListener('load', () => setTimeout(go, 300), {once:true});
 })();
