@@ -23,7 +23,13 @@ function smpLoad(inst) {
         const ab = await (await fetch(`${dir}/${s.i}.opus`)).arrayBuffer();
         bufs[s.i] = await ctx.decodeAudioData(ab);
       }));
-      const rows = meta.zones.map(z => ({lo:z.k[0], hi:z.k[1], root:z.r, vs:z.vs}));
+      // 두 가지 정보 형식을 모두 받음:
+      //   살라만더·VSCO → vs: [[세기 위끝, 소리 번호], …]
+      //   GeneralUser GS → s: 소리 번호 하나 + va: [[세기 위끝, 음량 깎기(0.1dB)], …]
+      const rows = meta.zones.map(z => z.vs
+        ? {lo:z.k[0], hi:z.k[1], root:z.r, vs:z.vs}
+        : {lo:z.k[0], hi:z.k[1], root:z.r, one:z.s, va:z.va || null,
+           ct:z.ct || 0, ft:z.ft || 0, lp:z.lp || 0});
       return SMP.ready[inst] = {meta, bufs, rows, gain:Math.pow(10, (meta.gain || 0) / 20)};
     } catch (e) { return null; }
   })();
@@ -34,9 +40,15 @@ function smpPick(pack, p, v) {
   const vel = Math.max(1, Math.round((v == null ? 0.9 : v) * 127));
   for (const z of pack.rows) {
     if (p < z.lo || p > z.hi) continue;
-    for (const [top, i] of z.vs) if (vel <= top) return {buf:pack.bufs[i], root:z.root};
-    const last = z.vs[z.vs.length - 1];
-    return last ? {buf:pack.bufs[last[1]], root:z.root} : null;
+    if (z.vs) {                                   // 세기마다 다른 소리
+      for (const [top, i] of z.vs) if (vel <= top) return {buf:pack.bufs[i], root:z.root, att:0};
+      const last = z.vs[z.vs.length - 1];
+      return last ? {buf:pack.bufs[last[1]], root:z.root, att:0} : null;
+    }
+    let att = 0;                                  // 소리 하나 + 세기별 음량
+    if (z.va) { const hit = z.va.find(([top]) => vel <= top); att = hit ? hit[1] : z.va[z.va.length - 1][1]; }
+    const buf = pack.bufs[z.one];
+    return buf ? {buf, root:z.root, att, ct:z.ct, ft:z.ft} : null;
   }
   return null;
 }
@@ -45,8 +57,8 @@ function smpPlay(EE, ch, p, t, d, v, dest) {
   const pack = SMP.ready[ch.inst]; if (!pack) { smpLoad(ch.inst); return false; }
   const hit = smpPick(pack, p, v); if (!hit || !hit.buf) return false;
   const src = EE.ac.createBufferSource(); src.buffer = hit.buf;
-  src.playbackRate.value = Math.pow(2, (p - hit.root) / 12);
-  const g = EE.ac.createGain(), vol = pack.gain * (v == null ? 0.9 : v);
+  src.playbackRate.value = Math.pow(2, (p - hit.root) / 12 + (hit.ct || 0) / 12 + (hit.ft || 0) / 1200);
+  const g = EE.ac.createGain(), vol = pack.gain * (v == null ? 0.9 : v) * Math.pow(10, -(hit.att || 0) / 200);   // att는 0.1dB 단위로 깎기
   const dur = d != null ? d : hit.buf.duration;
   const rel = Math.min(0.25, dur * 0.3);
   g.gain.setValueAtTime(0.0001, t);

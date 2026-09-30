@@ -54,10 +54,17 @@ async function loadPianoAssets() {
   try {
     const man = JSON.parse(new TextDecoder().decode(await fetchCached(ASSET_BASE + 'manifest.json', true))), L = man.layers;
     const one = async (layer, k, into) => { into[k] = await decode(await fetchCached(`${ASSET_BASE}${layer}/${k}.mp3`)); };
-    await Promise.all(L.base.keys.map(k => one('base', k, PIANO)));
-    pianoState = 'ready'; pianoStat('녹음 피아노 준비됨 (서버)'); layerState = 'loading';
-    for (const n of ['soft', 'hard']) if (L[n]) { Object.assign(PIANO_LG[n], L[n].gain); await Promise.all(L[n].keys.map(k => one(n, k, PIANO_L[n]))); }
-    layerState = 'ready'; pianoStat('피아노 세기 층 준비됨'); setTimeout(() => pianoStat(''), 3000); return true;
+    // 6 최적화: 자주 쓰는 가운데 음역(C3~C6)을 먼저 받아 바로 소리가 나게, 바깥쪽은 뒤에서
+    const mid = L.base.keys.filter(k => k >= 48 && k <= 84), out = L.base.keys.filter(k => k < 48 || k > 84);
+    await Promise.all(mid.map(k => one('base', k, PIANO)));
+    pianoState = 'ready'; pianoStat('녹음 피아노 준비됨 (서버)');
+    Promise.all(out.map(k => one('base', k, PIANO).catch(() => {})));
+    // 6 최적화: 기본 층으로 이미 소리가 나므로, 세기 층(약하게·세게)은 화면이 한가할 때 뒤에서 받음
+    const rest = async () => { layerState = 'loading';
+      for (const n of ['soft', 'hard']) if (L[n]) { Object.assign(PIANO_LG[n], L[n].gain); await Promise.all(L[n].keys.map(k => one(n, k, PIANO_L[n]))); }
+      layerState = 'ready'; pianoStat('피아노 세기 층 준비됨'); setTimeout(() => pianoStat(''), 3000); };
+    (window.requestIdleCallback || (f => setTimeout(f, 800)))(() => rest(), {timeout:4000});
+    return true;
   } catch (e) { if (!Object.keys(PIANO).length) return false; layerState = 'wait'; return true; }   // 기본 층은 받았으면 그대로 씀
 }
 function watchPiano() {
