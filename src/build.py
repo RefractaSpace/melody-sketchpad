@@ -12,10 +12,12 @@
 import os, re, shutil, subprocess, sys
 here = os.path.dirname(os.path.abspath(__file__))
 out = os.path.normpath(os.path.join(here, '..', 'public'))
+app_out = os.path.join(out, 'app')          # 6: 앱은 /app/, 첫 화면(/)은 소개 페이지
+os.makedirs(app_out, exist_ok=True)
 read = lambda *p: open(os.path.join(here, *p), encoding='utf-8').read()
 def write(name, text):
-    path = os.path.join(out, name); open(path, 'w', encoding='utf-8').write(text)
-    print(f'만들었어요: public/{name} ({len(text.encode("utf-8"))/1024:.0f} KB)')
+    path = os.path.join(app_out, name); open(path, 'w', encoding='utf-8').write(text)
+    print(f'만들었어요: public/app/{name} ({len(text.encode("utf-8"))/1024:.0f} KB)')
 
 mods = sorted(f for f in os.listdir(os.path.join(here, 'js')) if re.match(r'\d\d-.*\.js$', f))
 app = '/* 멜로디 스케치패드 — 읽기 쉬운 원본은 src/js/ (src/index.html과 똑같이 동작하도록 감싸지 않고 순서대로 합침) */\n' + '\n'.join(read('js', m) for m in mods) + '\n'
@@ -41,5 +43,5 @@ open(os.path.join(out, 'assets', 'piano', 'manifest.json'), 'w').write(_json.dum
 if '--min' in sys.argv:
     for tool, args in (('terser', ['--compress', 'passes=2', '--mangle', '-o']), ('cleancss', ['-O2', '-o'])):
         if not shutil.which(tool): print(f'{tool}가 없어서 압축은 건너뛰었어요'); continue
-        f = os.path.join(out, 'app.js' if tool == 'terser' else 'style.css')
+        f = os.path.join(app_out, 'app.js' if tool == 'terser' else 'style.css')
         subprocess.run([tool, f] + args + [f], check=True); print(f'압축했어요: {os.path.basename(f)} ({os.path.getsize(f)/1024:.0f} KB)')
