@@ -309,6 +309,13 @@
     <p>드럼과 나머지 악기 소리는 멜로디 스케치패드가 직접 합성해 만들었어요.</p>
   </div>
   <div class="row end"><button class="tbtn" id="creditClose" type="button">닫기</button></div>
+</dialog><dialog id="tuneDlg" class="dlg">
+  <h2>음정 보정</h2>
+  <p class="wsub" id="tuneInfo">분석 중…</p>
+  <div class="row"><label>보정 세기</label><input type="range" id="tuneAmt" min="0" max="100" value="80" style="flex:1"><span id="tuneAmtV">80%</span></div>
+  <div class="row"><label><input type="checkbox" id="tuneScale" checked> 곡의 조에 맞추기</label></div>
+  <p class="wsub">세기를 낮추면 원래 목소리 느낌이 더 남아요. 100%는 완전히 맞춰요.</p>
+  <div class="row end"><button class="tbtn" id="tuneCancel" type="button">취소</button><button class="tbtn" id="tuneGo" type="button">보정하기</button></div>
 </dialog>
 <script src="js/00-msk.js" defer></script>
 <script src="js/01-core.js" defer></script>
@@ -343,6 +350,7 @@
 <script src="js/31-ui6.js" defer></script>
 <script src="js/32-kit.js" defer></script>
 <script src="js/33-samples.js" defer></script>
+<script src="js/34-pitch.js" defer></script>
 <script src="js/99-app.js" defer></script>
 <script>window.PIANO_SRC = "piano-samples.js";   // 녹음 피아노: 앱이 뜬 뒤에 불러와요 (먼저 받으면 app.js와 속도를 나눠 먹어서)</script>
 </body>

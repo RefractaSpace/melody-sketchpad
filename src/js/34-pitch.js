@@ -60,10 +60,10 @@ function segmentNotes(track, minSec) {
     .map(n => ({start:n.start, end:n.end, key:n.sum / n.n, pts:n.pts}));
 }
 /* 곡의 조에 맞는 가장 가까운 음 (조 밖으로 벗어나지 않게) */
-function snapToScale(key, root, scale) {
-  const pcs = (scale || [0, 2, 4, 5, 7, 9, 11]).map(v => (v + (root || 0)) % 12);
+function snapToScale(key) {                       // 앱의 조(S.root · S.mode)를 그대로 씀
   const near = Math.round(key); let best = near, bd = 99;
-  for (let d = -6; d <= 6; d++) { const k = near + d; if (!pcs.includes(((k % 12) + 12) % 12)) continue;
+  for (let d = -6; d <= 6; d++) { const k = near + d;
+    if (!inKey(((k % 12) + 12) % 12)) continue;
     if (Math.abs(k - key) < bd) { bd = Math.abs(k - key); best = k; } }
   return best;
 }
@@ -101,3 +101,76 @@ function tuneNote(x, sr, fromKey, toKey, amount) {
   if (Math.abs(semi) < 0.01) return x.slice();
   return psolaShift(x, sr, keyToHz(fromKey), Math.pow(2, semi / 12));
 }
+
+/* ── 앱 연결: 오디오 클립 하나를 음정 보정 ── */
+// 보컬 클립 분석: 음 높이 곡선과 음 목록을 구해 둔다 (한 번만)
+function vocalAnalyze(slot) {
+  const s = SAMPLES[slot]; if (!s || !s.buf) return null;
+  const sr = s.buf.sampleRate, x = s.buf.getChannelData(0);
+  const track = pitchTrack(x, sr);
+  const notes = segmentNotes(track);
+  return VOCAL[slot] = {sr, track, notes, len:x.length / sr};
+}
+const VOCAL = {};
+// 보정한 소리를 새 소리로 만들어 같은 클립에 넣는다. amount 0~1, 조에 맞추기
+function vocalTune(slot, amount, useScale) {
+  const s = SAMPLES[slot]; if (!s || !s.buf) return null;
+  const v = VOCAL[slot] || vocalAnalyze(slot); if (!v || !v.notes.length) return null;
+  const sr = v.sr, src = s.buf.getChannelData(0);
+  const out = new Float32Array(src.length); out.set(src);          // 음이 아닌 곳(숨·자음)은 원본 그대로
+  let moved = 0, sumCents = 0;
+  for (const n of v.notes) {
+    const i0 = Math.max(0, Math.round(n.start * sr)), i1 = Math.min(src.length, Math.round(n.end * sr));
+    if (i1 - i0 < sr * 0.05) continue;
+    const to = useScale === false ? Math.round(n.key) : snapToScale(n.key);
+    const seg = src.subarray(i0, i1);
+    const y = tuneNote(seg, sr, n.key, to, amount == null ? 1 : amount);
+    // 이음매가 튀지 않게 양 끝 5ms를 부드럽게 섞음
+    const f = Math.min(Math.round(sr * 0.005), (i1 - i0) >> 2);
+    for (let i = 0; i < y.length && i0 + i < out.length; i++) {
+      const w = i < f ? i / f : (i > y.length - f ? (y.length - i) / f : 1);
+      out[i0 + i] = y[i] * w + src[i0 + i] * (1 - w);
+    }
+    moved++; sumCents += Math.abs(to - n.key) * 100;
+  }
+  const nb = ctx.createBuffer(1, out.length, sr); nb.getChannelData(0).set(out);
+  return {buf:nb, notes:v.notes.length, moved, avgCents:moved ? Math.round(sumCents / moved) : 0};
+}
+
+/* ── 화면: 오디오 클립을 두 번 누르면 음정 보정 창 ── */
+let tuneSlot = null;
+function openTune(slot) {
+  const v = VOCAL[slot] || vocalAnalyze(slot);
+  if (!v) { status('이 클립의 소리를 찾을 수 없어요.'); return; }
+  if (!v.notes.length) { status('노래한 음을 찾지 못했어요 (조용하거나 말소리일 수 있어요).'); return; }
+  tuneSlot = slot;
+  const off = v.notes.map(n => Math.abs(snapToScale(n.key) - n.key) * 100);
+  const avg = Math.round(off.reduce((a, b) => a + b, 0) / off.length);
+  $('tuneInfo').textContent = `음 ${v.notes.length}개 · 길이 ${v.len.toFixed(1)}초 · 지금 음정이 평균 ${avg}센트 어긋나 있어요`;
+  $('tuneDlg').showModal();
+}
+function applyTune() {
+  const amt = +$('tuneAmt').value / 100, useScale = $('tuneScale').checked;
+  const r = vocalTune(tuneSlot, amt, useScale);
+  if (!r) { status('보정할 수 없었어요.'); return; }
+  pushUndo();
+  const s = SAMPLES[tuneSlot];
+  if (!s.orig) s.orig = s.buf;                       // 원본 보관 (되돌리기용)
+  s.buf = r.buf;                                     // 파형은 PEAKS가 buf를 비교해 자동으로 다시 계산
+  save(); drawPlaylist();
+  status(`음정을 보정했어요 · 음 ${r.moved}개 · 평균 ${r.avgCents}센트 이동 (Ctrl+Z로 되돌리기)`);
+}
+(() => {
+  const d = $('tuneDlg'); if (!d) return;
+  $('tuneAmt').addEventListener('input', () => $('tuneAmtV').textContent = $('tuneAmt').value + '%');
+  $('tuneCancel').addEventListener('click', () => d.close());
+  $('tuneGo').addEventListener('click', () => { d.close(); applyTune(); });
+  d.addEventListener('click', e => { if (e.target === d) d.close(); });
+  // 플레이리스트에서 오디오 클립을 두 번 누르면 열림
+  const plc = $('plCanvas') || document.querySelector('#win-playlist canvas');
+  if (plc) plc.addEventListener('dblclick', e => {
+    if (typeof auPos !== 'function') return;
+    const q = auPos(e), a = audioAt(q.x, q.t); if (!a) return;
+    e.preventDefault(); e.stopImmediatePropagation(); openTune(a.slot);
+  }, true);
+})();
