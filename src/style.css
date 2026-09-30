@@ -424,3 +424,6 @@ i.ic-heart-on::before,i.ic-comment::before{margin:0 3px 0 0;width:12px;height:12
 /* 메뉴 안에서는 원래 버튼 강조(진한 버튼 등)를 지우고 모두 같은 모양으로 */
 .fm .fm-pop>button,.fm .fm-pop>a{background:none;color:inherit;border:0;box-shadow:none;font-weight:500}
 .fm .fm-pop>button:hover,.fm .fm-pop>a:hover,.fm .fm-pop>button:focus-visible,.fm .fm-pop>a:focus-visible{background:var(--line2)}
+.credits{max-width:520px;font-size:13px;line-height:1.6}
+.credits h3{margin:14px 0 6px;font-size:13px;color:var(--muted)}
+.credits p{margin:0 0 10px}

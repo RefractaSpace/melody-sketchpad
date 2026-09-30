@@ -15,3 +15,12 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) { e.preventDefault(); close(true); } }, true);   // 버튼에 초점이 있어도 Esc로 닫힘
   items().forEach(e => e.setAttribute('role', 'menuitem'));
 })();
+
+/* 소리 출처 · 라이선스 (CC-BY 표기 의무) */
+(() => {
+  const btn = $('creditBtn'), dlg = $('creditDlg');
+  if (!btn || !dlg) return;
+  btn.addEventListener('click', () => dlg.showModal());
+  $('creditClose').addEventListener('click', () => dlg.close());
+  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+})();

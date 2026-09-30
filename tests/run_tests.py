@@ -570,6 +570,22 @@ async def main():
           r.keep=normalize(JSON.parse(JSON.stringify(S))).channels[0].inst==='violin';
           S=normalize(JSON.parse(snap)); save(); refreshAll(); return r})()""")
         check('샘플 악기: 새 악기 15개만 샘플 · 내려받기 · 건반과 세기로 고르기 (피아노 등 기존 악기는 그대로)', not smp.get('off') and not smp.get('loadFail') and smp.get('insts', 0) >= 15 and smp.get('hasViolin') and not smp.get('hasPiano') and smp.get('bufs', 0) > 10 and smp.get('pick'), str(smp))
+
+        # 6: 악기 145개 · 라이선스 표기
+        big = await J("""(async()=>{const idx=await smpIndex(); const r={n:Object.keys(idx).length};
+          r.gm=Object.keys(idx).filter(k=>/^gm\\d+$/.test(k)).length; r.piano=!!idx.pianoPro&&!!idx.pianoMax;
+          const packs={}; for(const k of ['gm0','gm30','gm56','pianoPro']) packs[k]=await smpLoad(k);
+          r.load=Object.values(packs).every(p=>p&&Object.keys(p.bufs).length>0);
+          r.overlap=smpPickAll(packs.gm30,52,0.85).length;
+          r.gains=Object.values(packs).map(p=>+p.gain.toFixed(1));
+          r.msk=MSK_INST.indexOf('gm127')>0 && MSK_INST.indexOf('pianoMax')>0 && MSK_INST.indexOf('piano')===0;
+          return r})()""")
+        check('악기 145개: GM 128 · 살라만더 Pro/Max · 겹친 구역 함께 내기 · 파일 번호표', big['n'] >= 145 and big['gm'] == 128 and big['piano'] and big['load'] and big['overlap'] >= 2 and big['msk'], str(big))
+        cr = await J("""(()=>{const b=$('creditBtn'),d=$('creditDlg'); if(!b||!d) return {no:true};
+          b.click(); const open=d.open, txt=d.textContent;
+          const has=['GeneralUser GS','VSCO 2','Salamander','Alexander Holm','Versilian'].filter(s=>txt.includes(s));
+          $('creditClose').click(); return {open, closed:!d.open, has:has.length}})()""")
+        check('소리 출처 · 라이선스 표기 (CC-BY 의무)', cr.get('open') and cr.get('closed') and cr.get('has') == 5, str(cr))
         check('샘플 악기: 실제로 소리 남 · 파일에 저장되고 불러와도 유지', smp.get('peak', 0) > 0.02 and smp.get('msk') and smp.get('keep'), f"소리 {smp.get('peak')} · 번호표 {smp.get('msk')} · 유지 {smp.get('keep')}")
 
         # 6: 드럼 키트 (드럼을 피아노 롤에서 찍기)

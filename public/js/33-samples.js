@@ -36,37 +36,45 @@ function smpLoad(inst) {
   return SMP.load[inst];
 }
 // 건반·세기에 맞는 소리 고르기
-function smpPick(pack, p, v) {
-  const vel = Math.max(1, Math.round((v == null ? 0.9 : v) * 127));
+// 한 건반에 구역이 여러 개면 모두 겹쳐서 낸다 (악기 하나가 여러 소리를 합쳐 두껍게 만드는 경우)
+function smpPickAll(pack, p, v) {
+  const vel = Math.max(1, Math.round((v == null ? 0.9 : v) * 127)), out = [];
   for (const z of pack.rows) {
     if (p < z.lo || p > z.hi) continue;
-    if (z.vs) {                                   // 세기마다 다른 소리
-      for (const [top, i] of z.vs) if (vel <= top) return {buf:pack.bufs[i], root:z.root, att:0};
-      const last = z.vs[z.vs.length - 1];
-      return last ? {buf:pack.bufs[last[1]], root:z.root, att:0} : null;
+    if (z.vs) {                                   // 세기마다 다른 소리 (VSCO·살라만더)
+      const hit = z.vs.find(([top]) => vel <= top) || z.vs[z.vs.length - 1];
+      if (hit && pack.bufs[hit[1]]) out.push({buf:pack.bufs[hit[1]], root:z.root, att:0});
+      continue;
     }
-    let att = 0;                                  // 소리 하나 + 세기별 음량
+    let att = 0;                                  // 소리 하나 + 세기별 음량 깎기 (GeneralUser GS)
     if (z.va) { const hit = z.va.find(([top]) => vel <= top); att = hit ? hit[1] : z.va[z.va.length - 1][1]; }
+    if (att >= 960) continue;                     // 96dB 넘게 깎이면 사실상 무음
     const buf = pack.bufs[z.one];
-    return buf ? {buf, root:z.root, att, ct:z.ct, ft:z.ft} : null;
+    if (buf) out.push({buf, root:z.root, att, ct:z.ct, ft:z.ft});
   }
-  return null;
+  return out;
+}
+function smpPick(pack, p, v) {                     // 가장 크게 들릴 하나 (음 고르기 확인용)
+  const all = smpPickAll(pack, p, v);
+  if (!all.length) return null;
+  return all.reduce((a, b) => (b.att || 0) < (a.att || 0) ? b : a);
 }
 // 샘플로 한 음 재생. 낼 수 있으면 true (못 내면 부르는 쪽이 합성으로)
 function smpPlay(EE, ch, p, t, d, v, dest) {
   const pack = SMP.ready[ch.inst]; if (!pack) { smpLoad(ch.inst); return false; }
-  const hit = smpPick(pack, p, v); if (!hit || !hit.buf) return false;
-  const src = EE.ac.createBufferSource(); src.buffer = hit.buf;
-  src.playbackRate.value = Math.pow(2, (p - hit.root) / 12 + (hit.ct || 0) / 12 + (hit.ft || 0) / 1200);
-  const g = EE.ac.createGain(), vol = pack.gain * (v == null ? 0.9 : v) * Math.pow(10, -(hit.att || 0) / 200);   // att는 0.1dB 단위로 깎기
-  const dur = d != null ? d : hit.buf.duration;
-  const rel = Math.min(0.25, dur * 0.3);
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.linearRampToValueAtTime(vol, t + 0.006);
-  g.gain.setValueAtTime(vol, t + Math.max(0.01, dur - rel));
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.02);
-  src.connect(g); g.connect(dest); src.start(t);
-  src.stop(t + dur + 0.08);
+  const hits = smpPickAll(pack, p, v); if (!hits.length) return false;
+  for (const hit of hits) {
+    const src = EE.ac.createBufferSource(); src.buffer = hit.buf;
+    src.playbackRate.value = Math.pow(2, (p - hit.root) / 12 + (hit.ct || 0) / 12 + (hit.ft || 0) / 1200);
+    const g = EE.ac.createGain(), vol = pack.gain * (v == null ? 0.9 : v) * Math.pow(10, -(hit.att || 0) / 200);   // att는 0.1dB 단위로 깎기
+    const dur = d != null ? d : hit.buf.duration;
+    const rel = Math.min(0.25, dur * 0.3);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.006);
+    g.gain.setValueAtTime(vol, t + Math.max(0.01, dur - rel));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.02);
+    src.connect(g); g.connect(dest); src.start(t); src.stop(t + dur + 0.08);
+  }
   return true;
 }
 // 지금 곡이 쓰는 악기를 미리 받아 두기
