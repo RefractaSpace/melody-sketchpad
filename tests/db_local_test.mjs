@@ -24,7 +24,7 @@ store.put('community/aaaaaaaaaaaa/post-x.json', Buffer.from(JSON.stringify({id:'
 store.put('community/bbbbbbbbbbbb/song-y.msk', MSK);
 store.put('community/bbbbbbbbbbbb/post-y.json', Buffer.from(JSON.stringify({id:'bbbbbbbbbbbb', title:'지워진 사람 글', desc:'', tags:[], author:'ghost', created:'2026-09-03T00:00:00.000Z', likes:[], comments:[], reports:[]})));
 
-const auth = (await import('../api/auth.js')).default, lic = (await import('../api/license.js')).default, comm = (await import('../api/community.js')).default, { migrateFromBlob } = await import('../api/_db.js');
+const auth = (await import('../api/auth.js')).default, lic = (await import('../api/license.js')).default, pay = (await import('../api/checkout.js')).default, comm = (await import('../api/community.js')).default, { migrateFromBlob } = await import('../api/_db.js');
 const call = (h, {method = 'GET', query = {}, tok, body} = {}) => new Promise(resolve => {
   const res = {c:200, setHeader() {}, status(c) { this.c = c; return this; },
     set statusCode(c) { this.c = c; }, get statusCode() { return this.c; },     // license.js는 statusCode + end() 방식
@@ -126,6 +126,62 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
   await call(auth, {method:'POST', query:{action:'delete'}, tok:tB, body:{password:'pass_word_123'}});
   const [lc] = (await globalThis.__MSK_PG.query(`select count(*)::int n from licenses where username = 'tieruser'`)).rows;
   check('라이선스: 계정을 지우면 라이선스도 함께 지워짐', lc.n === 0, JSON.stringify(lc));
+}
+
+
+// ── 6: 결제 (공격 시도가 막히는지 중심으로) ─────────────────────
+{
+  const tC = await signup('buyer');
+  let r = await call(pay, {query:{action:'plans'}});
+  check('결제: 가격표는 로그인 없이도 보임', r.s === 200 && r.j.plans.length === 3 && r.j.plans.find(p => p.tier === 'max').amount === 119000, JSON.stringify(r.j.plans.map(p => p.tier + ':' + p.amount)));
+
+  r = await call(pay, {method:'POST', query:{action:'start'}, body:{tier:'pro'}});
+  check('결제: 로그인 없이 주문 → 거절 (401)', r.s === 401, String(r.s));
+
+  r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'ultra'}});
+  check('결제: 없는 등급 주문 → 거절 (400)', r.s === 400, String(r.s));
+
+  r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}});
+  const ord = r.j.orderId;
+  check('결제: 주문 만들기 (Pro ₩89,000)', r.s === 200 && !!ord && r.j.amount === 89000, JSON.stringify({id:!!ord, amount:r.j.amount}));
+
+  // 공격 1: 결제 안 하고 완료라고 우기기
+  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ord, provider_id:'아무거나'}});
+  const afterFake = (await call(lic, {tok:tC})).j.tier;
+  check('🛡 결제 안 하고 완료 주장 → 거절 (402) · 등급 그대로', r.s === 402 && afterFake === 'se', `${r.s} · 등급 ${afterFake}`);
+
+  // 공격 2: 적은 금액만 내고 비싼 등급 받기
+  const ord2 = (await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}})).j.orderId;
+  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ord2, provider_id:'ok_100'}});
+  const afterCheap = (await call(lic, {tok:tC})).j.tier;
+  check('🛡 100원만 내고 Pro 받기 → 거절 (금액 확인) · 등급 그대로', r.s === 402 && r.j.reason === 'amount' && afterCheap === 'se', `${r.s} ${r.j.reason} · 등급 ${afterCheap}`);
+
+  // 공격 3: 남의 주문번호로 등급 받기
+  const tD = await signup('other');
+  const ordD = (await call(pay, {method:'POST', query:{action:'start'}, tok:tD, body:{tier:'max'}})).j.orderId;
+  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ordD, provider_id:'ok_119000'}});
+  check('🛡 남의 주문번호로 받기 → 거절 (404)', r.s === 404, String(r.s));
+
+  // 정상 결제
+  const ord3 = (await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}})).j.orderId;
+  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ord3, provider_id:'ok_89000'}});
+  const nowTier = (await call(lic, {tok:tC})).j.tier;
+  check('결제: 금액이 맞으면 Pro 등급이 들어감', r.s === 200 && r.j.ok && nowTier === 'pro', `${r.s} · 등급 ${nowTier}`);
+
+  // 공격 4: 같은 결제로 두 번 받기
+  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ord3, provider_id:'ok_89000'}});
+  check('🛡 같은 결제 두 번 쓰기 → 이미 처리됨으로 넘김', r.s === 200 && r.j.already === true, JSON.stringify(r.j));
+
+  // 이미 Pro인데 또 Pro 사기
+  r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}});
+  check('결제: 이미 가진 등급은 다시 못 삼 (409)', r.s === 409, `${r.s} ${r.j.message || ''}`);
+
+  r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'max'}});
+  check('결제: 더 높은 등급(Max)은 살 수 있음', r.s === 200 && r.j.amount === 119000, String(r.s));
+
+  r = await call(pay, {query:{action:'orders'}, tok:tC});
+  check('결제: 내 주문 기록이 남음 (실패·성공 모두)', r.s === 200 && r.j.orders.length >= 4 && r.j.orders.some(o => o.status === 'paid') && r.j.orders.some(o => o.status === 'failed'),
+        r.j.orders.map(o => o.status).join(','));
 }
 
 console.log(`\nDB 결과: ${results.filter(Boolean).length}/${results.length} 통과`); process.exit(results.every(Boolean) ? 0 : 1);
