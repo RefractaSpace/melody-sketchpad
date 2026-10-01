@@ -67,11 +67,21 @@ async function cmLoad(reset) {
     for (const m of j.messages) { f.appendChild(cmMsg(m)); CM.last = Math.max(CM.last, Number(m.id)); }
     if (reset && !j.messages.length) f.innerHTML = `<p class="cmp-empty">아직 메시지가 없어요.<br>첫 메시지를 남겨 보세요.</p>`;
     if (reset || bottom) f.scrollTop = f.scrollHeight;
-    const on = (j.online || []).length;
-    $('cmWho').textContent = on ? `접속 중 ${on}명` : '';
+    cmPeople(j.online || [], j.me);
   } catch (e) {
     if (reset) $('cmFeed').innerHTML = `<p class="cmp-empty">${cmEsc(e.message)}</p>`;
   } finally { CM.busy = false; }
+}
+
+/* ── 사람 목록 ── */
+function cmPeople(online, me) {
+  const n = online.length;
+  $('cmWho').textContent = n ? `접속 중 ${n}명` : '';
+  const box = $('cmPpl'); if (!box) return;
+  const here = online.filter(o => o.channel === CM.ch), away = online.filter(o => o.channel !== CM.ch);
+  const row = o => `<div${o.username === me ? ' class="me"' : ''}><span class="cmp-dot${o.channel === CM.ch ? '' : ' off'}"></span>${cmEsc(o.username)}</div>`;
+  box.innerHTML = (here.length ? `<h5>이 채널 — ${here.length}</h5>` + here.map(row).join('') : '<h5>이 채널 — 0</h5>')
+    + (away.length ? `<h5>다른 채널 — ${away.length}</h5>` + away.map(row).join('') : '');
 }
 
 /* ── 메시지 한 개 그리기 ── */
@@ -202,5 +212,7 @@ async function cmAttachSong() {
   on('cmAttachX', 'click', () => { CM.attach = null; $('cmAttach').hidden = true; });
   on('cmText', 'keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); cmSend(); } });
   on('cmWide', 'click', () => { document.body.classList.toggle('cmp-wide'); });
+  on('cmPplBtn', 'click', e => { const on2 = document.body.classList.toggle('cmp-ppl-on');
+    e.currentTarget.setAttribute('aria-pressed', String(on2)); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && CM.open) cmLoad(false); });
 })();

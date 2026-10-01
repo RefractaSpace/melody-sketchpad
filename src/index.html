@@ -185,11 +185,14 @@
   <header class="cmp-top">
     <strong>커뮤니티</strong>
     <span class="cmp-who" id="cmWho"></span>
-    <button class="tbtn xs" id="cmWide" title="넓게 보기">⤢</button>
+    <button class="tbtn xs" id="cmPplBtn" title="사람 목록" aria-pressed="false">●●</button><button class="tbtn xs" id="cmWide" title="넓게 보기">⤢</button>
     <button class="tbtn xs" id="cmClose" title="닫기">✕</button>
   </header>
   <nav class="cmp-tabs" id="cmTabs" role="tablist"></nav>
-  <div class="cmp-feed" id="cmFeed" aria-live="polite"></div>
+  <div class="cmp-body">
+    <div class="cmp-feed" id="cmFeed" aria-live="polite"></div>
+    <aside class="cmp-ppl" id="cmPpl" aria-label="사람"></aside>
+  </div>
   <div class="cmp-foot">
     <div class="cmp-attach" id="cmAttach" hidden><span id="cmAttachName"></span><button class="tbtn xs" id="cmAttachX">✕</button></div>
     <div class="cmp-row">

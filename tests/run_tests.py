@@ -574,6 +574,29 @@ async def main():
         check('커뮤니티: 패널이 열리고 작업 화면을 가리지 않음 · 가로 넘침 없음',
               cmp_['open'] and cmp_['width'] > 300 and not cmp_['covers'] and not cmp_['overflow'],
               f"폭 {cmp_['width']} · 가림 {cmp_['covers']} · 넘침 {cmp_['overflow']}")
+        ppl = await J("""(async()=>{
+          document.getElementById('commBtn').click();
+          await new Promise(r => setTimeout(r, 900));
+          const p = document.getElementById('cmPpl');
+          const off = getComputedStyle(p).display;
+          document.getElementById('cmPplBtn').click();
+          document.getElementById('cmWide').click();
+          await new Promise(r => setTimeout(r, 400));
+          const a2 = document.querySelector('.app'), panel = document.getElementById('commPanel');
+          const r = {off, on:getComputedStyle(p).display !== 'none',
+            pressed:document.getElementById('cmPplBtn').getAttribute('aria-pressed'),
+            covers:Math.round(a2.getBoundingClientRect().right - parseFloat(getComputedStyle(a2).paddingRight))
+                   > Math.round(panel.getBoundingClientRect().left) + 2,
+            overflow:document.documentElement.scrollWidth > innerWidth + 1};
+          document.getElementById('cmPplBtn').click(); document.getElementById('cmWide').click();
+          document.getElementById('cmClose').click();
+          await new Promise(r2 => setTimeout(r2, 300));
+          return r})()""")
+        check('커뮤니티: 사람 목록을 켜고 끌 수 있고, 넓게 보기에서도 작업 화면을 안 가림',
+              ppl['off'] == 'none' and ppl['on'] and ppl['pressed'] == 'true'
+              and not ppl['covers'] and not ppl['overflow'],
+              f"끔 {ppl['off']} · 켬 {ppl['on']} · 가림 {ppl['covers']} · 넘침 {ppl['overflow']}")
+
         check('커뮤니티: 채널 4개와 입력칸 (곡 붙임 칸은 숨김)',
               len(cmp_['tabs']) == 4 and cmp_['hasInput'] and cmp_['hasSend'] and cmp_['attachHidden'],
               ','.join(cmp_['tabs']) + f" · 붙임숨김 {cmp_['attachHidden']}")
