@@ -24,9 +24,12 @@ store.put('community/aaaaaaaaaaaa/post-x.json', Buffer.from(JSON.stringify({id:'
 store.put('community/bbbbbbbbbbbb/song-y.msk', MSK);
 store.put('community/bbbbbbbbbbbb/post-y.json', Buffer.from(JSON.stringify({id:'bbbbbbbbbbbb', title:'지워진 사람 글', desc:'', tags:[], author:'ghost', created:'2026-09-03T00:00:00.000Z', likes:[], comments:[], reports:[]})));
 
-const auth = (await import('../api/auth.js')).default, comm = (await import('../api/community.js')).default, { migrateFromBlob } = await import('../api/_db.js');
+const auth = (await import('../api/auth.js')).default, lic = (await import('../api/license.js')).default, comm = (await import('../api/community.js')).default, { migrateFromBlob } = await import('../api/_db.js');
 const call = (h, {method = 'GET', query = {}, tok, body} = {}) => new Promise(resolve => {
-  const res = {c:200, setHeader() {}, status(c) { this.c = c; return this; }, json(o) { resolve({s:this.c, j:o}); }, send(b) { resolve({s:this.c, j:b}); }, end() { resolve({s:this.c}); }};
+  const res = {c:200, setHeader() {}, status(c) { this.c = c; return this; },
+    set statusCode(c) { this.c = c; }, get statusCode() { return this.c; },     // license.js는 statusCode + end() 방식
+    json(o) { resolve({s:this.c, j:o}); }, send(b) { resolve({s:this.c, j:b}); },
+    end(b) { let j = b; if (typeof b === 'string') { try { j = JSON.parse(b); } catch (e) {} } resolve({s:this.c, j}); }};
   h({method, query, headers:tok ? {authorization:'Bearer ' + tok} : {}, body}, res).catch(e => resolve({s:599, j:String(e)}));
 });
 const results = []; const check = (name, ok, d = '') => { results.push(!!ok); console.log((ok ? '  ✅ ' : '  ❌ ') + name + (d ? '  — ' + d : '')); };
@@ -90,4 +93,39 @@ const before = files.size; r = await call(auth, {method:'POST', query:{action:'d
 check('글쓴이 계정 삭제 → 글·곡 파일까지 삭제', r.s === 200 && r.j.posts === 1 && (await call(comm, {query:{id:pid}})).s === 404 && files.size === before - 1);
 const [cnt] = (await globalThis.__MSK_PG.query(`select (select count(*) from likes where post_id = $1)::int l, (select count(*) from comments where post_id = $1)::int c, (select count(*) from reports where post_id = $1)::int r`, [pid])).rows;
 check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 0 && cnt.c === 0 && cnt.r === 0, JSON.stringify(cnt));
+
+// ── 6: 라이선스 (등급) ──────────────────────────────────────────
+{
+  const tB = await signup('tieruser');
+  let r = await call(lic, {});
+  check('라이선스: 로그인 안 하면 SE', r.s === 200 && r.j.tier === 'se' && r.j.signedIn === false, JSON.stringify(r.j));
+
+  r = await call(lic, {tok:tB});
+  check('라이선스: 로그인해도 산 적 없으면 SE', r.s === 200 && r.j.tier === 'se' && r.j.signedIn === true, JSON.stringify(r.j));
+
+  r = await call(lic, {method:'POST', tok:tB, body:{tier:'pro'}});
+  check('라이선스: 일반 사용자는 등급을 못 바꿈 (403)', r.s === 403, `${r.s} ${JSON.stringify(r.j)}`);
+
+  r = await call(lic, {method:'POST', tok:tAdmin, body:{tier:'pro', username:'tieruser', note:'시험'}});
+  check('라이선스: 관리자가 Pro로 올림', r.s === 200 && r.j.tier === 'pro' && r.j.username === 'tieruser', JSON.stringify(r.j));
+
+  r = await call(lic, {tok:tB});
+  check('라이선스: 올린 등급이 서버에서 그대로 보임', r.s === 200 && r.j.tier === 'pro', JSON.stringify(r.j));
+
+  r = await call(lic, {method:'POST', tok:tAdmin, body:{tier:'ultra', username:'tieruser'}});
+  check('라이선스: 없는 등급은 거절 (400)', r.s === 400, `${r.s}`);
+
+  await globalThis.__MSK_PG.query(`update licenses set expires = now() - interval '1 day' where username = 'tieruser'`);
+  r = await call(lic, {tok:tB});
+  check('라이선스: 기간이 끝나면 SE로 내려감', r.s === 200 && r.j.tier === 'se' && r.j.expired === true, JSON.stringify(r.j));
+
+  await globalThis.__MSK_PG.query(`update licenses set expires = now() + interval '30 days' where username = 'tieruser'`);
+  r = await call(lic, {tok:tB});
+  check('라이선스: 기간이 남아 있으면 그대로', r.s === 200 && r.j.tier === 'pro' && !r.j.expired, JSON.stringify(r.j));
+
+  await call(auth, {method:'POST', query:{action:'delete'}, tok:tB, body:{password:'pass_word_123'}});
+  const [lc] = (await globalThis.__MSK_PG.query(`select count(*)::int n from licenses where username = 'tieruser'`)).rows;
+  check('라이선스: 계정을 지우면 라이선스도 함께 지워짐', lc.n === 0, JSON.stringify(lc));
+}
+
 console.log(`\nDB 결과: ${results.filter(Boolean).length}/${results.length} 통과`); process.exit(results.every(Boolean) ? 0 : 1);
