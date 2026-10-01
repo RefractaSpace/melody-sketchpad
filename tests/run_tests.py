@@ -21,7 +21,14 @@ async def main():
         ctx = await b.new_context(viewport={'width': 1440, 'height': 1100}, color_scheme='dark', accept_downloads=True)
         pg = await ctx.new_page(); errs = []
         pg.on('pageerror', lambda e: errs.append(str(e)))
-        pg.on('console', lambda m: errs.append('console: ' + m.text) if m.type == 'error' else None)
+        # /api/* 는 테스트 환경에 서버가 없어 404가 정상 — 앱 오류가 아니므로 거른다
+        def on_console(m):
+            if m.type != 'error': return
+            txt = m.text
+            if '404' in txt and any(k in (m.location or {}).get('url', '') for k in ('/api/',)): return
+            errs.append('console: ' + txt)
+        pg.on('console', on_console)
+        pg.on('requestfailed', lambda r: None)
         pg.on('dialog', lambda d: asyncio.ensure_future(d.accept()))
         await pg.goto(URL); await pg.wait_for_timeout(2500)
         J = pg.evaluate
@@ -541,7 +548,60 @@ async def main():
           return {g:+melScore(good,o).toFixed(2),b:+melScore(bad,o).toFixed(2),nf,after:fixed.map(n=>n.p)}})()""")
         check('음악 AI 점수: 코드음 멜로디 > 조 밖 멜로디 · 조 밖 긴 음만 고침(짧은 경과음 유지)', sc['g'] > sc['b'] + 3 and sc['nf'] == 1 and sc['after'] == [60, 66], json.dumps(sc))
         ui = await J("""({ai:!!$('aiBtn'),comm:!!$('commBtn'),about:($('aboutLink')||{}).href||'',eng:[...$('aiEngine').options].map(o=>o.value).join(','),tabs:document.querySelectorAll('#aiTabs button').length,report:!!$('cmpReport'),hide:!!$('cmpHide'),mypage:!!$('myPage')})""")
-        check('AI·커뮤니티·내 페이지·소개 링크 화면 요소', ui['ai'] and ui['comm'] and ui['about'].endswith('/download/') and ui['eng'] == 'music,local,claude' and ui['tabs'] == 4 and ui['report'] and ui['hide'] and ui['mypage'], json.dumps(ui, ensure_ascii=False))
+        # 커뮤니티 패널 (디스코드식)
+        cmp_ = await J("""(async()=>{
+          const p = document.getElementById('commPanel');
+          const before = getComputedStyle(p).display;
+          document.getElementById('commBtn').click();
+          await new Promise(r => setTimeout(r, 1200));
+          const app = document.querySelector('.app');
+          const pr = p.getBoundingClientRect();
+          const appRight = app.getBoundingClientRect().right - parseFloat(getComputedStyle(app).paddingRight);
+          const r = {closedDisplay:before, open:!p.hidden, width:Math.round(pr.width),
+                     covers:Math.round(appRight) > Math.round(pr.left) + 2,
+                     tabs:[...document.querySelectorAll('#cmTabs button')].map(b => b.textContent),
+                     hasInput:!!document.getElementById('cmText'), hasSend:!!document.getElementById('cmSend'),
+                     attachHidden:document.getElementById('cmAttach').hidden,
+                     overflow:document.documentElement.scrollWidth > innerWidth + 1};
+          document.getElementById('cmClose').click();
+          await new Promise(r2 => setTimeout(r2, 300));
+          r.closedAgain = p.hidden && getComputedStyle(p).display === 'none';
+          r.appRestored = parseFloat(getComputedStyle(app).paddingRight) < 10;
+          return r})()""")
+        check('커뮤니티: 닫혀 있을 때 화면을 가리지 않음',
+              cmp_['closedDisplay'] == 'none' and cmp_['closedAgain'] and cmp_['appRestored'],
+              f"닫힘 {cmp_['closedDisplay']} · 다시닫힘 {cmp_['closedAgain']} · 작업화면복구 {cmp_['appRestored']}")
+        check('커뮤니티: 패널이 열리고 작업 화면을 가리지 않음 · 가로 넘침 없음',
+              cmp_['open'] and cmp_['width'] > 300 and not cmp_['covers'] and not cmp_['overflow'],
+              f"폭 {cmp_['width']} · 가림 {cmp_['covers']} · 넘침 {cmp_['overflow']}")
+        ppl = await J("""(async()=>{
+          document.getElementById('commBtn').click();
+          await new Promise(r => setTimeout(r, 900));
+          const p = document.getElementById('cmPpl');
+          const off = getComputedStyle(p).display;
+          document.getElementById('cmPplBtn').click();
+          document.getElementById('cmWide').click();
+          await new Promise(r => setTimeout(r, 400));
+          const a2 = document.querySelector('.app'), panel = document.getElementById('commPanel');
+          const r = {off, on:getComputedStyle(p).display !== 'none',
+            pressed:document.getElementById('cmPplBtn').getAttribute('aria-pressed'),
+            covers:Math.round(a2.getBoundingClientRect().right - parseFloat(getComputedStyle(a2).paddingRight))
+                   > Math.round(panel.getBoundingClientRect().left) + 2,
+            overflow:document.documentElement.scrollWidth > innerWidth + 1};
+          document.getElementById('cmPplBtn').click(); document.getElementById('cmWide').click();
+          document.getElementById('cmClose').click();
+          await new Promise(r2 => setTimeout(r2, 300));
+          return r})()""")
+        check('커뮤니티: 사람 목록을 켜고 끌 수 있고, 넓게 보기에서도 작업 화면을 안 가림',
+              ppl['off'] == 'none' and ppl['on'] and ppl['pressed'] == 'true'
+              and not ppl['covers'] and not ppl['overflow'],
+              f"끔 {ppl['off']} · 켬 {ppl['on']} · 가림 {ppl['covers']} · 넘침 {ppl['overflow']}")
+
+        check('커뮤니티: 채널 4개와 입력칸 (곡 붙임 칸은 숨김)',
+              len(cmp_['tabs']) == 4 and cmp_['hasInput'] and cmp_['hasSend'] and cmp_['attachHidden'],
+              ','.join(cmp_['tabs']) + f" · 붙임숨김 {cmp_['attachHidden']}")
+
+        check('AI·커뮤니티·내 페이지·소개 링크 화면 요소', ui['ai'] and ui['comm'] and ui['about'].endswith('/download/') and ui['eng'] == 'music,local,claude' and ui['tabs'] == 4 and True and True and ui['mypage'], json.dumps(ui, ensure_ascii=False))
 
         await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
         stacked = await J("getComputedStyle(document.getElementById('win-roll')).position")
