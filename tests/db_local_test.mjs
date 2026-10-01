@@ -250,6 +250,41 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
   r = await call(chat, {method:'POST', query:{action:'hide'}, tok:t1, body:{id:m1}});
   check('🛡 채팅: 관리자 아닌 사람의 숨기기 → 거절 (403)', r.s === 403, String(r.s));
 
+  // 신고
+  const tE = await signup('reporter'), tF = await signup('reporter2'), tG = await signup('reporter3');
+  await wait(5100);
+  const mr = (await call(chat, {method:'POST', query:{action:'send'}, tok:t1, body:{channel:'help', text:'신고 대상 메시지'}})).j.id;
+
+  let rr = await call(chat, {method:'POST', query:{action:'report'}, tok:t1, body:{id:mr, reason:'내 것'}});
+  check('🛡 신고: 내 메시지는 신고 못 함 (400)', rr.s === 400, String(rr.s));
+
+  rr = await call(chat, {method:'POST', query:{action:'report'}, tok:tE, body:{id:mr, reason:'욕설'}});
+  check('신고: 신고하면 쌓임 (1명)', rr.s === 200 && rr.j.n === 1 && rr.j.hidden === false, JSON.stringify(rr.j));
+
+  rr = await call(chat, {method:'POST', query:{action:'report'}, tok:tE, body:{id:mr}});
+  check('🛡 신고: 같은 사람이 두 번 신고 → 거절 (409)', rr.s === 409, String(rr.s));
+
+  await call(chat, {method:'POST', query:{action:'report'}, tok:tF, body:{id:mr, reason:'광고'}});
+  rr = await call(chat, {method:'POST', query:{action:'report'}, tok:tG, body:{id:mr}});
+  check('신고: 3명이 신고하면 자동으로 숨겨짐', rr.s === 200 && rr.j.n === 3 && rr.j.hidden === true, JSON.stringify(rr.j));
+
+  rr = await call(chat, {query:{channel:'help'}});
+  check('신고: 숨겨진 메시지는 목록에서 사라짐', !rr.j.messages.some(m => m.id === mr), `${rr.j.messages.length}개 남음`);
+
+  rr = await call(chat, {query:{action:'reports'}, tok:tE});
+  check('🛡 신고: 관리자 아닌 사람의 신고 목록 → 거절 (403)', rr.s === 403, String(rr.s));
+
+  rr = await call(chat, {query:{action:'reports'}, tok:tAdmin});
+  const first = rr.j.reports[0];
+  check('신고: 관리자는 신고 목록과 이유를 봄', rr.s === 200 && first && first.reports === 3 && first.reasons.length === 2,
+        `${rr.j.reports.length}건 · 신고 ${first?.reports} · 이유 ${JSON.stringify(first?.reasons)}`);
+
+  await call(chat, {method:'POST', query:{action:'unhide'}, tok:tAdmin, body:{id:mr}});
+  rr = await call(chat, {query:{channel:'help'}});
+  const back = rr.j.messages.some(m => m.id === mr);
+  const left = (await call(chat, {query:{action:'reports'}, tok:tAdmin})).j.reports.some(r => r.id === mr);
+  check('신고: 관리자가 되돌리면 다시 보이고 신고 기록이 비워짐', back && !left, `보임 ${back} · 신고기록남음 ${left}`);
+
   await call(chat, {method:'POST', query:{action:'hide'}, tok:tAdmin, body:{id:m1}});
   r = await call(chat, {query:{channel:'talk'}});
   check('채팅: 관리자가 숨기면 목록에서 사라짐', r.j.messages.length === 0, `${r.j.messages.length}개`);

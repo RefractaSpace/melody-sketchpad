@@ -68,6 +68,14 @@ const SCHEMA = [
      at timestamptz not null default now(),
      primary key (message_id, username, emoji))`,
   `create index if not exists reactions_msg on reactions (message_id)`,
+  // 메시지 신고 — 같은 사람이 같은 메시지를 두 번 신고하지 못하게 DB가 막는다
+  `create table if not exists msg_reports (
+     message_id bigint not null references messages(id) on delete cascade,
+     username text not null references users(username) on delete cascade,
+     reason text not null default '',
+     at timestamptz not null default now(),
+     primary key (message_id, username))`,
+  `create index if not exists msg_reports_msg on msg_reports (message_id)`,
   // 누가 언제 접속해 있었는지 (사람 목록용)
   `create table if not exists presence (
      username text primary key references users(username) on delete cascade,

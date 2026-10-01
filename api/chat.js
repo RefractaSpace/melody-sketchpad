@@ -4,6 +4,9 @@
 //   POST /api/chat?action=send    {channel, text, song?}
 //   POST /api/chat?action=react   {id, emoji}     누르면 켜지고 다시 누르면 꺼짐
 //   POST /api/chat?action=delete  {id}            내 것 또는 관리자
+//   POST /api/chat?action=report  {id, reason}    신고 (3명이면 자동 숨김)
+//   GET  /api/chat?action=reports                관리자: 신고 목록
+//   POST /api/chat?action=unhide  {id}           관리자: 다시 보이게
 //   POST /api/chat?action=hide    {id}            관리자만
 import { cors, readToken, isAdmin } from './_lib.js';
 import { hasDB, q, ensureDB } from './_db.js';
@@ -43,6 +46,16 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
+    if (String(Q.action || '') === 'reports') {                    // 관리자: 신고된 메시지 목록
+      if (!user) return send(res, 401, {error:'auth'});
+      if (!isAdmin(user)) return send(res, 403, {error:'forbidden'});
+      const rows = await q(`select m.id, m.channel, m.username, m.text, m.hidden, m.created,
+                                   count(r.*)::int reports, max(r.at) last_report,
+                                   array_remove(array_agg(r.reason), '') reasons
+                            from msg_reports r join messages m on m.id = r.message_id
+                            group by m.id order by count(r.*) desc, max(r.at) desc limit 50`);
+      return send(res, 200, {reports:rows.map(r => ({...r, id:String(r.id)}))});
+    }
       const channel = String(Q.channel || 'songs');
       if (!CH.has(channel)) return send(res, 400, {error:'bad-channel'});
       const after = Q.after ? Number(Q.after) : null, before = Q.before ? Number(Q.before) : null;
@@ -98,6 +111,29 @@ export default async function handler(req, res) {
       if (!m) return send(res, 404, {error:'no-message'});
       if (m.username !== user && !isAdmin(user)) return send(res, 403, {error:'forbidden'});
       await q(`update messages set deleted = true, text = '', song_url = null where id = $1`, [id]);
+      return send(res, 200, {ok:true});
+    }
+
+    if (action === 'report') {
+      const id = Number(b.id), reason = String(b.reason || '').slice(0, 200);
+      if (!id) return send(res, 400, {error:'bad-id'});
+      const [m] = await q(`select username, hidden from messages where id = $1`, [id]);
+      if (!m) return send(res, 404, {error:'no-message'});
+      if (m.username === user) return send(res, 400, {error:'own', message:'내 메시지는 신고할 수 없어요'});
+      const ins = await q(`insert into msg_reports (message_id, username, reason) values ($1,$2,$3)
+                           on conflict do nothing returning 1`, [id, user, reason]);
+      if (!ins.length) return send(res, 409, {error:'already', message:'이미 신고했어요'});
+      const [{n}] = await q(`select count(*)::int n from msg_reports where message_id = $1`, [id]);
+      // 3명이 신고하면 자동으로 숨긴다 (관리자가 늘 보고 있을 수 없으니)
+      if (n >= 3 && !m.hidden) await q(`update messages set hidden = true, hidden_by = 'auto' where id = $1`, [id]);
+      return send(res, 200, {ok:true, n, hidden:n >= 3});
+    }
+
+    if (action === 'unhide') {                     // 관리자: 다시 보이게 + 신고 기록 비움
+      if (!isAdmin(user)) return send(res, 403, {error:'forbidden'});
+      const id = Number(b.id); if (!id) return send(res, 400, {error:'bad-id'});
+      await q(`update messages set hidden = false, hidden_by = null where id = $1`, [id]);
+      await q(`delete from msg_reports where message_id = $1`, [id]);
       return send(res, 200, {ok:true});
     }
 

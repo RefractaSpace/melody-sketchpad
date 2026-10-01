@@ -438,3 +438,7 @@ body.cmp-ppl-on .cmp-ppl{display:block}
 .cmp-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#43b581}
 .cmp-dot.off{background:var(--line,#c8cad2)}
 .cmp-ppl .me{font-weight:700}
+.cmm-rep{margin-left:auto;border:0;background:none;color:var(--muted,#b4b6bf);cursor:pointer;
+  font-size:10.5px;padding:0 2px;opacity:0}
+.cmm:hover .cmm-rep,.cmm-rep:focus{opacity:1}
+.cmm-rep:hover{color:#c0392b}
