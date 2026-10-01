@@ -631,6 +631,44 @@ async def main():
           S=normalize(JSON.parse(snap)); save(); refreshAll(); return r})()""")
         check('샘플 악기: 새 악기 15개만 샘플 · 내려받기 · 건반과 세기로 고르기 (피아노 등 기존 악기는 그대로)', not smp.get('off') and not smp.get('loadFail') and smp.get('insts', 0) >= 15 and smp.get('hasViolin') and not smp.get('hasPiano') and smp.get('bufs', 0) > 10 and smp.get('pick'), str(smp))
 
+        # 6: 음정 보정 — 실제 목소리에 가까운 조건 (비브라토·흔들림·숨소리·무성음)
+        vp = await J("""(()=>{
+          const sr=44100;
+          function voice(f0,sec,o){o=o||{};const vib=o.vib||0,drift=o.drift||0,breath=o.breath||0,jit=o.jitter||0;
+            const n=Math.round(sr*sec),x=new Float32Array(n);let ph=0;
+            for(let i=0;i<n;i++){const t=i/sr;
+              let f=f0*(1+vib*Math.sin(2*Math.PI*5.5*t))*(1+drift*t/sec); if(jit)f*=1+jit*(Math.random()-0.5);
+              ph+=2*Math.PI*f/sr; let s=0;
+              for(let h=1;h<=10;h++){const fh=f*h;
+                s+=(1/h)*(1+1.6*Math.exp(-Math.pow((fh-700)/350,2))+1.1*Math.exp(-Math.pow((fh-1200)/420,2)))*Math.sin(ph*h);}
+              s*=0.1; if(breath)s+=breath*(Math.random()*2-1)*0.1;
+              x[i]=s*Math.min(1,i/(sr*0.02),(n-i)/(sr*0.03));}
+            return x;}
+          const C=(a,b)=>1200*Math.log2(a/b), P=x=>yinPitch(x,sr,0.15), r={};
+          const err=(x,ref)=>{const p=P(x); return p.hz>0 ? Math.abs(C(p.hz,ref)) : 999;};
+          r.vibrato = +err(voice(220,0.5,{vib:0.03}),220).toFixed(1);
+          r.real    = +err(voice(220,0.5,{vib:0.025,drift:0.04,breath:0.3,jitter:0.004}),220*1.02).toFixed(1);
+          r.low     = +err(voice(110,0.5,{vib:0.02,breath:0.3}),110).toFixed(1);
+          r.high    = +err(voice(440,0.5,{vib:0.02,breath:0.3}),440).toFixed(1);
+          const nz=new Float32Array(Math.round(sr*0.2));for(let i=0;i<nz.length;i++)nz[i]=(Math.random()*2-1)*0.2;
+          r.unvoiced = P(nz).hz;
+          const q=new Float32Array(Math.round(sr*0.2));for(let i=0;i<q.length;i++)q[i]=(Math.random()*2-1)*0.0005;
+          r.silence = P(q).hz;
+          const v=voice(220,0.5,{vib:0.025,breath:0.3}), f0=P(v).hz;
+          const up=psolaShift(v,sr,f0,Math.pow(2,2/12));
+          r.psolaUp = +Math.abs(C(P(up).hz||1, f0*Math.pow(2,2/12))).toFixed(1);
+          r.lenKeep = +(up.length/v.length).toFixed(3);
+          return r})()""")
+        check('음정 보정: 비브라토·숨소리·음 높이 흔들림이 있어도 10센트 안쪽',
+              vp['vibrato'] < 10 and vp['real'] < 10 and vp['low'] < 10 and vp['high'] < 10,
+              f"비브라토 {vp['vibrato']} · 노래 {vp['real']} · 낮은목소리 {vp['low']} · 높은목소리 {vp['high']} 센트")
+        check('음정 보정: 무성음·조용한 구간에서 엉뚱한 음을 내지 않음 (0)',
+              vp['unvoiced'] == 0 and vp['silence'] == 0,
+              f"무성음 {vp['unvoiced']} · 조용함 {vp['silence']}")
+        check('음정 보정: 비브라토 있는 소리도 +2반음 정확 · 길이 유지',
+              vp['psolaUp'] < 10 and 0.98 < vp['lenKeep'] < 1.02,
+              f"오차 {vp['psolaUp']}센트 · 길이 {vp['lenKeep']}배")
+
         # 6: 등급별 악기
         tier = await J("""(async()=>{const r={}; const before=myTier();
           for(const t of ['se','six','pro','max']){setTier(t);
