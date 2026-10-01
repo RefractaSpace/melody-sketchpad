@@ -49,6 +49,29 @@ const SCHEMA = [
      refunded timestamptz,
      raw text)`,
   `create index if not exists payments_user on payments(username, created desc)`,
+  // 채팅 커뮤니티 (디스코드식): 채널 안의 메시지와 이모지 반응
+  `create table if not exists messages (
+     id bigserial primary key,
+     channel text not null,
+     username text not null references users(username) on delete cascade,
+     text text not null default '',
+     song_url text, song_name text, song_bars int, song_bpm int, song_size int,
+     created timestamptz not null default now(),
+     edited timestamptz,
+     deleted boolean not null default false,
+     hidden boolean not null default false, hidden_by text)`,
+  `create index if not exists messages_ch on messages (channel, id desc)`,
+  `create table if not exists reactions (
+     message_id bigint not null references messages(id) on delete cascade,
+     username text not null references users(username) on delete cascade,
+     emoji text not null,
+     at timestamptz not null default now(),
+     primary key (message_id, username, emoji))`,
+  `create index if not exists reactions_msg on reactions (message_id)`,
+  // 누가 언제 접속해 있었는지 (사람 목록용)
+  `create table if not exists presence (
+     username text primary key references users(username) on delete cascade,
+     channel text, at timestamptz not null default now())`,
 ];
 export function ensureDB() { return ready || (ready = setup().catch(e => { ready = null; throw e; })); }
 async function setup() {

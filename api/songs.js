@@ -41,7 +41,7 @@ export default async function handler(req, res) {
       const name = String(req.query.name || '곡').slice(0, 60);
       const b = await put(dir + id + '--' + b64u(name) + '.n.msk', body, {access:'public', addRandomSuffix:true, contentType:'application/octet-stream'});
       if (found.length) await del(found.map(x => x.url));   // 예전 판은 지움 (새 판을 먼저 올린 뒤)
-      return res.status(200).json({ok:true, id, name, size:body.length, uploadedAt:b.uploadedAt || new Date().toISOString()});
+      return res.status(200).json({ok:true, id, name, size:body.length, url:b.url, uploadedAt:b.uploadedAt || new Date().toISOString()});   // url: 커뮤니티에 곡을 붙일 때 씀
     }
     if (req.method === 'DELETE') { if (found.length) await del(found.map(x => x.url)); return res.status(200).json({ok:true, deleted:found.length}); }
     return res.status(405).json({error:'method'});

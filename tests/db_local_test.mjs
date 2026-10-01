@@ -24,10 +24,10 @@ store.put('community/aaaaaaaaaaaa/post-x.json', Buffer.from(JSON.stringify({id:'
 store.put('community/bbbbbbbbbbbb/song-y.msk', MSK);
 store.put('community/bbbbbbbbbbbb/post-y.json', Buffer.from(JSON.stringify({id:'bbbbbbbbbbbb', title:'지워진 사람 글', desc:'', tags:[], author:'ghost', created:'2026-09-03T00:00:00.000Z', likes:[], comments:[], reports:[]})));
 
-const auth = (await import('../api/auth.js')).default, lic = (await import('../api/license.js')).default, pay = (await import('../api/checkout.js')).default, comm = (await import('../api/community.js')).default, { migrateFromBlob } = await import('../api/_db.js');
+const chat = (await import('../api/chat.js')).default, auth = (await import('../api/auth.js')).default, lic = (await import('../api/license.js')).default, pay = (await import('../api/checkout.js')).default, comm = (await import('../api/community.js')).default, { migrateFromBlob } = await import('../api/_db.js');
 const call = (h, {method = 'GET', query = {}, tok, body} = {}) => new Promise(resolve => {
   const res = {c:200, setHeader() {}, status(c) { this.c = c; return this; },
-    set statusCode(c) { this.c = c; }, get statusCode() { return this.c; },     // license.js는 statusCode + end() 방식
+    set statusCode(c) { this.c = c; }, get statusCode() { return this.c; },
     json(o) { resolve({s:this.c, j:o}); }, send(b) { resolve({s:this.c, j:b}); },
     end(b) { let j = b; if (typeof b === 'string') { try { j = JSON.parse(b); } catch (e) {} } resolve({s:this.c, j}); }};
   h({method, query, headers:tok ? {authorization:'Bearer ' + tok} : {}, body}, res).catch(e => resolve({s:599, j:String(e)}));
@@ -182,6 +182,77 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
   r = await call(pay, {query:{action:'orders'}, tok:tC});
   check('결제: 내 주문 기록이 남음 (실패·성공 모두)', r.s === 200 && r.j.orders.length >= 4 && r.j.orders.some(o => o.status === 'paid') && r.j.orders.some(o => o.status === 'failed'),
         r.j.orders.map(o => o.status).join(','));
+}
+
+// ── 채팅 커뮤니티 ───────────────────────────────────────────────
+{
+  const t1 = await signup('chatter'), t2 = await signup('friend');
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  let r = await call(chat, {query:{action:'channels'}});
+  check('채팅: 채널 4개 (공개곡·질문·자랑·잡담)', r.s === 200 && r.j.channels.length === 4 && r.j.channels[0].id === 'songs', r.j.channels.map(c => c.name).join(','));
+
+  r = await call(chat, {method:'POST', query:{action:'send'}, body:{channel:'talk', text:'안녕'}});
+  check('채팅: 로그인 없이 보내기 → 거절 (401)', r.s === 401, String(r.s));
+
+  r = await call(chat, {method:'POST', query:{action:'send'}, tok:t1, body:{channel:'없는채널', text:'x'}});
+  check('채팅: 없는 채널 → 거절 (400)', r.s === 400, String(r.s));
+
+  r = await call(chat, {method:'POST', query:{action:'send'}, tok:t1, body:{channel:'talk', text:''}});
+  check('채팅: 빈 메시지 → 거절 (400)', r.s === 400, String(r.s));
+
+  r = await call(chat, {method:'POST', query:{action:'send'}, tok:t1, body:{channel:'talk', text:'첫 메시지'}});
+  const m1 = r.j.id;
+  check('채팅: 메시지 보내기', r.s === 200 && !!m1, JSON.stringify(r.j).slice(0, 60));
+
+  r = await call(chat, {method:'POST', query:{action:'send'}, tok:t1, body:{channel:'talk', text:'연속'}});
+  check('🛡 채팅: 5초 안에 또 보내기 → 도배 막힘 (429)', r.s === 429, String(r.s));
+
+  await wait(5100);
+  r = await call(chat, {method:'POST', query:{action:'send'}, tok:t1, body:{channel:'songs', text:'곡 올려요', song:{url:'https://x/a.msk', name:'첫 곡', bars:8, bpm:120, size:900}}});
+  const m2 = r.j.id;
+  check('채팅: 곡을 붙여서 보내기', r.s === 200 && !!m2, String(r.s));
+
+  r = await call(chat, {query:{channel:'talk'}});
+  check('채팅: 채널별로 나뉨 (잡담에 1개)', r.s === 200 && r.j.messages.length === 1 && r.j.messages[0].text === '첫 메시지', `${r.j.messages.length}개`);
+
+  r = await call(chat, {query:{channel:'songs'}, tok:t2});
+  const got = r.j.messages[0];
+  check('채팅: 공개곡 채널에 곡이 붙어서 보임', got && got.song_name === '첫 곡' && got.song_bars === 8, JSON.stringify({n:got?.song_name, b:got?.song_bars}));
+
+  r = await call(chat, {method:'POST', query:{action:'react'}, tok:t2, body:{id:m2, emoji:'\u2764'}});
+  check('채팅: 이모지 반응 켜기', r.s === 200 && r.j.on === true && r.j.n === 1, JSON.stringify(r.j));
+
+  r = await call(chat, {method:'POST', query:{action:'react'}, tok:t2, body:{id:m2, emoji:'\u2764'}});
+  check('채팅: 같은 반응 다시 누르면 꺼짐', r.s === 200 && r.j.on === false && r.j.n === 0, JSON.stringify(r.j));
+
+  await call(chat, {method:'POST', query:{action:'react'}, tok:t2, body:{id:m2, emoji:'\u2764'}});
+  await call(chat, {method:'POST', query:{action:'react'}, tok:t1, body:{id:m2, emoji:'\u2764'}});
+  r = await call(chat, {query:{channel:'songs'}});
+  check('채팅: 반응이 메시지에 함께 옴 (2명)', r.j.messages[0].reactions[0].n === 2, JSON.stringify(r.j.messages[0].reactions));
+
+  r = await call(chat, {method:'POST', query:{action:'react'}, tok:t2, body:{id:m2, emoji:'\uD83D\uDCA9'}});
+  check('🛡 채팅: 정해진 이모지 아니면 거절 (400)', r.s === 400, String(r.s));
+
+  r = await call(chat, {method:'POST', query:{action:'delete'}, tok:t2, body:{id:m2}});
+  check('🛡 채팅: 남의 메시지 지우기 → 거절 (403)', r.s === 403, String(r.s));
+
+  const before = (await call(chat, {query:{channel:'songs'}})).j.messages.length;
+  r = await call(chat, {query:{channel:'songs', after:m2}});
+  check('채팅: after로 물어보면 새 것만 (지금은 0개)', r.s === 200 && r.j.messages.length === 0, `전체 ${before}개 중 새 것 ${r.j.messages.length}개`);
+
+  r = await call(chat, {query:{channel:'songs'}, tok:t1});
+  check('채팅: 접속 중인 사람 목록', r.s === 200 && r.j.online.some(o => o.username === 'chatter'), r.j.online.map(o => o.username).join(','));
+
+  r = await call(chat, {method:'POST', query:{action:'delete'}, tok:t1, body:{id:m2}});
+  const after2 = (await call(chat, {query:{channel:'songs'}})).j.messages[0];
+  check('채팅: 내 메시지 지우기 → 내용은 지워지고 자리는 남음', r.s === 200 && after2.deleted === true && !after2.text && !after2.song_url, JSON.stringify({d:after2.deleted, t:after2.text}));
+
+  r = await call(chat, {method:'POST', query:{action:'hide'}, tok:t1, body:{id:m1}});
+  check('🛡 채팅: 관리자 아닌 사람의 숨기기 → 거절 (403)', r.s === 403, String(r.s));
+
+  await call(chat, {method:'POST', query:{action:'hide'}, tok:tAdmin, body:{id:m1}});
+  r = await call(chat, {query:{channel:'talk'}});
+  check('채팅: 관리자가 숨기면 목록에서 사라짐', r.j.messages.length === 0, `${r.j.messages.length}개`);
 }
 
 console.log(`\nDB 결과: ${results.filter(Boolean).length}/${results.length} 통과`); process.exit(results.every(Boolean) ? 0 : 1);

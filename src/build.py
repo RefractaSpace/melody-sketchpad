@@ -24,6 +24,9 @@ app = '/* 멜로디 스케치패드 — 읽기 쉬운 원본은 src/js/ (src/ind
 html = read('index.html')
 html = re.sub(r'(<script src="js/\d\d-[^"]+" defer></script>\s*)+', '<script src="app.js" defer></script>\n', html)
 html = html.replace('window.PIANO_SRC = "piano-samples.js"', 'window.PIANO_SRC = "piano.js"')
+html = re.sub(r'(<script src=")(?!/|https?:)', r'\1/app/', html)      # /app 과 /app/ 둘 다에서 열리게
+html = re.sub(r'(<link[^>]*href=")(?!/|https?:|data:)', r'\1/app/', html)
+html = html.replace('window.PIANO_SRC = "piano.js"', 'window.PIANO_SRC = "/app/piano.js"')
 write('index.html', html); write('style.css', read('style.css')); write('app.js', app); write('piano.js', read('piano-samples.js')); write('piano-soft.js', read('piano-soft.js')); write('piano-hard.js', read('piano-hard.js'))
 # 서버 에셋: 피아노 녹음을 파일 하나씩 (앱·웹이 /assets/piano/에서 받아 캐시) + 목록(manifest)
 import base64 as _b64, json as _json, re as _re

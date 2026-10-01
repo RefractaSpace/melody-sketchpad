@@ -1,69 +1,218 @@
-/* 27-community.js — 커뮤니티: 곡 게시 · 목록(최신·인기·검색) · 좋아요 · 댓글 · 열어서 듣기 */
-const CM_API = (window.MSK_SERVER || '') + '/api/community';
-let cmSort = 'new', cmCur = null, cmT = 0, cmAdmin = false;
-const cmAuthH = () => { const a = authInfo(); return a ? {authorization:'Bearer ' + a.token} : {}; };
-async function cmCall(q, opt = {}) { const r = await fetch(CM_API + q, {...opt, headers:{...cmAuthH(), ...(opt.headers || {})}}); if (r.status === 401 && authInfo()) setAuth(null); if (!r.ok) { let m = ''; try { m = (await r.json()).message; } catch (e) {} throw new Error(m || 'HTTP ' + r.status); } return r; }
-const cmSongCache = new Map();
-const cmSong = id => cmSongCache.get(id) || (cmSongCache.set(id, (async () => { const u = new Uint8Array(await (await cmCall('?id=' + id + '&file=1')).arrayBuffer()); return decodeMSK(u); })()), cmSongCache.get(id));
-const ago = iso => { const s = (Date.now() - new Date(iso)) / 1000; return s < 60 ? '방금' : s < 3600 ? Math.floor(s / 60) + '분 전' : s < 86400 ? Math.floor(s / 3600) + '시간 전' : Math.floor(s / 86400) + '일 전'; };
-async function openCommunity() { $('commPage').hidden = false; document.body.style.overflow = 'hidden'; $('cmBack').focus(); cmAdmin = false; $('cmReported').hidden = true;
-  const a = authInfo(); if (a) authCall('me', null, a.token).then(me => { cmAdmin = !!me.admin; $('cmReported').hidden = !cmAdmin; }).catch(() => {}); cmLoad(); }
-function closeCommunity() { $('commPage').hidden = true; document.body.style.overflow = ''; }
-async function cmLoad() {
-  const g = $('cmGrid'); g.innerHTML = '<p class="dsub">불러오는 중…</p>';
-  [['cmNew', 'new'], ['cmTop', 'top'], ['cmReported', 'reported']].forEach(([id, k]) => $(id).classList.toggle('solid', cmSort === k));
-  let posts; try { posts = (await (await cmCall(cmSort === 'reported' ? '?reported=1' : `?sort=${cmSort}&q=${encodeURIComponent($('cmSearch').value.trim())}`)).json()).posts; } catch (e) { g.innerHTML = `<p class="dsub">목록을 못 불러왔어요: ${e.message}</p>`; return; }
-  g.innerHTML = posts.length ? '' : '<p class="dsub">아직 글이 없어요. 오른쪽 위 "지금 곡 게시하기"로 첫 곡을 올려 보세요.</p>';
-  for (const p of posts) {
-    const card = document.createElement('button'); card.className = 'mp-song cm-card'; card.setAttribute('aria-label', `${p.title}, ${p.author}, 좋아요 ${p.likes}, 댓글 ${p.comments}`);
-    const cv = document.createElement('canvas'); cv.setAttribute('aria-hidden', 'true');
-    const info = document.createElement('div'); info.className = 'mp-info'; info.innerHTML = `<b></b><small class="cm-by"></small><small>${p.bpm ? p.bpm + ' BPM · ' : ''}${p.bars ? p.bars + '마디 · ' : ''}${ago(p.created)}</small><small class="cm-counts" aria-label="좋아요 ${p.likes}, 댓글 ${p.comments}"><i class="ic-heart-on" aria-hidden="true"></i>${p.likes} · <i class="ic-comment" aria-hidden="true"></i>${p.comments}${p.hidden ? ' · 숨겨짐' : ''}${p.reports ? ' · 신고 ' + p.reports : ''}</small>`;
-    info.querySelector('b').textContent = p.title; info.querySelector('.cm-by').textContent = '@' + p.author + (p.tags.length ? ' · #' + p.tags.join(' #') : '');
-    card.append(cv, info); g.appendChild(card); card.onclick = () => cmOpen(p.id);
-    cmSong(p.id).then(r => drawThumb(cv, r.song)).catch(() => {});
+/* 27-community.js — 커뮤니티 (디스코드식 옆 패널)
+   채널 4개 · 메시지 · 이모지 반응 · 곡 붙이기 · 메시지 안에서 바로 재생
+   새 메시지는 4초마다 서버에 물어본다 (열려 있을 때만). */
+const CHAT_API = (window.MSK_SERVER || '') + '/api/chat';
+const CM_DEFAULT_CH = [{id:'songs',name:'공개곡',desc:'만든 곡을 올려요'},{id:'help',name:'질문',desc:'막히는 것을 물어봐요'},
+  {id:'show',name:'자랑',desc:'잘된 것을 보여줘요'},{id:'talk',name:'잡담',desc:'아무 이야기나'}];
+const CM_DEFAULT_EMOJI = ['\u2764','\uD83D\uDD25','\uD83D\uDC4F','\uD83C\uDFB5','\uD83D\uDE2E','\uD83D\uDE02'];
+const CM = {ch:'songs', last:0, timer:null, open:false, chans:[], emoji:[], me:null,
+            attach:null, audio:new Map(), playing:null, busy:false};
+
+async function cmCall(path, opt = {}) {
+  const a = typeof authInfo === 'function' && authInfo();
+  const h = {...(opt.headers || {})};
+  if (a && a.token) h.authorization = 'Bearer ' + a.token;
+  if (opt.body) h['content-type'] = 'application/json';
+  const r = await fetch(CHAT_API + path, {...opt, headers:h, body:opt.body ? JSON.stringify(opt.body) : undefined});
+  let j = null; try { j = await r.json(); } catch (e) {}
+  if (!r.ok) throw Object.assign(new Error((j && j.message) || '잠시 뒤에 다시 해 주세요'), {status:r.status, data:j});
+  return j;
+}
+const cmEsc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cmTime = d => { const x = new Date(d), n = new Date();
+  const hm = `${x.getHours() < 12 ? '오전' : '오후'} ${x.getHours() % 12 || 12}:${String(x.getMinutes()).padStart(2,'0')}`;
+  return x.toDateString() === n.toDateString() ? hm : `${x.getMonth()+1}/${x.getDate()} ${hm}`; };
+
+/* ── 열고 닫기 ── */
+async function openCommunity() {
+  const p = $('commPanel'); if (!p) return;
+  p.hidden = false; document.body.classList.add('has-cmp'); CM.open = true;
+  if (!CM.chans.length) {
+    CM.chans = CM_DEFAULT_CH; CM.emoji = CM_DEFAULT_EMOJI;      // 서버를 못 만나도 채널은 보이게
+    cmTabs();
+    try { const j = await cmCall('?action=channels'); if (j.channels?.length) { CM.chans = j.channels; CM.emoji = j.emoji; cmTabs(); } } catch (e) {}
   }
+  cmLoginHint();
+  await cmLoad(true);
+  if (CM.timer) clearInterval(CM.timer);
+  CM.timer = setInterval(() => { if (CM.open && !document.hidden) cmLoad(false); }, 4000);
 }
-async function cmOpen(id) {
-  let post; try { post = (await (await cmCall('?id=' + id)).json()).post; } catch (e) { status('글을 못 열었어요: ' + e.message); return; }
-  cmCur = post; $('cmpTitle').textContent = post.title; $('cmpMeta').textContent = `@${post.author} · ${new Date(post.created).toLocaleString('ko-KR', {dateStyle:'medium', timeStyle:'short'})}${post.bpm ? ' · ' + post.bpm + ' BPM' : ''}${post.bars ? ' · ' + post.bars + '마디' : ''}`;
-  $('cmpDesc').textContent = post.desc || '(설명 없음)'; $('cmpTags').textContent = post.tags.map(t => '#' + t).join(' ');
-  $('cmpLike').textContent = `좋아요 ${post.likes}`; $('cmpLike').classList.toggle('ic-heart-on', !!post.liked); $('cmpLike').classList.toggle('ic-heart', !post.liked); $('cmpLike').setAttribute('aria-pressed', post.liked);
-  const me = (authInfo() || {}).username; $('cmpDel').hidden = !(me === post.author || post.admin);
-  $('cmpReport').hidden = !me || me === post.author; $('cmpReport').textContent = post.reported ? '신고함' : '신고'; $('cmpReport').disabled = !!post.reported;
-  $('cmpHide').hidden = !post.admin; $('cmpHide').textContent = post.hidden ? '보이기' : '숨기기';
-  $('cmpHiddenNote').hidden = !post.hidden; $('cmpHiddenNote').textContent = post.hidden ? (post.admin ? `숨겨진 글이에요 (신고 ${(post.reports || []).length}건${(post.reports || []).length ? ': ' + post.reports.map(r => r.reason).slice(0, 3).join(' / ') : ''})` : '신고가 쌓여 다른 사람에게 보이지 않는 글이에요.') : '';
-  $('cmpCmtBox').hidden = !me; $('cmpLoginHint').hidden = !!me;
-  cmComments(); openDlg($('cmPost'));
-  cmSong(id).then(r => drawThumb($('cmpThumb'), r.song)).catch(() => {});
+function closeCommunity() {
+  const p = $('commPanel'); if (p) p.hidden = true;
+  document.body.classList.remove('has-cmp'); CM.open = false;
+  if (CM.timer) { clearInterval(CM.timer); CM.timer = null; }
+  cmStop();
 }
-function cmComments() {
-  const L = $('cmpComments'), me = (authInfo() || {}).username; L.innerHTML = cmCur.comments.length ? '' : '<p class="dsub">첫 댓글을 남겨 보세요.</p>';
-  for (const c of cmCur.comments) { const d = document.createElement('div'); d.className = 'cm-cmt'; d.innerHTML = '<b></b><span></span><small></small>'; d.querySelector('b').textContent = '@' + c.user; d.querySelector('span').textContent = c.text; d.querySelector('small').textContent = ago(c.at);
-    if (c.hidden) { d.style.opacity = .55; d.querySelector('span').textContent = '(숨겨진 댓글) ' + c.text; }
-    const mk = (label, fn, aria) => { const x = document.createElement('button'); x.className = 'tbtn xs'; x.textContent = label; x.setAttribute('aria-label', aria); x.onclick = fn; d.appendChild(x); return x; };
-    if (me && me !== c.user) { const r = mk(c.reported ? '신고함' : '신고', async () => { const reason = prompt('신고 사유를 적어 주세요 (예: 욕설, 광고)'); if (reason === null) return; try { const j = await (await cmCall(`?action=report&id=${cmCur.id}&comment=${c.id}`, {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({reason})})).json(); c.reported = true; if (j.hidden && !cmCur.admin) cmCur.comments = cmCur.comments.filter(y => y.id !== c.id); cmComments(); status('신고했어요.'); } catch (e) { status(e.message); } }, '댓글 신고'); r.disabled = !!c.reported; }
-    if (cmCur.admin) mk(c.hidden ? '보이기' : '숨기기', async () => { try { await cmCall(`?action=${c.hidden ? 'unhide' : 'hide'}&id=${cmCur.id}&comment=${c.id}`, {method:'POST'}); c.hidden = !c.hidden; cmComments(); } catch (e) { status(e.message); } }, '댓글 숨기기 또는 보이기');
-    if (me && (me === c.user || me === cmCur.author || cmCur.admin)) { const x = document.createElement('button'); x.className = 'tbtn xs'; x.textContent = '지우기'; x.setAttribute('aria-label', '댓글 지우기'); x.onclick = async () => { try { await cmCall(`?id=${cmCur.id}&comment=${c.id}`, {method:'DELETE'}); cmCur.comments = cmCur.comments.filter(y => y.id !== c.id); cmComments(); } catch (e) { status(e.message); } }; d.appendChild(x); }
-    L.appendChild(d); }
+const cmLoginHint = () => { const a = typeof authInfo === 'function' && authInfo();
+  $('cmHint').hidden = !!a; $('cmText').disabled = !a; $('cmSend').disabled = !a; $('cmSong').disabled = !a; };
+
+/* ── 채널 ── */
+function cmTabs() {
+  const n = $('cmTabs'); if (!n) return;
+  n.innerHTML = CM.chans.map(c => `<button class="tbtn xs${c.id === CM.ch ? ' solid' : ''}" role="tab" data-ch="${c.id}" title="${cmEsc(c.desc)}">${cmEsc(c.name)}</button>`).join('');
+  for (const b of n.querySelectorAll('button')) b.onclick = () => {
+    CM.ch = b.dataset.ch; CM.last = 0; $('cmFeed').innerHTML = ''; cmTabs(); cmLoad(true);
+    $('cmText').placeholder = (CM.chans.find(c => c.id === CM.ch) || {}).desc || '메시지 보내기';
+  };
 }
-$('cmpPlay').onclick = async () => { try { const r = await cmSong(cmCur.id); $('cmPost').close(); closeCommunity(); await openLoaded({song:r.song, name:cmCur.title, from:'커뮤니티', samples:r.samples, warnings:[]}); status(`@${cmCur.author}의 "${cmCur.title}"을 새 곡으로 열었어요 (원본은 그대로).`); } catch (e) { status('열지 못했어요: ' + e.message); } };
-$('cmpLike').onclick = async () => { if (!authInfo()) { status('좋아요는 로그인하면 누를 수 있어요.'); return; } try { const j = await (await cmCall(`?action=like&id=${cmCur.id}`, {method:'POST'})).json(); cmCur.likes = j.likes; cmCur.liked = j.liked; $('cmpLike').textContent = `좋아요 ${j.likes}`; $('cmpLike').classList.toggle('ic-heart-on', !!j.liked); $('cmpLike').classList.toggle('ic-heart', !j.liked); $('cmpLike').setAttribute('aria-pressed', j.liked); } catch (e) { status(e.message); } };
-$('cmpSend').onclick = async () => { const text = $('cmpInput').value.trim(); if (!text) return; try { const j = await (await cmCall(`?action=comment&id=${cmCur.id}`, {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({text})})).json(); cmCur.comments.push(j.comment); $('cmpInput').value = ''; cmComments(); } catch (e) { status(e.message); } };
-$('cmpInput').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) $('cmpSend').click(); };
-$('cmpDel').onclick = async () => { if (!confirm(`"${cmCur.title}" 글을 지울까요? 댓글·좋아요도 함께 지워져요.`)) return; try { await cmCall('?id=' + cmCur.id, {method:'DELETE'}); $('cmPost').close(); cmLoad(); status('글을 지웠어요.'); } catch (e) { status(e.message); } };
-$('cmpClose').onclick = () => $('cmPost').close();
-$('cmpReport').onclick = async () => { const reason = prompt('신고 사유를 적어 주세요 (예: 남의 곡 도용, 욕설, 광고)'); if (reason === null) return;
-  try { const j = await (await cmCall(`?action=report&id=${cmCur.id}`, {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({reason})})).json(); $('cmpReport').textContent = '신고함'; $('cmpReport').disabled = true; status(j.hidden ? '신고했어요. 신고가 쌓여 이 글은 숨겨졌어요.' : '신고했어요. 관리자가 확인해요.'); if (j.hidden) { $('cmPost').close(); cmLoad(); } } catch (e) { status(e.message); } };
-$('cmpHide').onclick = async () => { try { const act = cmCur.hidden ? 'unhide' : 'hide'; await cmCall(`?action=${act}&id=${cmCur.id}`, {method:'POST'}); status(act === 'hide' ? '글을 숨겼어요.' : '글을 다시 보이게 했어요 (신고 기록은 비웠어요).'); cmOpen(cmCur.id); cmLoad(); } catch (e) { status(e.message); } };
-$('cmReported').onclick = () => { cmSort = 'reported'; cmLoad(); };
-$('cmPublish').onclick = () => { if (!authInfo()) { status('게시하려면 로그인해 주세요.'); closeCommunity(); cloudRefresh(); openDlg($('cloudDlg')); return; } $('cmPubTitle').value = lib.list[lib.current].name; $('cmPubMsg').textContent = ''; openDlg($('cmPubDlg')); };
-$('cmPubGo').onclick = async () => {
-  try { $('cmPubMsg').textContent = '올리는 중…'; const u = await encodeMSK(S, lib.list[lib.current].name, await songSamples(S)); if (u.length > 4 * 1024 * 1024) throw new Error('곡이 4MB보다 커요');
-    const q = `?action=publish&title=${encodeURIComponent($('cmPubTitle').value)}&desc=${encodeURIComponent($('cmPubDesc').value)}&tags=${encodeURIComponent($('cmPubTags').value)}&bpm=${S.bpm}&bars=${S.playlist.clips.length ? songBars() : curPat().bars}`;
-    await cmCall(q, {method:'POST', headers:{'content-type':'application/octet-stream'}, body:u}); $('cmPubDlg').close(); $('cmPubDesc').value = $('cmPubTags').value = ''; status('커뮤니티에 게시했어요.'); cmSort = 'new'; cmLoad();
-  } catch (e) { $('cmPubMsg').textContent = '게시 실패: ' + e.message; } };
-$('cmPubCancel').onclick = () => $('cmPubDlg').close();
-$('cmBack').onclick = closeCommunity; $('commPage').addEventListener('keydown', e => { if (e.key === 'Escape' && !document.querySelector('dialog[open]')) closeCommunity(); });
-$('cmNew').onclick = () => { cmSort = 'new'; cmLoad(); }; $('cmTop').onclick = () => { cmSort = 'top'; cmLoad(); };
-$('cmSearch').oninput = () => { clearTimeout(cmT); cmT = setTimeout(cmLoad, 350); };
-$('commBtn').onclick = openCommunity;
+
+/* ── 메시지 받아오기 ── */
+async function cmLoad(reset) {
+  if (CM.busy) return; CM.busy = true;
+  try {
+    const j = await cmCall(`?channel=${CM.ch}${!reset && CM.last ? '&after=' + CM.last : ''}`);
+    CM.me = j.me;
+    const f = $('cmFeed'); if (reset) f.innerHTML = '';
+    const bottom = f.scrollHeight - f.scrollTop - f.clientHeight < 60;
+    for (const m of j.messages) { f.appendChild(cmMsg(m)); CM.last = Math.max(CM.last, Number(m.id)); }
+    if (reset && !j.messages.length) f.innerHTML = `<p class="cmp-empty">아직 메시지가 없어요.<br>첫 메시지를 남겨 보세요.</p>`;
+    if (reset || bottom) f.scrollTop = f.scrollHeight;
+    cmPeople(j.online || [], j.me);
+  } catch (e) {
+    if (reset) $('cmFeed').innerHTML = `<p class="cmp-empty">${cmEsc(e.message)}</p>`;
+  } finally { CM.busy = false; }
+}
+
+/* ── 사람 목록 ── */
+function cmPeople(online, me) {
+  const n = online.length;
+  $('cmWho').textContent = n ? `접속 중 ${n}명` : '';
+  const box = $('cmPpl'); if (!box) return;
+  const here = online.filter(o => o.channel === CM.ch), away = online.filter(o => o.channel !== CM.ch);
+  const row = o => `<div${o.username === me ? ' class="me"' : ''}><span class="cmp-dot${o.channel === CM.ch ? '' : ' off'}"></span>${cmEsc(o.username)}</div>`;
+  box.innerHTML = (here.length ? `<h5>이 채널 — ${here.length}</h5>` + here.map(row).join('') : '<h5>이 채널 — 0</h5>')
+    + (away.length ? `<h5>다른 채널 — ${away.length}</h5>` + away.map(row).join('') : '');
+}
+
+/* ── 메시지 한 개 그리기 ── */
+function cmMsg(m) {
+  const el = document.createElement('div'); el.className = 'cmm'; el.dataset.id = m.id;
+  if (m.deleted) { el.innerHTML = `<div class="cmm-bd"><p class="cmm-del">지워진 메시지</p></div>`; return el; }
+  const mine = CM.me && m.username === CM.me;
+  const rx = (m.reactions || []).map(r =>
+    `<button class="cmm-rx${CM.me && r.who.includes(CM.me) ? ' on' : ''}" data-e="${cmEsc(r.emoji)}">${cmEsc(r.emoji)} ${r.n}</button>`).join('');
+  el.innerHTML = `
+    <div class="cmm-av">${cmEsc(m.username.slice(0, 1))}</div>
+    <div class="cmm-bd">
+      <div class="cmm-who">${cmEsc(m.username)}<em>${cmTime(m.created)}</em>${mine ? '<button class="cmm-x" title="지우기">✕</button>' : ''}</div>
+      ${m.text ? `<p class="cmm-tx">${cmEsc(m.text)}</p>` : ''}
+      ${m.song_url ? `<div class="cmm-song">
+          <button class="cmm-play" title="듣기">▶</button>
+          <div class="cmm-si"><b>${cmEsc(m.song_name || '곡')}</b><span>${m.song_bars ? m.song_bars + '마디 · ' : ''}${m.song_bpm || ''}${m.song_bpm ? ' BPM' : ''}</span>
+            <div class="cmm-bar"><i></i></div></div>
+          <button class="tbtn xs cmm-open" title="이 곡을 열기">열기</button></div>` : ''}
+      <div class="cmm-rxs">${rx}<button class="cmm-rx add" title="반응 더하기">＋</button></div>
+    </div>`;
+  el.querySelector('.cmm-x')?.addEventListener('click', () => cmDelete(m.id));
+  for (const b of el.querySelectorAll('.cmm-rx:not(.add)')) b.onclick = () => cmReact(m.id, b.dataset.e);
+  el.querySelector('.cmm-rx.add')?.addEventListener('click', e => cmPickEmoji(e.target, m.id));
+  el.querySelector('.cmm-play')?.addEventListener('click', () => cmPlay(m, el));
+  el.querySelector('.cmm-open')?.addEventListener('click', () => cmOpenSong(m));
+  return el;
+}
+
+/* ── 반응 ── */
+function cmPickEmoji(anchor, id) {
+  document.querySelector('.cmp-pick')?.remove();
+  const box = document.createElement('div'); box.className = 'cmp-pick';
+  box.innerHTML = CM.emoji.map(e => `<button data-e="${cmEsc(e)}">${cmEsc(e)}</button>`).join('');
+  anchor.parentNode.appendChild(box);
+  for (const b of box.querySelectorAll('button')) b.onclick = () => { box.remove(); cmReact(id, b.dataset.e); };
+  setTimeout(() => document.addEventListener('click', function h(ev) {
+    if (!box.contains(ev.target)) { box.remove(); document.removeEventListener('click', h); } }), 0);
+}
+async function cmReact(id, emoji) {
+  if (!authInfo()) return status('반응하려면 로그인해 주세요.');
+  try { await cmCall('?action=react', {method:'POST', body:{id:Number(id), emoji}}); CM.last = 0; await cmLoad(true); }
+  catch (e) { status(e.message); }
+}
+async function cmDelete(id) {
+  if (!confirm('이 메시지를 지울까요?')) return;
+  try { await cmCall('?action=delete', {method:'POST', body:{id:Number(id)}}); CM.last = 0; await cmLoad(true); }
+  catch (e) { status(e.message); }
+}
+
+/* ── 곡 듣기: 누를 때 그 자리에서 소리로 바꾸고, 한 번 만든 건 기억해 둔다 ── */
+function cmStop() {
+  if (CM.playing) { try { CM.playing.el.pause(); } catch (e) {} CM.playing.row?.classList.remove('on'); CM.playing = null; }
+  document.querySelectorAll('.cmm-play').forEach(b => b.textContent = '▶');
+}
+async function cmPlay(m, row) {
+  const btn = row.querySelector('.cmm-play'), bar = row.querySelector('.cmm-bar i');
+  if (CM.playing && CM.playing.id === m.id) { cmStop(); return; }
+  cmStop();
+  let url = CM.audio.get(m.id);
+  if (!url) {
+    btn.textContent = '…'; btn.disabled = true;
+    try {
+      const u = new Uint8Array(await (await fetch(m.song_url)).arrayBuffer());
+      const got = await decodeMSK(u);                      // 곡 파일은 바이너리 (MSK)
+      const snap = JSON.stringify(S), mode = S.playMode;
+      S = normalize(got.song); S.playMode = 'song';
+      const buf = await renderWav();
+      S = normalize(JSON.parse(snap)); S.playMode = mode;
+      url = URL.createObjectURL(new Blob([buf instanceof Uint8Array ? buf : new Uint8Array(buf)], {type:'audio/wav'}));
+      CM.audio.set(m.id, url);
+    } catch (e) { btn.textContent = '▶'; btn.disabled = false; return status('이 곡을 들을 수 없어요: ' + (e.message || e)); }
+    btn.disabled = false;
+  }
+  const a = new Audio(url); btn.textContent = '■'; row.classList.add('on');
+  CM.playing = {id:m.id, el:a, row};
+  a.ontimeupdate = () => { if (bar && a.duration) bar.style.width = (a.currentTime / a.duration * 100) + '%'; };
+  a.onended = () => { if (bar) bar.style.width = '0%'; cmStop(); };
+  a.play().catch(() => { btn.textContent = '▶'; cmStop(); });
+}
+async function cmOpenSong(m) {
+  if (!confirm('지금 곡을 두고 이 곡을 열까요?')) return;
+  try {
+    const u = new Uint8Array(await (await fetch(m.song_url)).arrayBuffer());
+    const got = await decodeMSK(u);
+    if (typeof openLoaded === 'function') { await openLoaded({song:got.song, name:got.name || m.song_name}); }
+    else { S = normalize(got.song); save(); refreshAll(); }
+    closeCommunity(); status(`"${m.song_name || '곡'}"을 열었어요`);
+  } catch (e) { status('이 곡을 열 수 없어요'); }
+}
+
+/* ── 보내기 ── */
+async function cmSend() {
+  const t = $('cmText').value.trim();
+  if (!t && !CM.attach) return;
+  try {
+    await cmCall('?action=send', {method:'POST', body:{channel:CM.ch, text:t, song:CM.attach}});
+    $('cmText').value = ''; CM.attach = null; $('cmAttach').hidden = true;
+    await cmLoad(false); $('cmFeed').scrollTop = $('cmFeed').scrollHeight;
+  } catch (e) { status(e.message); }
+}
+
+/* ── 지금 곡 붙이기: 서버에 올리고 그 주소를 메시지에 붙인다 ── */
+async function cmAttachSong() {
+  if (!authInfo()) return status('곡을 올리려면 로그인해 주세요.');
+  const b = $('cmSong'); const old = b.textContent;
+  b.textContent = '…'; b.disabled = true;
+  try {
+    const r = await cloudUpload(true);                       // 지금 곡을 서버에 저장
+    const url = r && r.url;
+    if (!url) throw new Error('서버가 곡 주소를 주지 않았어요');
+    const name = (lib.list[lib.current] || {}).name || '내 곡';
+    const bars = Math.max(1, Math.ceil((curPat()?.len || 48) / 48));
+    CM.attach = {url, name, bars, bpm:S.bpm};
+    $('cmAttachName').textContent = `♪ ${name} · ${bars}마디 · ${S.bpm} BPM`;
+    $('cmAttach').hidden = false; $('cmText').focus();
+  } catch (e) { status('곡을 붙이지 못했어요: ' + e.message); }
+  finally { b.textContent = old; b.disabled = false; }
+}
+
+/* ── 버튼 연결 ── */
+(() => {
+  const on = (id, ev, fn) => { const e = $(id); if (e) e.addEventListener(ev, fn); };
+  on('commBtn', 'click', () => CM.open ? closeCommunity() : openCommunity());
+  on('cmClose', 'click', closeCommunity);
+  on('cmSend', 'click', cmSend);
+  on('cmSong', 'click', cmAttachSong);
+  on('cmAttachX', 'click', () => { CM.attach = null; $('cmAttach').hidden = true; });
+  on('cmText', 'keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); cmSend(); } });
+  on('cmWide', 'click', () => { document.body.classList.toggle('cmp-wide'); });
+  on('cmPplBtn', 'click', e => { const on2 = document.body.classList.toggle('cmp-ppl-on');
+    e.currentTarget.setAttribute('aria-pressed', String(on2)); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && CM.open) cmLoad(false); });
+})();
