@@ -748,8 +748,8 @@ async def main():
           const n=(u.length-44)>>1; let mx=0; for(let i=0;i<n;i++){const v=Math.abs(dv.getInt16(44+i*2,true))/32768; if(v>mx)mx=v}
           r.peak=+mx.toFixed(3); r.keep=S.channels[0].inst==='violin';
           setTier(before||'max'); S=normalize(JSON.parse(snap)); save(); refreshAll(); return r})()""")
-        check('등급별 악기: SE는 합성만 · 6은 표준 128개 · Pro는 오케스트라 · Max는 피아노 Max',
-              tier['se']['gm'] == 0 and not tier['se']['vio'] and tier['se']['base']
+        check('등급별 악기: 출시 전 SE도 표준 128개 · Pro는 오케스트라 · Max는 피아노 Max',
+              tier['se']['gm'] == 128 and not tier['se']['vio'] and tier['se']['base']
               and tier['six']['gm'] == 128 and not tier['six']['vio']
               and tier['pro']['vio'] and not tier['pro']['max'] and tier['max']['max'],
               f"SE {tier['se']['n']} · 6 {tier['six']['n']} · Pro {tier['pro']['n']} · Max {tier['max']['n']}")

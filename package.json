@@ -4,6 +4,7 @@
   "type": "module",
   "description": "멜로디 스케치패드 — 웹 작곡 도구 (public/는 화면, api/는 곡 저장 서버)",
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@neondatabase/serverless": "^1.0.1",
     "@vercel/blob": "^2.8.0",
     "acorn": "^8.18.0"
