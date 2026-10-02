@@ -658,6 +658,17 @@ async def main():
               and i18['fallback'] == '없는열쇠입니다',
               f"{i18.get('langs')} · en→{i18.get('en')} · ko→{i18.get('ko')} · 없는열쇠→{i18.get('fallback')}")
 
+        # 샘플 주소: /app 과 /app/ 어느 쪽으로 열어도 오케스트라 악기를 찾아야 함
+        smpbase = await J("""(async()=>{
+          if (typeof smpIndex !== 'function') return {missing:true};
+          const idx = await smpIndex();
+          return {base:typeof SMP_BASE !== 'undefined' ? SMP_BASE : '없음',
+                  count:idx ? Object.keys(idx).length : 0,
+                  violin:!!(idx && idx['violin'])}})()""")
+        check('샘플 주소: 악기 목록을 찾고 바탕 주소가 /app/ 으로 끝남 (상대 주소 404 막기)',
+              smpbase.get('count', 0) > 100 and smpbase.get('violin') and str(smpbase.get('base','')).endswith('/'),
+              f"악기 {smpbase.get('count')}개 · 바탕 {smpbase.get('base')} · violin {smpbase.get('violin')}")
+
         # 영어 화면에 한글이 남아 있지 않은지 (코드가 만드는 글자 포함)
         ko_left = await J("""(async()=>{
           lib.list[lib.current].name = '새 곡'; saveLib();          // 앞선 테스트가 바꿔 놓은 이름을 기본값으로

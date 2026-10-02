@@ -1,10 +1,17 @@
 /* 33-samples.js — 6: 실제 녹음 샘플로 소리 내기
    처음 그 악기를 쓸 때만 내려받고, 없거나 인터넷이 끊기면 지금까지의 합성 소리로 그대로 감. */
 const SMP = {index:null, load:{}, ready:{}, off:false};
+// 앱이 /app 과 /app/ 어느 쪽으로 열려도 샘플을 찾도록 바탕 주소를 정해 둔다.
+// (/app 으로 열면 상대 주소가 /samples/ 로 풀려 404 → 오케스트라 악기가 안 나왔음)
+const SMP_BASE = (() => {
+  const p = location.pathname;
+  if (/\/app(\/|$)/.test(p)) return p.replace(/\/app\/?$/, '/app/').replace(/[^/]+$/, '');
+  return p.endsWith('/') ? p : p.replace(/[^/]+$/, '');
+})();
 
 async function smpIndex() {
   if (SMP.index || SMP.off) return SMP.index;
-  try { SMP.index = await (await fetch('samples/index.json')).json(); }
+  try { SMP.index = await (await fetch(SMP_BASE + 'samples/index.json')).json(); }
   catch (e) { SMP.off = true; }                      // 인터넷이 없으면 합성으로
   return SMP.index;
 }
@@ -14,7 +21,7 @@ function smpLoad(inst) {
   if (SMP.load[inst]) return SMP.load[inst];
   SMP.load[inst] = (async () => {
     const idx = await smpIndex(); if (!idx || !idx[inst]) return null;
-    const dir = 'samples/' + idx[inst].dir;
+    const dir = SMP_BASE + 'samples/' + idx[inst].dir;
     try {
       const meta = await (await fetch(dir + '/inst.json')).json();
       ensureCtx();
