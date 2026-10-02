@@ -74,7 +74,7 @@ function initAudioClips() {
     catch (err) { status('이 소리 파일을 읽지 못했어요.'); }
   });
 }
-// ---- 🎤 곡을 틀면서 녹음 → 시작 위치에 오디오 클립 ----
+// ---- 곡을 틀면서 녹음 → 시작 위치에 오디오 클립 ----
 let voc = null;
 async function vocalToggle() {
   if (voc) { voc.rec.stop(); return; }
@@ -86,7 +86,7 @@ async function vocalToggle() {
   voc = {rec, lead:0}; rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
   rec.onstart = () => { const t0 = ctx.currentTime; play(); voc.lead = startAt - t0; };
   rec.onstop = async () => {
-    const lead = voc.lead; voc = null; stream.getTracks().forEach(t => t.stop()); if (playing) stop(); $('vocRec').textContent = '🎤 녹음'; $('vocRec').setAttribute('aria-pressed', 'false');
+    const lead = voc.lead; voc = null; stream.getTracks().forEach(t => t.stop()); if (playing) stop(); $('vocRec').textContent = '녹음'; $('vocRec').setAttribute('aria-pressed', 'false');
     try {
       const ab = await new Blob(chunks, {type:rec.mimeType}).arrayBuffer(), a = await addAudioClip(ab, `녹음 ${(S.audio.length || 0) + 1}`, null, s0);
       // 지연 보정: 녹음 시작 → 곡 시작까지 + 스피커로 나가는 지연만큼 앞을 잘라냄

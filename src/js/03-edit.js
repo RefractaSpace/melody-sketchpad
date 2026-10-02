@@ -47,6 +47,7 @@ rc.addEventListener('pointerdown', e => {
   else {
     const s = Math.floor(q.tick / S.snap) * S.snap, l = Math.min(S.len, totalTicks() - s);
     const v0 = curCh().kind === 'drum' ? lastDrumVel : lastVel;
+    if (curCh().inst === 'kit') q.p = kitSnap(q.p);
     curNotes().push({p:q.p, s, l, v:v0}); drag = {mode:'new', i:curNotes().length - 1, x0:q.x, y0:q.y, orig:{p:q.p, s, l}, moved:false};
     preview(q.p, v0); drawRoll(); drawLanes();
   }
@@ -159,7 +160,7 @@ rc.addEventListener('keydown', e => {
   else if (k === 'Enter') {
     const n = noteAtCursor(); pushUndo();
     if (n) { curNotes().splice(curNotes().indexOf(n), 1); msg = `${nn(kb.p)} 음을 지웠어요`; }
-    else { const l = Math.min(S.len, totalTicks() - kb.t); curNotes().push({p:kb.p, s:kb.t, l, v:lastVel}); preview(kb.p, lastVel); msg = `${nn(kb.p)} 음을 찍었어요, 길이 ${lenText(l)}`; }
+    else { if (curCh().inst === 'kit') kb.p = kitSnap(kb.p); const l = Math.min(S.len, totalTicks() - kb.t); curNotes().push({p:kb.p, s:kb.t, l, v:lastVel}); preview(kb.p, lastVel); msg = `${nn(kb.p)} 음을 찍었어요, 길이 ${lenText(l)}`; }
     save(); selChanged();
   }
   else if (k === 'Delete' || k === 'Backspace') { const n = noteAtCursor(); if (n) { pushUndo(); curNotes().splice(curNotes().indexOf(n), 1); save(); selChanged(); msg = '지웠어요'; } else used = false; }

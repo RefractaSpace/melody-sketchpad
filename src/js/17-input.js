@@ -58,7 +58,7 @@ $('midiConn').onclick = async () => {
 // ---- 컴퓨터 자판 건반 ----
 const TYPE_MAP = {z:0, s:1, x:2, d:3, c:4, v:5, g:6, b:7, h:8, n:9, j:10, m:11, q:12, '2':13, w:14, '3':15, e:16, r:17, '5':18, t:19, '6':20, y:21, '7':22, u:23, i:24};
 let typeOn = false, typeOct = 4;
-function typeLabel() { $('typeKeys').textContent = typeOn ? `⌨ 자판 건반 C${typeOct}~C${typeOct + 2}` : '⌨ 자판 건반'; }
+function typeLabel() { $('typeKeys').textContent = typeOn ? `자판 건반 C${typeOct}~C${typeOct + 2}` : '자판 건반'; }
 function setType(on) { typeOn = on; $('typeKeys').setAttribute('aria-pressed', on); typeLabel(); if (!on) [...live.keys()].forEach(liveOff); announce(on ? `자판 건반 켬: Z줄은 C${typeOct}, Q줄은 C${typeOct + 1}. 빼기·같음표로 옥타브, Esc로 끄기` : '자판 건반을 껐어요'); }
 $('typeKeys').onclick = () => setType(!typeOn);
 document.addEventListener('keydown', e => {

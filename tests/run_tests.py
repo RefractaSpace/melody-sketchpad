@@ -14,6 +14,12 @@ results = []
 def check(name, ok, detail=''):
     results.append((name, bool(ok), detail)); print(('  ✅ ' if ok else '  ❌ ') + name + (f'  — {detail}' if detail else ''))
 
+async def fclick(pg, sel, **kw):
+    """파일 메뉴 안 항목: 메뉴가 닫혀 있으면 먼저 열고 누름 (실제 사용자 동작과 같음)"""
+    if not await pg.is_visible(sel):
+        await pg.click('#fileMenuBtn'); await pg.wait_for_timeout(60)
+    await pg.click(sel, **kw)
+
 async def main():
     tmp = tempfile.mkdtemp()
     async with async_playwright() as p:
@@ -142,7 +148,7 @@ async def main():
         check('재생 중 화면 속도 (PAT·SONG 모두 45fps 이상)', f1[0] >= 45 and f2[0] >= 45, f'PAT {f1[0]:.0f}fps · SONG {f2[0]:.0f}fps (느린 5% {f2[1]:.0f}ms)')
 
         await J("(()=>{S.playlist.clips=[{id:newId(),pat:S.patterns[1].id,t:0,bar:0},{id:newId(),pat:S.patterns[0].id,t:0,bar:1}];S.patterns[0].bars=2;S.patterns[0]=normalize(S).patterns[0];setPlayMode('song');refreshAll()})()")
-        async with pg.expect_download(timeout=90000) as dl: await pg.click('#wav')
+        async with pg.expect_download(timeout=90000) as dl: await fclick(pg, '#wav')
         d = await dl.value; wp = os.path.join(tmp, 'a.wav'); await d.save_as(wp)
         with wave.open(wp) as w: a = array.array('h', w.readframes(w.getnframes()))
         peak = max(abs(x) for x in a) / 32767 if a else 0; secs = len(a) / 2 / 44100
@@ -161,7 +167,7 @@ async def main():
           return {corr:ab/Math.sqrt(aa*bb),took,song:playSpan()*tickSec(),worst:Math.max(...gaps.slice(1)),steps:prog.length}}""")
         check('WAV 빠르게 만들기: 예전과 같은 소리 · 곡 길이의 40% 안 · 화면 안 멈춤', wr['corr'] > 0.999 and wr['took'] < wr['song'] * 0.4 and wr['worst'] < 500 and wr['steps'] > 10,
               f"상관 {wr['corr']:.4f} · {wr['song']:.0f}초 곡을 {wr['took']:.1f}초에 · 화면 최대 멈춤 {wr['worst']:.0f}ms · 진행률 {wr['steps']}번")
-        async with pg.expect_download() as dl: await pg.click('#midi')
+        async with pg.expect_download() as dl: await fclick(pg, '#midi')
         d = await dl.value; mp = os.path.join(tmp, 'a.mid'); await d.save_as(mp)
         import mido; m = mido.MidiFile(mp)
         check('MIDI 저장 (악기 채널마다 트랙 + 코드 + 드럼)', len(m.tracks) == 1 + 1 + 2, f'트랙 {len(m.tracks)}개')
@@ -172,7 +178,7 @@ async def main():
         # 우리 형식 MSK
         await J("idbPut('ch:'+S.channels[0].id,{ab:wavBytes(new AudioBuffer({length:100,sampleRate:44100,numberOfChannels:2})).buffer,root:62,name:'짧은샘플.wav'})")
         before = await J("JSON.stringify([S.channels.map(c=>c.kind+c.inst+c.name),S.patterns.map(p=>[p.bars,Object.values(p.notes).flat().length])])")
-        async with pg.expect_download() as dl: await pg.click('#saveProj')
+        async with pg.expect_download() as dl: await fclick(pg, '#saveProj')
         d = await dl.value; mk = os.path.join(tmp, 'p.msk'); await d.save_as(mk); raw = open(mk, 'rb').read()
         await pg.locator('#fileIn').set_input_files(mk); await pg.wait_for_timeout(500)
         after = await J("JSON.stringify([S.channels.map(c=>c.kind+c.inst+c.name),S.patterns.map(p=>[p.bars,Object.values(p.notes).flat().length])])")
@@ -203,7 +209,7 @@ async def main():
         check('MSK 안전장치: 소수점 BPM · 바이트 하나 바뀌면 거절 · 옛 파일도 읽힘', guard['bpm'] == 126.5 and guard['silent'] == 0 and guard['bad'] == 200 and guard['old'] == ['Plum풍 1번 진행', 138, 2],
               f"BPM {guard['bpm']} · 뒤집기 {guard['len']}번 중 놓침 {guard['silent']} · 무작위 200개 거절 {guard['bad']} · 옛 파일 {guard['old']}")
         code = await J("(async()=>mskToCode(await encodeMSK(S,'코드곡',{})))()")
-        await pg.click('#scoreIn'); await pg.fill('#scoreText', code); await pg.wait_for_timeout(400)
+        await fclick(pg, '#scoreIn'); await pg.fill('#scoreText', code); await pg.wait_for_timeout(400)
         cm = await pg.inner_text('#scoreMsg'); await pg.click('#scoreLoad'); await pg.wait_for_timeout(300)
         check('곡 코드 붙여넣기 → 새 프로젝트', '곡 코드로 알아봤어요' in cm and await J("lib.list[lib.current].name") == '코드곡', f'{len(code):,}글자')
         store = await J("""(()=>{save();clearTimeout(saveT);lsSet(PK(lib.current),songToStore(S));const v=lsGet(PK(lib.current)),j=JSON.stringify(S).length,a=JSON.stringify([S.channels.map(c=>c.id),S.patterns.map(p=>p.id)]);
@@ -216,15 +222,15 @@ async def main():
         check('악보 텍스트: 곡 → 악보 → 곡 왕복이 같음', rt['same'] and not rt['warn'], str(rt['warn'][:2]))
         er = await J("(()=>{try{parseScore('BPM: 120\\n[채널]\\n피아노 = 피아노\\n[패턴] A | 1마디\\n피아노: 1.1.1 H5 2');return 'no error'}catch(e){return e.message}})()")
         wr = await J("(()=>{const r=parseScore('[채널]\\n피아노 = 피아노\\n[패턴] A | 1마디\\n피아노: 1.1.1 H5 2 | 1.2.1 C5 2');return [r.warnings.join(' / '), notesOf(r.song.patterns[0],r.song.channels[0]).length]})()")
-        er2 = await J("(()=>{try{parseScore('[채널]\\n피아노 = 바이올린\\n[패턴] A | 1마디');return 'no error'}catch(e){return e.message}})()")
-        check('악보 텍스트: 틀린 곳을 줄 번호로 알려 줌', '4번째 줄' in wr[0] and wr[1] == 1 and '2번째 줄' in er2 and '바이올린' in er2, f'{wr[0][:40]} / {er2[:40]}')
+        er2 = await J("(()=>{try{parseScore('[채널]\\n피아노 = 없는악기\\n[패턴] A | 1마디');return 'no error'}catch(e){return e.message}})()")   # 바이올린은 6에서 진짜 악기가 됨
+        check('악보 텍스트: 틀린 곳을 줄 번호로 알려 줌', '4번째 줄' in wr[0] and wr[1] == 1 and '2번째 줄' in er2 and '없는악기' in er2, f'{wr[0][:40]} / {er2[:40]}')
         demo = "# 멜로디 스케치패드 악보 v1\n제목: 테스트 곡\nBPM: 128\n조: A 단조\n재생: SONG\n[채널]\n리드 = 슈퍼소    볼륨 80\n킥 = 드럼 킥\n[패턴] 벌스 | 2마디\n코드: 1.1 Am | 2.1 F\n리드: 1.1.1 A4 2 v90 | 1.1.3 C5 2 | 1.2.1 E5 4\n  2.1.1 F5 8 v70\n킥: X...X...X...5... X...X...X...X...\n[플레이리스트]\n트랙 1: 벌스 @1, 벌스 @3\n"
-        await pg.click('#scoreIn'); await pg.fill('#scoreText', demo); await pg.wait_for_timeout(450)
-        ok_msg = '✓' in await pg.inner_text('#scoreMsg'); await pg.click('#scoreLoad'); await pg.wait_for_timeout(300)
+        await fclick(pg, '#scoreIn'); await pg.fill('#scoreText', demo); await pg.wait_for_timeout(450)
+        ok_msg = '알아봤어요' in await pg.inner_text('#scoreMsg'); await pg.click('#scoreLoad'); await pg.wait_for_timeout(300)
         got = await J("[lib.list[lib.current].name,S.bpm,S.root,S.mode,S.playMode,S.channels.map(c=>c.name),notesOf(S.patterns[0],S.channels[0]).length,notesOf(S.patterns[0],S.channels[1]).map(n=>n.v),chordName(S.patterns[0].chords[4]),S.playlist.clips.length,Math.round(S.mix[chKey(S.channels[0])].v*100)]")
         check('악보 붙여넣기 → 새 프로젝트', ok_msg and got[:6] == ['테스트 곡', 128, 9, 'minor', 'song', ['리드', '킥']] and got[6] == 4 and 0.5 in got[7] and got[8] == 'F' and got[9] == 2 and got[10] == 80, str(got))
         tp = os.path.join(tmp, 'demo.txt'); open(tp, 'w').write(demo)
-        await pg.click('#convBtn'); await pg.locator('#convIn').set_input_files(tp); await pg.wait_for_timeout(300)
+        await fclick(pg, '#convBtn'); await pg.locator('#convIn').set_input_files(tp); await pg.wait_for_timeout(300)
         async with pg.expect_download() as dl: await pg.click('#convMid')
         d = await dl.value; cm = os.path.join(tmp, 'conv.mid'); await d.save_as(cm); mm = mido.MidiFile(cm)
         await pg.locator('#convIn').set_input_files(cm); await pg.wait_for_timeout(300)
@@ -274,7 +280,7 @@ async def main():
         lp = await ctx.new_page(); await lp.set_viewport_size({'width': 1366, 'height': 768}); await lp.goto(URL); await lp.wait_for_timeout(1200)
         lay = await lp.evaluate("(()=>{const r=document.getElementById('win-roll').getBoundingClientRect();return {rows:Math.floor(view().vh/ROWH),bottom:Math.round(r.bottom),tb:Math.round(document.querySelector('.tb').getBoundingClientRect().height),act:Math.round(document.querySelector('footer.actions').getBoundingClientRect().bottom),ai:Math.round(document.getElementById('aiBtn').getBoundingClientRect().bottom)}})()")
         await lp.close()
-        check('노트북 화면(1366×768): 피아노 롤 18줄 이상 · 아래 버튼 줄(✨ AI 포함)까지 화면 안', lay['rows'] >= 18 and lay['bottom'] <= 768 and lay['tb'] < 70 and lay['act'] <= 768 and lay['ai'] <= 768, str(lay))
+        check('노트북 화면(1366×768): 피아노 롤 18줄 이상 · 아래 버튼 줄(AI 포함)까지 화면 안', lay['rows'] >= 18 and lay['bottom'] <= 768 and lay['tb'] < 70 and lay['act'] <= 768 and lay['ai'] <= 768, str(lay))
         # 자판 건반 · MIDI 건반 · 녹음
         await J("""(()=>{const s=normalize(blank());s.bpm=120;s.patterns[0].bars=1;s.patterns[0].chords=Array(4).fill(null);s.playMode='pat';S=s;startTick=0;refreshAll();$('loop').setAttribute('aria-pressed','true')})()""")
         await pg.click('#typeKeys'); await J("setRec(true);play()"); await pg.wait_for_timeout(250)
@@ -317,7 +323,7 @@ async def main():
         ref.sort(); err = max(abs(a - b) for a, b in zip(ref, app['times'])) if len(ref) == len(app['times']) else 99
         check('축제, 청춘 v16: 템포 변화 전부 → 음 1,152개 시각이 원본 MIDI와 일치', app['n'] > 50 and app['mode'] == 'song' and err < 0.01, f"바뀌는 곳 {app['n']}개 · 기본 {app['bpm']} · 최대 오차 {err*1000:.2f}ms · 곡 길이 {app['len']:.1f}초")
         rt3 = await J("""(async()=>{const d=(await decodeMSK(await encodeMSK(S,'x',{}))).song,t=parseScore(withSong(S,()=>scoreText('x'))).song,k=a=>JSON.stringify(a.map(x=>[x.t,x.bpm]));return [k(d.tempo)===k(S.tempo),k(t.tempo)===k(S.tempo)]})()""")
-        async with pg.expect_download() as dl: await pg.click('#midi')
+        async with pg.expect_download() as dl: await fclick(pg, '#midi')
         d = await dl.value; tp2 = os.path.join(tmp, 'tempo_out.mid'); await d.save_as(tp2)
         check('템포 지도가 MSK·악보·MIDI 저장에 담김', rt3 == [True, True] and abs(mido.MidiFile(tp2).length - mm.length) < 0.05, f'MSK·악보 {rt3} · 저장한 MIDI {mido.MidiFile(tp2).length:.2f}초 (원본 {mm.length:.2f}초)')
         # 믹서 이펙트 칸 · 자동화
@@ -342,7 +348,7 @@ async def main():
         left = await J("curPat().auto[curCh().id].vol.length"); await pg.select_option('#laneMode', 'vel')
         await pg.locator('#mixerStrips .strip.trk').first.locator('select[aria-label$="이펙트 1"]').select_option('comp'); await pg.wait_for_timeout(150)
         fxs = await J("JSON.stringify(S.mix[chKey(S.channels[0])].fx.map(f=>f.type))")
-        rt4 = await J("""(async()=>{S.mix[chKey(S.channels[1])].fx=[{type:'lpf',a:.4,b:.2},{type:'chorus',a:.6,b:.3}];S.patterns[0].auto[S.channels[0].id].cut=[{s:0,v:.2},{s:96,v:.9}];S=normalize(S);
+        rt4 = await J(r"""(async()=>{S.mix[chKey(S.channels[1])].fx=[{type:'lpf',a:.4,b:.2},{type:'chorus',a:.6,b:.3}];S.patterns[0].auto[S.channels[0].id].cut=[{s:0,v:.2},{s:96,v:.9}];S=normalize(S);
           const d=(await decodeMSK(await encodeMSK(S,'x',{}))).song,t=parseScore(withSong(S,()=>scoreText('x'))).song,k=s=>JSON.stringify([s.channels.map(c=>(s.mix[chKey(c)].fx||[]).map(f=>[f.type,Math.round(f.a*100),Math.round(f.b*100)])),s.patterns.map(p=>s.channels.map(c=>{const A=(p.auto||{})[c.id]||{};return ['vol','cut'].map(q=>(A[q]||[]).map(x=>[x.s,Math.round(x.v*100)]))}))]);
           return [k(S)===k(d),k(S)===k(t).replace(/\[\[\["[a-z]+",\d+,\d+\](,\["[a-z]+",\d+,\d+\])*\]/g,'')||true, (a=>JSON.stringify(a))(t.channels.map(c=>['vol','cut'].map(q=>(((t.patterns[0].auto||{})[c.id]||{})[q]||[]).map(x=>[x.s,Math.round(x.v*100)]))))===(a=>JSON.stringify(a))(S.channels.map(c=>['vol','cut'].map(q=>(((S.patterns[0].auto||{})[c.id]||{})[q]||[]).map(x=>[x.s,Math.round(x.v*100)]))))]})()""")
         check('자동화 줄 편집(점 찍기·두 번 눌러 지우기) · 믹서에서 이펙트 끼우기 · MSK·악보 저장', pts.count('[') == 3 and left == 1 and fxs == '["comp"]' and rt4[0] and rt4[2], f'점 {pts} → 지운 뒤 {left}개 · 이펙트 {fxs} · 저장 {rt4}')
@@ -363,7 +369,7 @@ async def main():
         await pg.select_option('#qzMode', 'both'); await pg.click('#qzBtn')
         qz = await J("curNotes().map(n=>[n.p,n.s,n.l,Math.round(n.v*10)]).sort((a,b)=>a[1]-b[1])")
         check('퀀타이즈 (시작+길이, 겹친 음 합치기)', qz == [[60, 0, 24, 8], [64, 36, 12, 8], [67, 48, 12, 9]], str(qz))
-        await pg.click('#convBtn'); await pg.click('#convCur'); await pg.wait_for_timeout(300)
+        await fclick(pg, '#convBtn'); await pg.click('#convCur'); await pg.wait_for_timeout(300)
         async with pg.expect_download(timeout=90000) as dl: await pg.click('#convMp3')
         d = await dl.value; mp = os.path.join(tmp, 'x.mp3'); await d.save_as(mp)
         mb = open(mp, 'rb').read()
@@ -440,7 +446,7 @@ async def main():
         await pg.click('.more-btn'); await pg.select_option('#meterSel', '3/4'); await pg.wait_for_timeout(150)
         m1 = await J("({bar:BAR_T,beats:BEATS,bars:curPat().bars,notes:curNotes().map(n=>n.s),chord:curPat().chords.findIndex(Boolean),steps:document.querySelectorAll('#rackBody .rrow')[1].querySelectorAll('.st').length,slots:document.querySelectorAll('#chordRow > *').length})")
         rt = await J("""(async()=>{S.swing=.4;const d=normalize((await decodeMSK(await encodeMSK(S,'x',{}))).song),t=parseScore(withSong(S,()=>scoreText('x'))).song;return [d.meter.join('/'),d.swing,t.meter.join('/'),t.swing,t.patterns[0].notes[t.channels[0].id].map(n=>n.s).join(',')]})()""")
-        async with pg.expect_download() as dl: await pg.click('#midi')
+        async with pg.expect_download() as dl: await fclick(pg, '#midi')
         d = await dl.value; mp3 = os.path.join(tmp, 'm34.mid'); await d.save_as(mp3)
         ts = [(m.numerator, m.denominator) for m in mido.MidiFile(mp3).tracks[0] if m.type == 'time_signature']
         mm = mido.MidiFile(ticks_per_beat=480); tr = mido.MidiTrack(); mm.tracks.append(tr)
@@ -602,6 +608,187 @@ async def main():
               ','.join(cmp_['tabs']) + f" · 붙임숨김 {cmp_['attachHidden']}")
 
         check('AI·커뮤니티·내 페이지·소개 링크 화면 요소', ui['ai'] and ui['comm'] and ui['about'].endswith('/download/') and ui['eng'] == 'music,local,claude' and ui['tabs'] == 4 and True and True and ui['mypage'], json.dumps(ui, ensure_ascii=False))
+
+        dup = await J("""(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id),seen={},d=[];ids.forEach(i=>{if(seen[i]&&!d.includes(i))d.push(i);seen[i]=1});return {d,n:ids.length,cz:['czGo','czPrompt','czAudio','czMp3','czOpen'].every(i=>!!document.getElementById(i)),hidden:getComputedStyle($('composerApp')).display==='none'&&!$('composerApp').offsetHeight}})()""")
+        check('같은 id가 두 번 없음 · AI 작곡기 요소 (평소에는 화면에서 안 보임)', not dup['d'] and dup['cz'] and dup['hidden'], f"id {dup['n']}개, 중복 {dup['d']}")
+
+        # 6: 실제 녹음 샘플 악기
+        smp = await J("""(async()=>{const r={};
+          const idx=await smpIndex(); if(!idx) return {off:true};
+          r.insts=Object.keys(idx).length; r.hasViolin=!!idx.violin; r.hasPiano=!!idx.piano;
+          const pack=await smpLoad('violin'); if(!pack) return {...r, loadFail:true};
+          r.bufs=Object.keys(pack.bufs).length; r.gain=+pack.gain.toFixed(2);
+          const hi=smpPick(pack,72,0.9), lo=smpPick(pack,60,0.3);
+          r.pick=!!(hi&&hi.buf) && !!(lo&&lo.buf); r.diffVel = hi&&lo ? hi.buf!==lo.buf||hi.root!==lo.root : false;
+          const snap=JSON.stringify(S);
+          S=normalize(blank()); const c=S.channels[0]; c.inst='violin'; const P=curPat();
+          for(const ch of S.channels) P.notes[ch.id]=[]; P.notes[c.id]=[{p:72,s:0,l:48,v:.9}];
+          S.bpm=120; S.playMode='pattern'; refreshAll();
+          const b=await renderWav(); const u=b instanceof Uint8Array?b:new Uint8Array(b); const dv=new DataView(u.buffer,u.byteOffset);
+          const n=(u.length-44)>>1; let mx=0; for(let i=0;i<n;i++){const v=Math.abs(dv.getInt16(44+i*2,true))/32768; if(v>mx)mx=v}
+          r.peak=+mx.toFixed(3); r.msk=MSK_INST.indexOf('violin')>0 && MSK_INST.indexOf('xylo')>0;
+          r.keep=normalize(JSON.parse(JSON.stringify(S))).channels[0].inst==='violin';
+          S=normalize(JSON.parse(snap)); save(); refreshAll(); return r})()""")
+        check('샘플 악기: 새 악기 15개만 샘플 · 내려받기 · 건반과 세기로 고르기 (피아노 등 기존 악기는 그대로)', not smp.get('off') and not smp.get('loadFail') and smp.get('insts', 0) >= 15 and smp.get('hasViolin') and not smp.get('hasPiano') and smp.get('bufs', 0) > 10 and smp.get('pick'), str(smp))
+
+        # 언어 뼈대 (앱 쪽)
+        i18 = await J("""(()=>{
+          if (typeof setLang !== 'function') return {missing:true};
+          const before = (typeof myTier === 'function') ? null : null;
+          const r = {has:true, langs:Object.keys(I18N_LANGS), fn:typeof t === 'function'};
+          const cur = document.documentElement.lang;
+          setLang('en'); r.en = document.documentElement.lang;
+          setLang('ko'); r.ko = document.documentElement.lang;
+          r.fallback = t('없는열쇠입니다');            // 번역이 없으면 원문 그대로
+          return r})()""")
+        check('언어: 한국어·영어 전환이 되고, 번역이 없으면 원문을 그대로 보여 줌',
+              i18.get('has') and i18['langs'] == ['ko', 'en'] and i18['en'] == 'en' and i18['ko'] == 'ko'
+              and i18['fallback'] == '없는열쇠입니다',
+              f"{i18.get('langs')} · en→{i18.get('en')} · ko→{i18.get('ko')} · 없는열쇠→{i18.get('fallback')}")
+
+        # 알림 문구 영어
+        msg = await J("""(async()=>{
+          if (typeof tMsg !== 'function') return {missing:true};
+          setLang('en'); await new Promise(r => setTimeout(r, 300));
+          const r = {whole:tMsg('저장했어요.'),
+                     num:tMsg('3개를 바로 뒤에 복제했어요.'),
+                     name:tMsg('"피아노" 채널을 지웠어요.'),
+                     both:tMsg('서버에 올렸어요: "밤" (12KB)'),
+                     unknown:tMsg('이건 번역에 없는 문장이에요')};
+          setLang('ko'); await new Promise(r2 => setTimeout(r2, 250));
+          r.backKo = tMsg('저장했어요.');
+          return r})()""")
+        check('알림 영어: 통째로·숫자 섞임·이름 섞임 모두 번역되고 이름은 그대로',
+              msg.get('whole') == 'Saved.' and msg['num'] == 'Duplicated 3 right after.'
+              and msg['name'] == 'Deleted the "피아노" channel.'
+              and '12 KB' in msg['both'] and '밤' in msg['both'],
+              f"{msg.get('whole')} / {msg.get('num')} / {msg.get('name')} / {msg.get('both')}")
+        check('알림 영어: 번역에 없으면 원문 그대로 · 한국어로 되돌아감',
+              msg['unknown'] == '이건 번역에 없는 문장이에요' and msg['backKo'] == '저장했어요.',
+              f"{msg.get('unknown')} · 되돌림 {msg.get('backKo')}")
+
+        # 앱 화면 영어
+        enui = await J("""(async()=>{
+          if (typeof setLang !== 'function') return {missing:true};
+          S = normalize(blank());
+          setLang('en'); refreshAll();                   // 언어를 바꾼 뒤에 다시 그려야 반영됨
+          await new Promise(r => setTimeout(r, 500));
+          const r = {
+            rack:[...document.querySelectorAll('.cname')].map(e => e.textContent).slice(0, 3),
+            track:document.querySelector('#plHead div')?.textContent,
+            key:document.getElementById('corner')?.textContent,
+            pat:document.querySelector('#patSel option')?.textContent,
+            inst:[...document.querySelectorAll('#chAdd option')].slice(1, 3).map(o => o.textContent),
+            group:document.querySelector('#chAdd optgroup')?.label,
+            foot:[...document.querySelectorAll('footer.actions button,footer.actions a')].map(e => e.textContent.trim()).filter(Boolean).slice(0, 3)};
+          setLang('ko'); refreshAll(); await new Promise(r2 => setTimeout(r2, 400));
+          r.backKo = document.querySelector('.cname')?.textContent;
+          return r})()""")
+        ko = lambda s: bool(s) and any('\uac00' <= c <= '\ud7a3' for c in str(s))
+        check('영어: 채널·트랙·조·패턴 이름이 영어로 바뀜',
+              not ko(enui['rack']) and not ko(enui['track']) and not ko(enui['key']) and not ko(enui['pat']),
+              f"{enui['rack']} · {enui['track']} · {enui['key']} · {enui['pat']}")
+        check('영어: 악기 선택지·분류·아래 버튼이 영어로 바뀜',
+              not ko(enui['inst']) and not ko(enui['group']) and not ko(enui['foot']),
+              f"{enui['inst']} · {enui['group']} · {enui['foot']}")
+        check('영어: 한국어로 되돌리면 다시 한국어',
+              ko(enui['backKo']), str(enui['backKo']))
+
+        # 6: 음정 보정 — 실제 목소리에 가까운 조건 (비브라토·흔들림·숨소리·무성음)
+        vp = await J("""(()=>{
+          const sr=44100;
+          function voice(f0,sec,o){o=o||{};const vib=o.vib||0,drift=o.drift||0,breath=o.breath||0,jit=o.jitter||0;
+            const n=Math.round(sr*sec),x=new Float32Array(n);let ph=0;
+            for(let i=0;i<n;i++){const t=i/sr;
+              let f=f0*(1+vib*Math.sin(2*Math.PI*5.5*t))*(1+drift*t/sec); if(jit)f*=1+jit*(Math.random()-0.5);
+              ph+=2*Math.PI*f/sr; let s=0;
+              for(let h=1;h<=10;h++){const fh=f*h;
+                s+=(1/h)*(1+1.6*Math.exp(-Math.pow((fh-700)/350,2))+1.1*Math.exp(-Math.pow((fh-1200)/420,2)))*Math.sin(ph*h);}
+              s*=0.1; if(breath)s+=breath*(Math.random()*2-1)*0.1;
+              x[i]=s*Math.min(1,i/(sr*0.02),(n-i)/(sr*0.03));}
+            return x;}
+          const C=(a,b)=>1200*Math.log2(a/b), P=x=>yinPitch(x,sr,0.15), r={};
+          const err=(x,ref)=>{const p=P(x); return p.hz>0 ? Math.abs(C(p.hz,ref)) : 999;};
+          r.vibrato = +err(voice(220,0.5,{vib:0.03}),220).toFixed(1);
+          r.real    = +err(voice(220,0.5,{vib:0.025,drift:0.04,breath:0.3,jitter:0.004}),220*1.02).toFixed(1);
+          r.low     = +err(voice(110,0.5,{vib:0.02,breath:0.3}),110).toFixed(1);
+          r.high    = +err(voice(440,0.5,{vib:0.02,breath:0.3}),440).toFixed(1);
+          const nz=new Float32Array(Math.round(sr*0.2));for(let i=0;i<nz.length;i++)nz[i]=(Math.random()*2-1)*0.2;
+          r.unvoiced = P(nz).hz;
+          const q=new Float32Array(Math.round(sr*0.2));for(let i=0;i<q.length;i++)q[i]=(Math.random()*2-1)*0.0005;
+          r.silence = P(q).hz;
+          const v=voice(220,0.5,{vib:0.025,breath:0.3}), f0=P(v).hz;
+          const up=psolaShift(v,sr,f0,Math.pow(2,2/12));
+          r.psolaUp = +Math.abs(C(P(up).hz||1, f0*Math.pow(2,2/12))).toFixed(1);
+          r.lenKeep = +(up.length/v.length).toFixed(3);
+          return r})()""")
+        check('음정 보정: 비브라토·숨소리·음 높이 흔들림이 있어도 10센트 안쪽',
+              vp['vibrato'] < 10 and vp['real'] < 10 and vp['low'] < 10 and vp['high'] < 10,
+              f"비브라토 {vp['vibrato']} · 노래 {vp['real']} · 낮은목소리 {vp['low']} · 높은목소리 {vp['high']} 센트")
+        check('음정 보정: 무성음·조용한 구간에서 엉뚱한 음을 내지 않음 (0)',
+              vp['unvoiced'] == 0 and vp['silence'] == 0,
+              f"무성음 {vp['unvoiced']} · 조용함 {vp['silence']}")
+        check('음정 보정: 비브라토 있는 소리도 +2반음 정확 · 길이 유지',
+              vp['psolaUp'] < 10 and 0.98 < vp['lenKeep'] < 1.02,
+              f"오차 {vp['psolaUp']}센트 · 길이 {vp['lenKeep']}배")
+
+        # 6: 등급별 악기
+        tier = await J("""(async()=>{const r={}; const before=myTier();
+          for(const t of ['se','six','pro','max']){setTier(t);
+            const vis=[...$('chAdd').querySelectorAll('option[value^="synth:"]')].filter(o=>!o.hidden).map(o=>o.value.slice(6));
+            r[t]={n:vis.length, gm:vis.filter(v=>/^gm\\d+$/.test(v)).length, vio:vis.includes('violin'),
+                  max:vis.includes('pianoMax'), base:vis.includes('piano')};}
+          setTier('se');
+          r.sub={violin:playInst('violin'), pianoMax:playInst('pianoMax'), piano:playInst('piano')};
+          const snap=JSON.stringify(S);
+          S=normalize(blank()); S.channels[0].inst='violin'; refreshAll();
+          const P=curPat(); for(const c of S.channels) P.notes[c.id]=[]; P.notes[S.channels[0].id]=[{p:72,s:0,l:48,v:.9}];
+          S.bpm=120; S.playMode='pattern';
+          const b=await renderWav(); const u=b instanceof Uint8Array?b:new Uint8Array(b); const dv=new DataView(u.buffer,u.byteOffset);
+          const n=(u.length-44)>>1; let mx=0; for(let i=0;i<n;i++){const v=Math.abs(dv.getInt16(44+i*2,true))/32768; if(v>mx)mx=v}
+          r.peak=+mx.toFixed(3); r.keep=S.channels[0].inst==='violin';
+          setTier(before||'max'); S=normalize(JSON.parse(snap)); save(); refreshAll(); return r})()""")
+        check('등급별 악기: 출시 전 SE도 표준 128개 · Pro는 오케스트라 · Max는 피아노 Max',
+              tier['se']['gm'] == 128 and not tier['se']['vio'] and tier['se']['base']
+              and tier['six']['gm'] == 128 and not tier['six']['vio']
+              and tier['pro']['vio'] and not tier['pro']['max'] and tier['max']['max'],
+              f"SE {tier['se']['n']} · 6 {tier['six']['n']} · Pro {tier['pro']['n']} · Max {tier['max']['n']}")
+        check('등급: 잠긴 악기를 쓰는 곡도 비슷한 소리로 재생되고 악기 이름은 그대로',
+              tier['sub']['violin'] == 'strings' and tier['sub']['piano'] == 'piano' and tier['peak'] > 0.02 and tier['keep'],
+              str(tier['sub']) + f" · 소리 {tier['peak']} · 이름유지 {tier['keep']}")
+
+        # 6: 악기 145개 · 라이선스 표기
+        big = await J("""(async()=>{const idx=await smpIndex(); const r={n:Object.keys(idx).length};
+          r.gm=Object.keys(idx).filter(k=>/^gm\\d+$/.test(k)).length; r.piano=!!idx.pianoPro&&!!idx.pianoMax;
+          const packs={}; for(const k of ['gm0','gm30','gm56','pianoPro']) packs[k]=await smpLoad(k);
+          r.load=Object.values(packs).every(p=>p&&Object.keys(p.bufs).length>0);
+          r.overlap=smpPickAll(packs.gm30,52,0.85).length;
+          r.gains=Object.values(packs).map(p=>+p.gain.toFixed(1));
+          r.msk=MSK_INST.indexOf('gm127')>0 && MSK_INST.indexOf('pianoMax')>0 && MSK_INST.indexOf('piano')===0;
+          return r})()""")
+        check('악기 145개: GM 128 · 살라만더 Pro/Max · 겹친 구역 함께 내기 · 파일 번호표', big['n'] >= 145 and big['gm'] == 128 and big['piano'] and big['load'] and big['overlap'] >= 2 and big['msk'], str(big))
+        cr = await J("""(()=>{const b=$('creditBtn'),d=$('creditDlg'); if(!b||!d) return {no:true};
+          b.click(); const open=d.open, txt=d.textContent;
+          const has=['GeneralUser GS','VSCO 2','Salamander','Alexander Holm','Versilian'].filter(s=>txt.includes(s));
+          $('creditClose').click(); return {open, closed:!d.open, has:has.length}})()""")
+        check('소리 출처 · 라이선스 표기 (CC-BY 의무)', cr.get('open') and cr.get('closed') and cr.get('has') == 5, str(cr))
+        check('샘플 악기: 실제로 소리 남 · 파일에 저장되고 불러와도 유지', smp.get('peak', 0) > 0.02 and smp.get('msk') and smp.get('keep'), f"소리 {smp.get('peak')} · 번호표 {smp.get('msk')} · 유지 {smp.get('keep')}")
+
+        # 6: 드럼 키트 (드럼을 피아노 롤에서 찍기)
+        kit = await J("""(async()=>{const snap=JSON.stringify(S);const r={};
+          S=normalize(blank()); S.ch=0; refreshAll(); addChannel('synth','kit'); const ch=curCh(); r.inst=ch.inst; r.name=ch.name; r.snap=[kitSnap(38),kitSnap(60),kitSnap(35)];
+          r.msk=MSK_INST.indexOf('kit'); r.before=S.channels.length; const nn=normalize(JSON.parse(JSON.stringify(S))); r.keep=nn.channels.some(c=>c.inst==='kit'); r.norm=nn.channels.length+':'+nn.channels.slice(-3).map(c=>c.inst).join('/');
+          S.bpm=120; S.playMode='pattern'; const P=curPat(); for(const c of S.channels) P.notes[c.id]=[]; P.notes[ch.id]=KIT.map(([p],i)=>({p,s:i*24,l:12,v:.9}));
+          const b=await renderWav(); let d; if(b&&b.getChannelData){d=b.getChannelData(0);r.sr=b.sampleRate}else{const u=b instanceof Uint8Array?b:new Uint8Array(b);const dv=new DataView(u.buffer,u.byteOffset);r.sr=dv.getUint32(24,true);const n=(u.length-44)>>1;d=new Float32Array(n);const ch2=dv.getUint16(22,true);for(let i=0;i<n;i+=ch2)d[i/ch2|0]=dv.getInt16(44+i*2,true)/32768;}
+          const spt=r.sr*60/120/48; r.peaks=KIT.map((_,i)=>{let m=0;for(let k=Math.floor(i*24*spt);k<Math.floor((i*24+22)*spt)&&k<d.length;k++)m=Math.max(m,Math.abs(d[k]));return +m.toFixed(3)});
+          const mb=midiBytes(); r.midi=false; r.midiHat=false; for(let i=0;i<mb.length-1;i++){if(mb[i]===0x99&&mb[i+1]===38)r.midi=true; if(mb[i]===0x99&&mb[i+1]===42)r.midiHat=true}
+          S=normalize(blank()); refreshAll(); const k1=S.channels.findIndex(c=>c.inst==='kick'),s1=S.channels.findIndex(c=>c.inst==='snare');
+          const Q=curPat(); Q.notes[S.channels[k1].id]=[{p:72,s:0,l:6,v:1},{p:72,s:96,l:6,v:1}]; Q.notes[S.channels[s1].id]=[{p:72,s:48,l:6,v:.8}];
+          const drumIds=S.channels.filter(c=>c.kind==='drum').map(c=>c.id); r.drumN=drumIds.length; r.expect=S.patterns.reduce((s,P)=>s+drumIds.reduce((u,id)=>u+(P.notes[id]||[]).length,0),0); const m=mergeToKit(); const kc=S.channels.find(c=>c.inst==='kit'); r.merge={m, drumsLeft:S.channels.filter(c=>c.kind==='drum').length, ps:(curPat().notes[kc.id]||[]).map(n=>n.p).join(',')};
+          S=normalize(JSON.parse(snap)); save(); refreshAll(); return r})()""")
+        check('드럼 키트: 채널 추가 · 가장 가까운 드럼 줄로 · 파일 번호 · 불러와도 유지', kit['inst'] == 'kit' and kit['name'] == '드럼 키트' and kit['snap'] == [38, 49, 36] and kit['msk'] == 13 and kit['keep'], str({k: kit.get(k) for k in ('snap', 'msk', 'keep', 'before', 'norm', 'inst')}))
+        check('드럼 키트: 드럼 14종이 모두 소리 남 (렌더링한 소리의 봉우리)', len(kit['peaks']) == 14 and min(kit['peaks']) > 0.02, str(kit['peaks']))
+        check('드럼 키트: MIDI 저장은 10번 채널·GM 번호로 (스네어 38·닫힌 햇 42) · 드럼 채널 합치기', kit['midi'] and kit['midiHat'] and kit['merge']['m']['channels'] == kit['drumN'] and kit['merge']['m']['notes'] == kit['expect'] and kit['merge']['drumsLeft'] == 0 and kit['merge']['ps'] == '36,38,36', str(kit['merge']) + f" · 합치기 전 드럼 음 {kit['expect']}개")
 
         await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
         stacked = await J("getComputedStyle(document.getElementById('win-roll')).position")

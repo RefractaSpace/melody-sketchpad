@@ -1,4 +1,4 @@
-/* 26-ai.js — ✨ AI: 작곡 · 코드 추천 · 피드백
+/* 26-ai.js — AI: 작곡 · 코드 추천 · 피드백
    엔진 두 가지: 기본 AI(앱 안에서 음악 규칙으로 계산, 바로 동작) / Claude(서버 /api/ai, 로그인 + Vercel 결제 카드 필요)
    Claude가 막히면 기본 AI로 자동 전환해요. 두 엔진 모두 같은 JSON 모양을 돌려줘서 곡에 넣는 코드는 하나예요. */
 const AI_API = (window.MSK_SERVER || '') + '/api/ai', NN = 'C C# D D# E F F# G G# A A# B'.split(' ');
@@ -13,7 +13,7 @@ function triad(root, scale, d, seven) {
   return {r, q, pcs:[r, (r + t) % 12, (r + f) % 12, ...(q === '7' ? [(r + 10) % 12] : [])]};
 }
 // ── 기본 AI: 작곡 ──
-function localCompose({prompt = '', bars = 4, seed = 1}) {
+function localCompose({prompt = '', bars = 4, seed = 1, degs:degsIn = null}) {
   const r = rng(seed), t = prompt.toLowerCase(), has = re => re.test(t);
   const sad = has(/슬프|잔잔|어두|우울|밤|쓸쓸|minor|단조/), hi = has(/신나|빠르|댄스|edm|강하|파워|여름|축제|드럼/), calm = !hi && has(/잔잔|피아노|발라드|느리|조용|꿈|lofi|로파이/);
   const minor = sad || (S.mode === 'minor' && !has(/밝|행복|신나|여름|축제|장조|major/));
@@ -21,7 +21,7 @@ function localCompose({prompt = '', bars = 4, seed = 1}) {
   const lead = has(/피아노/) ? 'piano' : has(/신스|synth/) ? 'synth' : has(/벨|종/) ? 'bell' : has(/칩|8비트|게임/) ? 'chip' : has(/플럭/) ? 'pluck' : hi ? 'pluck' : calm ? 'piano' : 'epiano';
   const drums = hi || has(/드럼|비트/), SPB = BEATS * 4;
   const prog = aiPick(r, minor ? [[0, 5, 2, 6], [0, 3, 4, 0], [0, 6, 5, 4], [5, 6, 0, 0], [0, 3, 6, 2]] : [[0, 4, 5, 3], [5, 3, 0, 4], [0, 5, 3, 4], [3, 4, 2, 5], [0, 3, 1, 4]]);
-  const degs = Array.from({length:bars}, (_, b) => b === bars - 1 && bars > 2 ? 0 : b === bars - 2 && bars > 2 ? 4 : prog[b % 4]);
+  const degs = degsIn ? Array.from({length:bars}, (_, b) => degsIn[b % degsIn.length]) : Array.from({length:bars}, (_, b) => b === bars - 1 && bars > 2 ? 0 : b === bars - 2 && bars > 2 ? 4 : prog[b % 4]);
   const chords = degs.map(d => triad(root, scale, d, d === 4 && minor));
   const out = {title:(prompt || '기본 AI').slice(0, 24), key:{root, minor}, channels:[], chords:degs.map((d, b) => [b + 1, 1, NN[chords[b].r], chords[b].q])};
   const put = (arr, b, st, p, len, v) => arr.push([b + 1, Math.floor(st / 4) + 1, st % 4 + 1, pName(p), len, v]);
@@ -75,7 +75,7 @@ function localChords(melody, bars, perBar) {
 function localFeedback() {
   const all = [], byCh = {}; S.channels.forEach(c => byCh[c.id] = {c, notes:[]});
   S.patterns.forEach(P => Object.entries(P.notes).forEach(([id, a]) => a.forEach(n => { if (byCh[id]) { byCh[id].notes.push(n); all.push({...n, c:byCh[id].c}); } })));
-  if (!all.length) return '• 아직 음이 없어요. ✨ AI → 작곡으로 시작해 보거나 피아노 롤에 몇 음 찍어 보세요.';
+  if (!all.length) return '• 아직 음이 없어요. AI → 작곡으로 시작해 보거나 피아노 롤에 몇 음 찍어 보세요.';
   const inst = Object.values(byCh).filter(x => x.c.kind !== 'drum' && x.notes.length), melo = inst.sort((a, b) => b.notes.reduce((s, n) => s + n.p, 0) / b.notes.length - a.notes.reduce((s, n) => s + n.p, 0) / a.notes.length)[0];
   const good = [], tip = [], melN = (melo ? melo.notes : []).slice().sort((a, b) => a.s - b.s);
   const out = all.filter(n => n.c.kind !== 'drum' && !inKey(n.p % 12)).length / Math.max(1, all.filter(n => n.c.kind !== 'drum').length);
@@ -87,7 +87,7 @@ function localFeedback() {
     if (uniq <= 3 && melN.length > 12) tip.push(`멜로디에 쓴 음이 ${uniq}가지뿐이에요 — 경과음을 넣어 보세요`); }
   if (out > .15) tip.push(`조(${names()[S.root]} ${S.mode === 'minor' ? '단조' : '장조'}) 밖의 음이 ${Math.round(out * 100)}%예요 — 일부러가 아니라면 조를 다시 확인해 보세요`); else good.push(`음 대부분(${Math.round((1 - out) * 100)}%)이 조 안에 있어서 안정적이에요`);
   if (vsd < .03) tip.push('모든 음의 세기가 거의 같아요 — 센박을 조금 세게, 여린박을 약하게 하면 사람이 친 것처럼 들려요'); else good.push('음 세기에 변화가 있어서 살아 있게 들려요');
-  if (!chordsN) tip.push('코드 줄이 비어 있어요 — ✨ AI → 코드 추천으로 멜로디에 맞는 코드를 넣어 보세요');
+  if (!chordsN) tip.push('코드 줄이 비어 있어요 — AI → 코드 추천으로 멜로디에 맞는 코드를 넣어 보세요');
   if (!drums && S.bpm >= 110) tip.push(`${S.bpm} BPM인데 드럼이 없어요 — 킥·스네어만 넣어도 힘이 생겨요`);
   if (!S.playlist.clips.length) tip.push('플레이리스트가 비어 있어요 — 패턴을 인트로·벌스·후렴으로 나눠 배치하면 곡이 돼요');
   else { const b = songBars(); if (b < 16) tip.push(`곡이 ${b}마디로 짧아요 — 후렴을 한 번 더 반복하고 끝맺음을 붙여 보세요`); else good.push(`곡 길이 ${b}마디, 조각 ${S.playlist.clips.length}개로 구조가 있어요`); }
@@ -107,7 +107,8 @@ function applyCompose(data, label) {
     let ch = S.channels.find(c => free(c) && (kind === 'drum' || c.name === sp.name)) || S.channels.find(free);
     if (!ch) { if (S.channels.length >= 16) { skipped++; continue; } ch = newChannel(kind, inst, kind === 'drum' ? undefined : String(sp.name || '').slice(0, 24) || undefined); S.channels.push(ch); fillMix(S); if (E) applyMix(E, S.mix); }
     used.add(ch.id); const arr = P.notes[ch.id] = P.notes[ch.id] || [];
-    for (const n of sp.notes) { const [b, bt, st, pn, len, vel] = n, p = kind === 'drum' ? 72 : pitchOf(pn); if (p == null) continue;
+    for (const n of sp.notes) { if (!Array.isArray(n)) { if (n.s >= 0 && n.s < bars * BAR_T) arr.push({s:Math.round(n.s), l:Math.max(3, Math.min(bars * BAR_T - n.s, Math.round(n.l))), p:kind === 'drum' ? 72 : Math.max(LOW, Math.min(HIGH, n.p)), v:Math.max(.05, Math.min(1, n.v))}); continue; }
+      const [b, bt, st, pn, len, vel] = n, p = kind === 'drum' ? 72 : pitchOf(pn); if (p == null) continue;
       const s = ((b | 0) - 1) * BAR_T + ((bt | 0) - 1) * PPQ + ((st | 0) - 1) * 12; if (s < 0 || s >= bars * BAR_T) continue;
       arr.push({s, l:Math.max(3, Math.min(bars * BAR_T - s, (len | 0 || 1) * 12)), p:Math.max(LOW, Math.min(HIGH, p)), v:Math.max(.05, Math.min(1, vel > 1 ? vel / 127 : vel || .8))}); }
   }

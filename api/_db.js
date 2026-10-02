@@ -24,6 +24,31 @@ const SCHEMA = [
   `create unique index if not exists reports_once on reports (post_id, coalesce(comment_id, ''), username)`,   // 같은 사람이 같은 대상을 두 번 신고할 수 없음 (DB가 막음)
   `create table if not exists login_fails (username text primary key, n int not null, at timestamptz not null)`,
   `create table if not exists ai_usage (username text not null, day date not null, n int not null, primary key (username, day))`,
+  // 6: 라이선스 — 누가 어느 등급인지 (결제로 생기고, 서버에서만 확인)
+  `create table if not exists licenses (
+     username text primary key references users(username) on delete cascade,
+     tier text not null default 'se',
+     source text,
+     order_id text,
+     started timestamptz not null default now(),
+     expires timestamptz,
+     note text)`,
+  `create index if not exists licenses_tier on licenses(tier)`,
+  // 6: 결제 기록 — 무엇을 얼마에 샀는지 (환불·문의 대응용)
+  `create table if not exists payments (
+     id text primary key,
+     username text not null references users(username) on delete cascade,
+     tier text not null,
+     amount integer not null,
+     currency text not null default 'KRW',
+     provider text not null,
+     provider_id text,
+     status text not null default 'pending',
+     created timestamptz not null default now(),
+     paid timestamptz,
+     refunded timestamptz,
+     raw text)`,
+  `create index if not exists payments_user on payments(username, created desc)`,
   // 채팅 커뮤니티 (디스코드식): 채널 안의 메시지와 이모지 반응
   `create table if not exists messages (
      id bigserial primary key,
@@ -43,6 +68,14 @@ const SCHEMA = [
      at timestamptz not null default now(),
      primary key (message_id, username, emoji))`,
   `create index if not exists reactions_msg on reactions (message_id)`,
+  // 메시지 신고 — 같은 사람이 같은 메시지를 두 번 신고하지 못하게 DB가 막는다
+  `create table if not exists msg_reports (
+     message_id bigint not null references messages(id) on delete cascade,
+     username text not null references users(username) on delete cascade,
+     reason text not null default '',
+     at timestamptz not null default now(),
+     primary key (message_id, username))`,
+  `create index if not exists msg_reports_msg on msg_reports (message_id)`,
   // 누가 언제 접속해 있었는지 (사람 목록용)
   `create table if not exists presence (
      username text primary key references users(username) on delete cascade,

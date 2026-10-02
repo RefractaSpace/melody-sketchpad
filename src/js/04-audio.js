@@ -54,10 +54,17 @@ async function loadPianoAssets() {
   try {
     const man = JSON.parse(new TextDecoder().decode(await fetchCached(ASSET_BASE + 'manifest.json', true))), L = man.layers;
     const one = async (layer, k, into) => { into[k] = await decode(await fetchCached(`${ASSET_BASE}${layer}/${k}.mp3`)); };
-    await Promise.all(L.base.keys.map(k => one('base', k, PIANO)));
-    pianoState = 'ready'; pianoStat('녹음 피아노 준비됨 (서버)'); layerState = 'loading';
-    for (const n of ['soft', 'hard']) if (L[n]) { Object.assign(PIANO_LG[n], L[n].gain); await Promise.all(L[n].keys.map(k => one(n, k, PIANO_L[n]))); }
-    layerState = 'ready'; pianoStat('피아노 세기 층 준비됨'); setTimeout(() => pianoStat(''), 3000); return true;
+    // 6 최적화: 자주 쓰는 가운데 음역(C3~C6)을 먼저 받아 바로 소리가 나게, 바깥쪽은 뒤에서
+    const mid = L.base.keys.filter(k => k >= 48 && k <= 84), out = L.base.keys.filter(k => k < 48 || k > 84);
+    await Promise.all(mid.map(k => one('base', k, PIANO)));
+    pianoState = 'ready'; pianoStat('녹음 피아노 준비됨 (서버)');
+    Promise.all(out.map(k => one('base', k, PIANO).catch(() => {})));
+    // 6 최적화: 기본 층으로 이미 소리가 나므로, 세기 층(약하게·세게)은 화면이 한가할 때 뒤에서 받음
+    const rest = async () => { layerState = 'loading';
+      for (const n of ['soft', 'hard']) if (L[n]) { Object.assign(PIANO_LG[n], L[n].gain); await Promise.all(L[n].keys.map(k => one(n, k, PIANO_L[n]))); }
+      layerState = 'ready'; pianoStat('피아노 세기 층 준비됨'); setTimeout(() => pianoStat(''), 3000); };
+    (window.requestIdleCallback || (f => setTimeout(f, 800)))(() => rest(), {timeout:4000});
+    return true;
   } catch (e) { if (!Object.keys(PIANO).length) return false; layerState = 'wait'; return true; }   // 기본 층은 받았으면 그대로 씀
 }
 function watchPiano() {
@@ -237,8 +244,11 @@ function sidechain(EE, t) {
 // 지금 트랙 악기로 한 음 들려주기
 function playTrackNote(EE, ch, p, t, d, v, b) {
   if (ch.kind === 'drum') { drumHit(ch.inst, t, EE, v, chKey(ch)); return; }
+  if (ch.inst === 'kit') { kitHit(p, t, EE, v, chKey(ch)); return; }
   if (b) BEND = {r:Math.pow(2, b / 12), t0:t + Math.min(0.08, d * 0.25), t1:t + Math.max(0.02, d)};   // 음이 끝날수록 b반음까지 휨
-  try { voice(EE, ch.inst, p, t, d, v, getCh(EE, chKey(ch)).inp, ch.tone, chKey(ch)); } finally { BEND = null; }
+  const dest = getCh(EE, chKey(ch)).inp;
+  if (!b && typeof smpPlay === 'function' && smpPlay(EE, ch, p, t, d, v, dest)) { BEND = null; return; }   // 샘플이 준비됐으면 샘플로 (음 휘기는 합성으로)
+  try { voice(EE, typeof playInst === 'function' ? playInst(ch.inst) : ch.inst, p, t, d, v, dest, ch.tone, chKey(ch)); } finally { BEND = null; }
 }
 function preview(p, v) { ensureCtx(); playTrackNote(E, curTrack(), p, ctx.currentTime + 0.01, 0.3, v == null ? 0.9 : v); }
 

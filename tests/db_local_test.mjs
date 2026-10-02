@@ -24,7 +24,7 @@ store.put('community/aaaaaaaaaaaa/post-x.json', Buffer.from(JSON.stringify({id:'
 store.put('community/bbbbbbbbbbbb/song-y.msk', MSK);
 store.put('community/bbbbbbbbbbbb/post-y.json', Buffer.from(JSON.stringify({id:'bbbbbbbbbbbb', title:'지워진 사람 글', desc:'', tags:[], author:'ghost', created:'2026-09-03T00:00:00.000Z', likes:[], comments:[], reports:[]})));
 
-const chat = (await import('../api/chat.js')).default, auth = (await import('../api/auth.js')).default, comm = (await import('../api/community.js')).default, { migrateFromBlob } = await import('../api/_db.js');
+const chat = (await import('../api/chat.js')).default, auth = (await import('../api/auth.js')).default, lic = (await import('../api/license.js')).default, pay = (await import('../api/checkout.js')).default, comm = (await import('../api/community.js')).default, { migrateFromBlob } = await import('../api/_db.js');
 const call = (h, {method = 'GET', query = {}, tok, body} = {}) => new Promise(resolve => {
   const res = {c:200, setHeader() {}, status(c) { this.c = c; return this; },
     set statusCode(c) { this.c = c; }, get statusCode() { return this.c; },
@@ -94,6 +94,96 @@ check('글쓴이 계정 삭제 → 글·곡 파일까지 삭제', r.s === 200 &&
 const [cnt] = (await globalThis.__MSK_PG.query(`select (select count(*) from likes where post_id = $1)::int l, (select count(*) from comments where post_id = $1)::int c, (select count(*) from reports where post_id = $1)::int r`, [pid])).rows;
 check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 0 && cnt.c === 0 && cnt.r === 0, JSON.stringify(cnt));
 
+// ── 6: 라이선스 (등급) ──────────────────────────────────────────
+{
+  const tB = await signup('tieruser');
+  let r = await call(lic, {});
+  check('라이선스: 로그인 안 하면 SE', r.s === 200 && r.j.tier === 'se' && r.j.signedIn === false, JSON.stringify(r.j));
+
+  r = await call(lic, {tok:tB});
+  check('라이선스: 로그인해도 산 적 없으면 SE', r.s === 200 && r.j.tier === 'se' && r.j.signedIn === true, JSON.stringify(r.j));
+
+  r = await call(lic, {method:'POST', tok:tB, body:{tier:'pro'}});
+  check('라이선스: 일반 사용자는 등급을 못 바꿈 (403)', r.s === 403, `${r.s} ${JSON.stringify(r.j)}`);
+
+  r = await call(lic, {method:'POST', tok:tAdmin, body:{tier:'pro', username:'tieruser', note:'시험'}});
+  check('라이선스: 관리자가 Pro로 올림', r.s === 200 && r.j.tier === 'pro' && r.j.username === 'tieruser', JSON.stringify(r.j));
+
+  r = await call(lic, {tok:tB});
+  check('라이선스: 올린 등급이 서버에서 그대로 보임', r.s === 200 && r.j.tier === 'pro', JSON.stringify(r.j));
+
+  r = await call(lic, {method:'POST', tok:tAdmin, body:{tier:'ultra', username:'tieruser'}});
+  check('라이선스: 없는 등급은 거절 (400)', r.s === 400, `${r.s}`);
+
+  await globalThis.__MSK_PG.query(`update licenses set expires = now() - interval '1 day' where username = 'tieruser'`);
+  r = await call(lic, {tok:tB});
+  check('라이선스: 기간이 끝나면 SE로 내려감', r.s === 200 && r.j.tier === 'se' && r.j.expired === true, JSON.stringify(r.j));
+
+  await globalThis.__MSK_PG.query(`update licenses set expires = now() + interval '30 days' where username = 'tieruser'`);
+  r = await call(lic, {tok:tB});
+  check('라이선스: 기간이 남아 있으면 그대로', r.s === 200 && r.j.tier === 'pro' && !r.j.expired, JSON.stringify(r.j));
+
+  await call(auth, {method:'POST', query:{action:'delete'}, tok:tB, body:{password:'pass_word_123'}});
+  const [lc] = (await globalThis.__MSK_PG.query(`select count(*)::int n from licenses where username = 'tieruser'`)).rows;
+  check('라이선스: 계정을 지우면 라이선스도 함께 지워짐', lc.n === 0, JSON.stringify(lc));
+}
+
+
+// ── 6: 결제 (공격 시도가 막히는지 중심으로) ─────────────────────
+{
+  const tC = await signup('buyer');
+  let r = await call(pay, {query:{action:'plans'}});
+  check('결제: 가격표는 로그인 없이도 보임', r.s === 200 && r.j.plans.length === 3 && r.j.plans.find(p => p.tier === 'max').amount === 119000, JSON.stringify(r.j.plans.map(p => p.tier + ':' + p.amount)));
+
+  r = await call(pay, {method:'POST', query:{action:'start'}, body:{tier:'pro'}});
+  check('결제: 로그인 없이 주문 → 거절 (401)', r.s === 401, String(r.s));
+
+  r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'ultra'}});
+  check('결제: 없는 등급 주문 → 거절 (400)', r.s === 400, String(r.s));
+
+  r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}});
+  const ord = r.j.orderId;
+  check('결제: 주문 만들기 (Pro ₩89,000)', r.s === 200 && !!ord && r.j.amount === 89000, JSON.stringify({id:!!ord, amount:r.j.amount}));
+
+  // 공격 1: 결제 안 하고 완료라고 우기기
+  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ord, provider_id:'아무거나'}});
+  const afterFake = (await call(lic, {tok:tC})).j.tier;
+  check('🛡 결제 안 하고 완료 주장 → 거절 (402) · 등급 그대로', r.s === 402 && afterFake === 'se', `${r.s} · 등급 ${afterFake}`);
+
+  // 공격 2: 적은 금액만 내고 비싼 등급 받기
+  const ord2 = (await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}})).j.orderId;
+  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ord2, provider_id:'ok_100'}});
+  const afterCheap = (await call(lic, {tok:tC})).j.tier;
+  check('🛡 100원만 내고 Pro 받기 → 거절 (금액 확인) · 등급 그대로', r.s === 402 && r.j.reason === 'amount' && afterCheap === 'se', `${r.s} ${r.j.reason} · 등급 ${afterCheap}`);
+
+  // 공격 3: 남의 주문번호로 등급 받기
+  const tD = await signup('other');
+  const ordD = (await call(pay, {method:'POST', query:{action:'start'}, tok:tD, body:{tier:'max'}})).j.orderId;
+  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ordD, provider_id:'ok_119000'}});
+  check('🛡 남의 주문번호로 받기 → 거절 (404)', r.s === 404, String(r.s));
+
+  // 정상 결제
+  const ord3 = (await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}})).j.orderId;
+  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ord3, provider_id:'ok_89000'}});
+  const nowTier = (await call(lic, {tok:tC})).j.tier;
+  check('결제: 금액이 맞으면 Pro 등급이 들어감', r.s === 200 && r.j.ok && nowTier === 'pro', `${r.s} · 등급 ${nowTier}`);
+
+  // 공격 4: 같은 결제로 두 번 받기
+  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ord3, provider_id:'ok_89000'}});
+  check('🛡 같은 결제 두 번 쓰기 → 이미 처리됨으로 넘김', r.s === 200 && r.j.already === true, JSON.stringify(r.j));
+
+  // 이미 Pro인데 또 Pro 사기
+  r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}});
+  check('결제: 이미 가진 등급은 다시 못 삼 (409)', r.s === 409, `${r.s} ${r.j.message || ''}`);
+
+  r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'max'}});
+  check('결제: 더 높은 등급(Max)은 살 수 있음', r.s === 200 && r.j.amount === 119000, String(r.s));
+
+  r = await call(pay, {query:{action:'orders'}, tok:tC});
+  check('결제: 내 주문 기록이 남음 (실패·성공 모두)', r.s === 200 && r.j.orders.length >= 4 && r.j.orders.some(o => o.status === 'paid') && r.j.orders.some(o => o.status === 'failed'),
+        r.j.orders.map(o => o.status).join(','));
+}
+
 // ── 채팅 커뮤니티 ───────────────────────────────────────────────
 {
   const t1 = await signup('chatter'), t2 = await signup('friend');
@@ -159,6 +249,41 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
 
   r = await call(chat, {method:'POST', query:{action:'hide'}, tok:t1, body:{id:m1}});
   check('🛡 채팅: 관리자 아닌 사람의 숨기기 → 거절 (403)', r.s === 403, String(r.s));
+
+  // 신고
+  const tE = await signup('reporter'), tF = await signup('reporter2'), tG = await signup('reporter3');
+  await wait(5100);
+  const mr = (await call(chat, {method:'POST', query:{action:'send'}, tok:t1, body:{channel:'help', text:'신고 대상 메시지'}})).j.id;
+
+  let rr = await call(chat, {method:'POST', query:{action:'report'}, tok:t1, body:{id:mr, reason:'내 것'}});
+  check('🛡 신고: 내 메시지는 신고 못 함 (400)', rr.s === 400, String(rr.s));
+
+  rr = await call(chat, {method:'POST', query:{action:'report'}, tok:tE, body:{id:mr, reason:'욕설'}});
+  check('신고: 신고하면 쌓임 (1명)', rr.s === 200 && rr.j.n === 1 && rr.j.hidden === false, JSON.stringify(rr.j));
+
+  rr = await call(chat, {method:'POST', query:{action:'report'}, tok:tE, body:{id:mr}});
+  check('🛡 신고: 같은 사람이 두 번 신고 → 거절 (409)', rr.s === 409, String(rr.s));
+
+  await call(chat, {method:'POST', query:{action:'report'}, tok:tF, body:{id:mr, reason:'광고'}});
+  rr = await call(chat, {method:'POST', query:{action:'report'}, tok:tG, body:{id:mr}});
+  check('신고: 3명이 신고하면 자동으로 숨겨짐', rr.s === 200 && rr.j.n === 3 && rr.j.hidden === true, JSON.stringify(rr.j));
+
+  rr = await call(chat, {query:{channel:'help'}});
+  check('신고: 숨겨진 메시지는 목록에서 사라짐', !rr.j.messages.some(m => m.id === mr), `${rr.j.messages.length}개 남음`);
+
+  rr = await call(chat, {query:{action:'reports'}, tok:tE});
+  check('🛡 신고: 관리자 아닌 사람의 신고 목록 → 거절 (403)', rr.s === 403, String(rr.s));
+
+  rr = await call(chat, {query:{action:'reports'}, tok:tAdmin});
+  const first = rr.j.reports[0];
+  check('신고: 관리자는 신고 목록과 이유를 봄', rr.s === 200 && first && first.reports === 3 && first.reasons.length === 2,
+        `${rr.j.reports.length}건 · 신고 ${first?.reports} · 이유 ${JSON.stringify(first?.reasons)}`);
+
+  await call(chat, {method:'POST', query:{action:'unhide'}, tok:tAdmin, body:{id:mr}});
+  rr = await call(chat, {query:{channel:'help'}});
+  const back = rr.j.messages.some(m => m.id === mr);
+  const left = (await call(chat, {query:{action:'reports'}, tok:tAdmin})).j.reports.some(r => r.id === mr);
+  check('신고: 관리자가 되돌리면 다시 보이고 신고 기록이 비워짐', back && !left, `보임 ${back} · 신고기록남음 ${left}`);
 
   await call(chat, {method:'POST', query:{action:'hide'}, tok:tAdmin, body:{id:m1}});
   r = await call(chat, {query:{channel:'talk'}});

@@ -12,7 +12,7 @@
 import os, re, shutil, subprocess, sys
 here = os.path.dirname(os.path.abspath(__file__))
 out = os.path.normpath(os.path.join(here, '..', 'public'))
-app_out = os.path.join(out, 'app')          # 앱은 /app/, 첫 화면(/)은 소개 페이지
+app_out = os.path.join(out, 'app')          # 6: 앱은 /app/, 첫 화면(/)은 소개 페이지
 os.makedirs(app_out, exist_ok=True)
 read = lambda *p: open(os.path.join(here, *p), encoding='utf-8').read()
 def write(name, text):

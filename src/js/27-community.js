@@ -94,7 +94,9 @@ function cmMsg(m) {
   el.innerHTML = `
     <div class="cmm-av">${cmEsc(m.username.slice(0, 1))}</div>
     <div class="cmm-bd">
-      <div class="cmm-who">${cmEsc(m.username)}<em>${cmTime(m.created)}</em>${mine ? '<button class="cmm-x" title="지우기">✕</button>' : ''}</div>
+      <div class="cmm-who">${cmEsc(m.username)}<em>${cmTime(m.created)}</em>${mine
+        ? '<button class="cmm-x" title="지우기">✕</button>'
+        : '<button class="cmm-rep" title="신고">신고</button>'}</div>
       ${m.text ? `<p class="cmm-tx">${cmEsc(m.text)}</p>` : ''}
       ${m.song_url ? `<div class="cmm-song">
           <button class="cmm-play" title="듣기">▶</button>
@@ -104,6 +106,7 @@ function cmMsg(m) {
       <div class="cmm-rxs">${rx}<button class="cmm-rx add" title="반응 더하기">＋</button></div>
     </div>`;
   el.querySelector('.cmm-x')?.addEventListener('click', () => cmDelete(m.id));
+  el.querySelector('.cmm-rep')?.addEventListener('click', () => cmReport(m.id));
   for (const b of el.querySelectorAll('.cmm-rx:not(.add)')) b.onclick = () => cmReact(m.id, b.dataset.e);
   el.querySelector('.cmm-rx.add')?.addEventListener('click', e => cmPickEmoji(e.target, m.id));
   el.querySelector('.cmm-play')?.addEventListener('click', () => cmPlay(m, el));
@@ -125,6 +128,16 @@ async function cmReact(id, emoji) {
   if (!authInfo()) return status('반응하려면 로그인해 주세요.');
   try { await cmCall('?action=react', {method:'POST', body:{id:Number(id), emoji}}); CM.last = 0; await cmLoad(true); }
   catch (e) { status(e.message); }
+}
+async function cmReport(id) {
+  if (!authInfo()) return status('신고하려면 로그인해 주세요.');
+  const why = prompt('무엇이 문제인가요? (욕설·광고·도배 등. 비워 두어도 돼요)');
+  if (why === null) return;
+  try {
+    const r = await cmCall('?action=report', {method:'POST', body:{id:Number(id), reason:String(why || '').slice(0, 200)}});
+    status(r.hidden ? '신고했어요 · 여러 명이 신고해 가려졌어요' : `신고했어요 (${r.n}번째)`);
+    if (r.hidden) { CM.last = 0; await cmLoad(true); }
+  } catch (e) { status(e.message); }
 }
 async function cmDelete(id) {
   if (!confirm('이 메시지를 지울까요?')) return;

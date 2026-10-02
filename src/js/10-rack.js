@@ -20,7 +20,7 @@ function buildRack() {
     const vol = document.createElement('input'); vol.type = 'range'; vol.className = 'rvol'; vol.min = 0; vol.max = 1.2; vol.step = 0.01; vol.value = m.v; vol.title = '볼륨'; vol.setAttribute('aria-label', c.name + ' 볼륨');
     vol.oninput = () => { m.v = +vol.value; if (E) applyMix(E, S.mix); }; vol.onchange = () => { save(); buildMixer(); };
     const nm = document.createElement('button'); nm.className = 'cname'; nm.title = '누르면 이 채널의 피아노 롤'; nm.setAttribute('aria-label', `${c.name}, ${c.kind === 'drum' ? '드럼 ' + DRUM_NAME[c.inst] : INSTS[c.inst]}, 누르면 피아노 롤`);
-    nm.textContent = c.name; const sm = document.createElement('small'); sm.textContent = c.kind === 'drum' ? '' : INSTS[c.inst]; if (sm.textContent && sm.textContent !== c.name) nm.appendChild(sm);
+    nm.textContent = nameOf(c.name); const sm = document.createElement('small'); sm.textContent = c.kind === 'drum' ? '' : INSTS[c.inst]; if (sm.textContent && sm.textContent !== c.name) nm.appendChild(sm);
     nm.onclick = () => { selectChannel(ci); openWin('roll'); };
     const more = document.createElement('button'); more.className = 'cmore'; more.textContent = '⋯'; more.title = '채널 메뉴'; more.setAttribute('aria-label', c.name + ' 메뉴'); more.setAttribute('aria-haspopup', 'menu');
     more.onclick = e => channelMenu(ci, e.currentTarget);
@@ -113,5 +113,5 @@ function addChannel(kind, inst) {
   S.ch = S.channels.length - 1; save(); refreshAll(); status(`"${c.name}" 채널을 더했어요.`);
   ensureCtx(); playTrackNote(E, c, 72, ctx.currentTime + 0.02, 0.3, 0.9);
 }
-$('chAdd').onchange = () => { const v = $('chAdd').value; $('chAdd').value = ''; if (!v) return; const [k, i] = v.split(':'); addChannel(k, i); };
+$('chAdd').onchange = () => { const v = $('chAdd').value; $('chAdd').value = ''; if (!v) return; const [k, i] = v.split(':'); if (k === 'merge') { mergeToKit(); return; } addChannel(k, i); };
 $('rackTitle').ondblclick = () => renamePattern(S.pat);

@@ -23,9 +23,9 @@ function sampleCtl(slot, label) {
       buildMixer(); status(`${label}에 "${f.name}"을 넣었어요.`);
     } catch (e) { status('이 파일은 소리로 읽을 수 없어요. wav나 mp3로 넣어 주세요.'); }
   };
-  const mc = document.createElement('button'), recNow = typeof mic !== 'undefined' && mic && mic.slot === slot; mc.className = 'tbtn xs' + (recNow ? ' micon' : ''); mc.textContent = recNow ? '■ 멈춤' : '🎤 녹음';
+  const mc = document.createElement('button'), recNow = typeof mic !== 'undefined' && mic && mic.slot === slot; mc.className = 'tbtn xs' + (recNow ? ' micon' : ''); mc.textContent = recNow ? '■ 멈춤' : '녹음'; mc.classList.toggle('ic-mic', !recNow);
   mc.setAttribute('aria-label', label + (recNow ? ' 마이크 녹음 멈추기' : ' 마이크로 녹음')); mc.onclick = () => micToggle(slot, label);
-  const ed = document.createElement('button'); ed.className = 'tbtn xs'; ed.textContent = '✂ 편집'; ed.hidden = !SAMPLES[slot]; ed.setAttribute('aria-label', label + ' 샘플 편집'); ed.onclick = () => openSampleEditor(slot, label);
+  const ed = document.createElement('button'); ed.className = 'tbtn xs ic-cut'; ed.textContent = '편집'; ed.hidden = !SAMPLES[slot]; ed.setAttribute('aria-label', label + ' 샘플 편집'); ed.onclick = () => openSampleEditor(slot, label);
   w.append(nm, up, mc, ed, fi);
   const smCh = slot.startsWith('ch:') ? chById(slot.slice(3)) : null;
   if (smCh && smCh.kind === 'synth' && SAMPLES[slot]) {   // 샘플러: 구간 반복 · 조각을 건반에

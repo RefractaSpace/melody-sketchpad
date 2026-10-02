@@ -14,7 +14,7 @@ function fillBarSelects() {
 }
 function fillPatSel() {
   const s = $('patSel'); s.innerHTML = '';
-  S.patterns.forEach((P, i) => { const o = document.createElement('option'); o.value = i; o.textContent = `${P.name} (${P.bars}마디)`; s.appendChild(o); });
+  S.patterns.forEach((P, i) => { const o = document.createElement('option'); o.value = i; o.textContent = `${nameOf(P.name)} (${P.bars}${typeof t === 'function' ? t('마디단위') : '마디'})`; s.appendChild(o); });
   s.value = S.pat;
 }
 function refreshTitles() {
@@ -47,6 +47,7 @@ function refreshAll() {
   const ns = new Set(curNotes()); for (const n of [...sel]) if (!ns.has(n)) sel.delete(n);
   $('selBar').hidden = sel.size === 0;
   syncControls(); refreshTitles(); drawAll(); buildRack(); buildMixer(); drawPlaylist(); buildBrowser();
+  if (typeof applyTier === 'function') applyTier();   // 6: 등급에 맞는 악기만 목록에
 }
 $('bpm').onchange = () => { S.bpm = clamp(Math.round((+$('bpm').value || 150) * 100) / 100, 60, 300); $('bpm').value = S.bpm; save(); if (E) applyMix(E, S.mix); };
 rootSel.onchange = () => { S.root = +rootSel.value; save(); drawAll(); };

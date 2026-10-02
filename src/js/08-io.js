@@ -59,7 +59,7 @@ function midiBytes() {
   const head = [{t:0, o:0, b:tev(S.bpm)}, {t:0, o:0, b:[0xff, 0x58, 4, meterOf(S)[0], Math.log2(meterOf(S)[1]), 24, 8]}];
   if (F.song) for (const x of S.tempo) head.push({t:x.t, o:1, b:tev(x.bpm)});   // SONG이면 템포 지도도 MIDI에
   const tr = [mtrack(head, '멜로디 스케치패드')];
-  const synth = S.channels.filter(c => c.kind === 'synth'), free = [0, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15];
+  const synth = S.channels.filter(c => c.kind === 'synth' && c.inst !== 'kit'), free = [0, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15];
   synth.forEach((c, i) => {
     const ch = free[i % free.length], ev = [{t:0, o:0, b:[0xc0 | ch, PROG[c.inst] || 0]}];
     for (const n of F.notes[c.id] || []) { ev.push({t:n.s, o:1, b:[0x90 | ch, n.p, Math.max(1, Math.round(n.v * 127))]}); ev.push({t:n.s + n.l, o:0, b:[0x80 | ch, n.p, 0]}); }
@@ -70,6 +70,7 @@ function midiBytes() {
   tr.push(mtrack(cev, '코드'));
   const dev = [], map = {kick:36, snare:38, hat:42, clap:39, crash:49};
   for (const c of S.channels) if (c.kind === 'drum') for (const n of F.notes[c.id] || []) { dev.push({t:n.s, o:1, b:[0x99, map[c.inst], Math.max(1, Math.round(n.v * 127))]}); dev.push({t:n.s + 6, o:0, b:[0x89, map[c.inst], 0]}); }
+  for (const c of S.channels) if (c.inst === 'kit') for (const n of F.notes[c.id] || []) { const g = kitToGm(n.p); dev.push({t:n.s, o:1, b:[0x99, g, Math.max(1, Math.round(n.v * 127))]}); dev.push({t:n.s + Math.max(6, Math.min(n.l, 48)), o:0, b:[0x89, g, 0]}); }
   tr.push(mtrack(dev, '드럼'));
   return new Uint8Array([0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 1, 0, tr.length, 0, PPQ, ...tr.flat()]);
 }

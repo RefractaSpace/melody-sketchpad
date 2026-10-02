@@ -19,6 +19,13 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/composer",
+      "destination": "/app/?app=composer",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/app",
