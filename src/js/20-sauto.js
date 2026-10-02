@@ -14,7 +14,7 @@ function saParams(key) {
 function saLabel(key, prm) { if (!prm.startsWith('fx')) return SA_NAME[prm]; const f = ((S.mix[key] || {}).fx || [])[+prm[2] - 1]; return f ? `${SA_NAME[prm]} ${FX_NAME[f.type]} ${FX_KNOBS[f.type][FX_AUTOK[f.type] || 0]}` : SA_NAME[prm]; }
 function buildSaSelects() {
   const tSel = $('saTarget'), pSel = $('saParam'), [k0, p0] = saKey ? saKey.split('|') : ['', ''];
-  tSel.innerHTML = '<option value="">자동화 줄 숨김</option>' + saTargets().map(([k, n]) => `<option value="${k}"${k === k0 ? ' selected' : ''}>${Object.keys(S.sauto).some(x => x.startsWith(k + '|')) ? '● ' : ''}${n}</option>`).join('');
+  tSel.innerHTML = `<option value="">${tMsg('자동화 줄 숨김')}</option>` + saTargets().map(([k, n]) => `<option value="${k}"${k === k0 ? ' selected' : ''}>${Object.keys(S.sauto).some(x => x.startsWith(k + '|')) ? '● ' : ''}${n}</option>`).join('');
   pSel.hidden = !k0; pSel.innerHTML = k0 ? saParams(k0).map(p => `<option value="${p}"${p === p0 ? ' selected' : ''}>${S.sauto[k0 + '|' + p] ? '● ' : ''}${saLabel(k0, p)}</option>`).join('') : '';
 }
 function saSet() { const k = $('saTarget').value; saKey = k ? k + '|' + ($('saParam').value && saParams(k).includes($('saParam').value) ? $('saParam').value : 'vol') : ''; buildSaSelects(); drawPlaylist(); }

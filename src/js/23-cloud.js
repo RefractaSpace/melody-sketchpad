@@ -5,7 +5,7 @@ const authInfo = () => { try { return JSON.parse(lsGet(AK) || 'null'); } catch (
 function setAuth(a) { lsSet(AK, a ? JSON.stringify(a) : ''); authUI();
   if (typeof fetchTier === 'function') { if (!a && typeof serverTier !== 'undefined') serverTier = null; fetchTier().then(() => { if (typeof applyTier === 'function') applyTier(); }); }   // 6: 로그인·로그아웃하면 등급 다시 확인
 }
-function authUI() { const a = authInfo(); $('authOut').hidden = !!a; $('authIn').hidden = !a; $('authName').textContent = a ? `${a.username} 계정으로 로그인됨` : ''; $('authMove').hidden = !(a && cloudKey()); $('cloudBtn').textContent = a ? a.username : '로그인'; }
+function authUI() { const a = authInfo(); $('authOut').hidden = !!a; $('authIn').hidden = !a; $('authName').textContent = a ? a.username + tMsg(' 계정으로 로그인됨') : ''; $('authMove').hidden = !(a && cloudKey()); $('cloudBtn').textContent = a ? a.username : tMsg('로그인'); }
 async function authCall(action, body, token) {
   const r = await fetch(`${AUTH_API}?action=${action}`, {method:body ? 'POST' : 'GET', headers:{'content-type':'application/json', ...(token ? {authorization:'Bearer ' + token} : {})}, body:body ? JSON.stringify(body) : undefined});
   let j = {}; try { j = await r.json(); } catch (e) {} if (!r.ok) throw Object.assign(new Error(j.message || j.error || 'HTTP ' + r.status), {status:r.status}); return j;

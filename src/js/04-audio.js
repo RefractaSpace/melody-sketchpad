@@ -19,7 +19,7 @@ let layerState = 'wait';
 async function decodeLayers() {
   const L = window.PIANO_LAYERS || {};
   for (const n of ['soft', 'hard']) if (L[n] && !Object.keys(PIANO_L[n]).length) { Object.assign(PIANO_LG[n], L[n].gain); await decodePianoB64(L[n].s, PIANO_L[n]); delete L[n].s; }
-  if (Object.keys(PIANO_L.soft).length && Object.keys(PIANO_L.hard).length && layerState !== 'ready') { layerState = 'ready'; pianoStat('피아노 세기 층 준비됨 (약하게·세게 친 녹음)'); setTimeout(() => pianoStat(''), 3000); }
+  if (Object.keys(PIANO_L.soft).length && Object.keys(PIANO_L.hard).length && layerState !== 'ready') { layerState = 'ready'; pianoStat(tMsg('피아노 세기 층 준비됨') + tMsg(' (약하게·세게 친 녹음)')); setTimeout(() => pianoStat(''), 3000); }
 }
 function loadLayers() {
   if (layerState !== 'wait') return; layerState = 'loading';
@@ -62,7 +62,7 @@ async function loadPianoAssets() {
     // 6 최적화: 기본 층으로 이미 소리가 나므로, 세기 층(약하게·세게)은 화면이 한가할 때 뒤에서 받음
     const rest = async () => { layerState = 'loading';
       for (const n of ['soft', 'hard']) if (L[n]) { Object.assign(PIANO_LG[n], L[n].gain); await Promise.all(L[n].keys.map(k => one(n, k, PIANO_L[n]))); }
-      layerState = 'ready'; pianoStat('피아노 세기 층 준비됨'); setTimeout(() => pianoStat(''), 3000); };
+      layerState = 'ready'; pianoStat(tMsg('피아노 세기 층 준비됨')); setTimeout(() => pianoStat(''), 3000); };
     (window.requestIdleCallback || (f => setTimeout(f, 800)))(() => rest(), {timeout:4000});
     return true;
   } catch (e) { if (!Object.keys(PIANO).length) return false; layerState = 'wait'; return true; }   // 기본 층은 받았으면 그대로 씀

@@ -1,9 +1,9 @@
 /* 13-browser.js — 브라우저 (F8): 소리를 미리 듣고 채널로 더해요 · 패턴 목록 */
 const browserBody = $('browserBody');
-function bSection(title) { const s = document.createElement('div'); s.className = 'bsec'; const h = document.createElement('h3'); h.textContent = title; s.appendChild(h); browserBody.appendChild(s); return s; }
+function bSection(title) { const s = document.createElement('div'); s.className = 'bsec'; const h = document.createElement('h3'); h.textContent = tMsg(title); s.appendChild(h); browserBody.appendChild(s); return s; }
 function bItem(sec, label, btns, cur) {
-  const d = document.createElement('div'); d.className = 'bitem' + (cur ? ' cur' : ''); const sp = document.createElement('span'); sp.textContent = label; d.appendChild(sp);
-  for (const [t, f, aria] of btns) { const b = document.createElement('button'); b.textContent = t; b.setAttribute('aria-label', aria || (label + ' ' + t)); b.onclick = f; d.appendChild(b); }
+  const d = document.createElement('div'); d.className = 'bitem' + (cur ? ' cur' : ''); const sp = document.createElement('span'); sp.textContent = tMsg(label); d.appendChild(sp);
+  for (const [t, f, aria] of btns) { const b = document.createElement('button'); b.textContent = tMsg(t); b.setAttribute('aria-label', tMsg(aria || (label + ' ' + t))); b.onclick = f; d.appendChild(b); }
   sec.appendChild(d); return d;
 }
 function hearSynth(inst) { ensureCtx(); applyMix(E, S.mix); const t = ctx.currentTime + 0.02, dest = E.in; [60, 64, 67, 72].forEach((p, i) => voice(E, inst, p, t + i * 0.18, 0.3, 0.85, dest, toneDefault())); }

@@ -11,7 +11,7 @@ function stepLabel(c, k, on, v) { const bar = Math.floor(k / STEPS) + 1, beat = 
 function buildRack() {
   const P = curPat(), nSteps = P.bars * STEPS, keepFocus = document.activeElement && rackBody.contains(document.activeElement) ? document.activeElement.dataset : null;
   rackBody.innerHTML = ''; rackSteps = []; rackHot = -1;
-  $('rackTitle').textContent = P.name + ` · ${P.bars}마디 (두 번 누르면 이름 바꾸기)`;
+  $('rackTitle').textContent = tMsg(P.name) + ` · ${P.bars}` + tMsg('마디 (두 번 누르면 이름 바꾸기)');
   S.channels.forEach((c, ci) => {
     const m = S.mix[chKey(c)], arr = notesOf(P, c);
     const row = document.createElement('div'); row.className = 'rrow' + (ci === S.ch ? ' sel' : ''); row.setAttribute('role', 'group'); row.setAttribute('aria-label', c.name + ' 채널');

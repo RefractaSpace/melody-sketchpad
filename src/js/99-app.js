@@ -19,7 +19,7 @@ function fillPatSel() {
 }
 function refreshTitles() {
   const P = curPat(), c = curCh();
-  $('rollTitle').textContent = `${P.name} · ${c.name} (${c.kind === 'drum' ? '드럼' : INSTS[c.inst]})`;
+  $('rollTitle').textContent = `${tMsg(P.name)} · ${tMsg(c.name)} (${c.kind === 'drum' ? tMsg('드럼') : tMsg(INSTS[c.inst])})`;
   fillPatSel();
 }
 function syncControls() {
