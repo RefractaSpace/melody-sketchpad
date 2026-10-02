@@ -646,6 +646,27 @@ async def main():
               and i18['fallback'] == '없는열쇠입니다',
               f"{i18.get('langs')} · en→{i18.get('en')} · ko→{i18.get('ko')} · 없는열쇠→{i18.get('fallback')}")
 
+        # 알림 문구 영어
+        msg = await J("""(async()=>{
+          if (typeof tMsg !== 'function') return {missing:true};
+          setLang('en'); await new Promise(r => setTimeout(r, 300));
+          const r = {whole:tMsg('저장했어요.'),
+                     num:tMsg('3개를 바로 뒤에 복제했어요.'),
+                     name:tMsg('"피아노" 채널을 지웠어요.'),
+                     both:tMsg('서버에 올렸어요: "밤" (12KB)'),
+                     unknown:tMsg('이건 번역에 없는 문장이에요')};
+          setLang('ko'); await new Promise(r2 => setTimeout(r2, 250));
+          r.backKo = tMsg('저장했어요.');
+          return r})()""")
+        check('알림 영어: 통째로·숫자 섞임·이름 섞임 모두 번역되고 이름은 그대로',
+              msg.get('whole') == 'Saved.' and msg['num'] == 'Duplicated 3 right after.'
+              and msg['name'] == 'Deleted the "피아노" channel.'
+              and '12 KB' in msg['both'] and '밤' in msg['both'],
+              f"{msg.get('whole')} / {msg.get('num')} / {msg.get('name')} / {msg.get('both')}")
+        check('알림 영어: 번역에 없으면 원문 그대로 · 한국어로 되돌아감',
+              msg['unknown'] == '이건 번역에 없는 문장이에요' and msg['backKo'] == '저장했어요.',
+              f"{msg.get('unknown')} · 되돌림 {msg.get('backKo')}")
+
         # 앱 화면 영어
         enui = await J("""(async()=>{
           if (typeof setLang !== 'function') return {missing:true};

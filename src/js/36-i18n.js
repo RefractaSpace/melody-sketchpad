@@ -44,6 +44,31 @@ function setLang(v) {
 }
 const toggleLang = () => setLang(LANG === 'ko' ? 'en' : 'ko');
 
+/* 알림 문구 번역 — 코드를 거의 안 건드리고 출력할 때 바꾼다.
+   통째로 맞으면 그대로, 아니면 "…했어요"처럼 섞인 문장을 조각으로 나눠 아는 것만 바꾼다. */
+function tMsg(s) {
+  if (LANG === 'ko' || typeof s !== 'string' || !/[가-힣]/.test(s)) return s;
+  const tb = (window.I18N && window.I18N.en) || {};
+  if (tb[s]) return tb[s];
+  // 숫자·따옴표 안 이름이 섞인 문장: 그 부분을 자리표시로 바꿔 맞춰 본다
+  // 코드의 `"${name}"` 같은 자리는 번역표에 따옴표가 남아 있으므로, 두 가지 모양으로 찾아본다
+  const makers = [
+    str => str.replace(/(?<=")[^"]*(?=")/g, '\u0000').replace(/(?<=“)[^“”]*(?=”)/g, '\u0000').replace(/\d+(?:\.\d+)?/g, '\u0000'),
+    str => str.replace(/"[^"]*"|[“”][^“”]*[“”]|\d+(?:\.\d+)?/g, '\u0000'),
+  ];
+  const grabbers = [
+    str => (str.match(/(?<=")[^"]*(?=")|(?<=“)[^“”]*(?=”)|\d+(?:\.\d+)?/g) || []),
+    str => (str.match(/"[^"]*"|[“”][^“”]*[“”]|\d+(?:\.\d+)?/g) || []),
+  ];
+  for (let i = 0; i < makers.length; i++) {
+    const shape = makers[i](s), got = grabbers[i](s);
+    if (tb[shape]) { let j = 0; return tb[shape].replace(/\u0000/g, () => got[j++] ?? ''); }
+  }
+  // 끝내 모르면 한국어 그대로 (영어 사용자에겐 아쉽지만 앱은 멀쩡히 돌아감)
+  return s;
+}
+
+
 (() => {
   LANG = pickLang();
   const go = () => { applyLang(); const b = document.getElementById('langBtn'); if (b) b.onclick = toggleLang; };

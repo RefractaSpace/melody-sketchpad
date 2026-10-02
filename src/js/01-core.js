@@ -241,5 +241,5 @@ const chordVoices = c => { const base = 48 + c.r; return QUAL[c.q].map(i => base
 function chordAtBeat(i, p) { const ch = (p || curPat()).chords; for (let k = i; k >= 0; k--) if (ch[k]) return ch[k].x ? null : ch[k]; return null; }
 
 // ---- 알림 ----
-function status(s) { const el = $('status'); if (!el) return; el.textContent = s; clearTimeout(status.t); status.t = setTimeout(() => el.textContent = '', 4000); }
-function announce(m) { const el = $('sr'); if (el) { el.textContent = ''; setTimeout(() => el.textContent = m, 30); } }
+function status(s) { const el = $('status'); if (!el) return; el.textContent = (typeof tMsg === 'function' ? tMsg(s) : s); clearTimeout(status.t); status.t = setTimeout(() => el.textContent = '', 4000); }
+function announce(m) { const el = $('sr'); if (el) { el.textContent = ''; setTimeout(() => el.textContent = (typeof tMsg === 'function' ? tMsg(m) : m), 30); } }
