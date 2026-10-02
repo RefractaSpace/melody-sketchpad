@@ -24,7 +24,7 @@ store.put('community/aaaaaaaaaaaa/post-x.json', Buffer.from(JSON.stringify({id:'
 store.put('community/bbbbbbbbbbbb/song-y.msk', MSK);
 store.put('community/bbbbbbbbbbbb/post-y.json', Buffer.from(JSON.stringify({id:'bbbbbbbbbbbb', title:'지워진 사람 글', desc:'', tags:[], author:'ghost', created:'2026-09-03T00:00:00.000Z', likes:[], comments:[], reports:[]})));
 
-const chat = (await import('../api/chat.js')).default, auth = (await import('../api/auth.js')).default, lic = (await import('../api/license.js')).default, pay = (await import('../api/checkout.js')).default, comm = (await import('../api/community.js')).default, { migrateFromBlob } = await import('../api/_db.js');
+const share = (await import('../api/share.js')).default, chat = (await import('../api/chat.js')).default, auth = (await import('../api/auth.js')).default, lic = (await import('../api/license.js')).default, pay = (await import('../api/checkout.js')).default, comm = (await import('../api/community.js')).default, { migrateFromBlob } = await import('../api/_db.js');
 const call = (h, {method = 'GET', query = {}, tok, body} = {}) => new Promise(resolve => {
   const res = {c:200, setHeader() {}, status(c) { this.c = c; return this; },
     set statusCode(c) { this.c = c; }, get statusCode() { return this.c; },
@@ -288,6 +288,52 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
   await call(chat, {method:'POST', query:{action:'hide'}, tok:tAdmin, body:{id:m1}});
   r = await call(chat, {query:{channel:'talk'}});
   check('채팅: 관리자가 숨기면 목록에서 사라짐', r.j.messages.length === 0, `${r.j.messages.length}개`);
+}
+
+
+// ── 곡 공유 링크 ───────────────────────────────────────────────
+{
+  const tS = await signup('sharer'), tT = await signup('other2');
+  let r = await call(share, {method:'POST', query:{action:'create'}, body:{url:'https://x/a.msk'}});
+  check('🛡 공유: 로그인 없이 만들기 → 거절 (401)', r.s === 401, String(r.s));
+
+  r = await call(share, {method:'POST', query:{action:'create'}, tok:tS, body:{url:'javascript:alert(1)', name:'나쁜 것'}});
+  check('🛡 공유: https 아닌 주소 → 거절 (400)', r.s === 400, String(r.s));
+
+  r = await call(share, {method:'POST', query:{action:'create'}, tok:tS,
+                         body:{url:'https://blob.example/a.msk', name:'나의 첫 곡', bars:8, bpm:120, size:900}});
+  const sid = r.j.id;
+  check('공유: 링크 만들기 (짧은 주소)', r.s === 200 && /^[a-z0-9]{6}$/.test(sid) && r.j.link === '/s/' + sid, JSON.stringify(r.j));
+
+  r = await call(share, {query:{id:sid}});
+  check('공유: 로그인 없이도 열림 · 곡 정보가 보임',
+        r.s === 200 && r.j.share.name === '나의 첫 곡' && r.j.share.bars === 8 && r.j.share.plays === 1,
+        JSON.stringify({n:r.j.share?.name, b:r.j.share?.bars, p:r.j.share?.plays}));
+
+  await call(share, {query:{id:sid}});
+  r = await call(share, {query:{id:sid}});
+  check('공유: 들을 때마다 셈 (3회)', r.j.share.plays === 3, String(r.j.share.plays));
+
+  r = await call(share, {query:{id:'zzzzzz'}});
+  check('공유: 없는 링크 → 404', r.s === 404, String(r.s));
+
+  r = await call(share, {query:{id:'../../etc'}});
+  check('🛡 공유: 이상한 주소 → 거절 (400)', r.s === 400, String(r.s));
+
+  r = await call(share, {method:'POST', query:{action:'delete'}, tok:tT, body:{id:sid}});
+  check('🛡 공유: 남의 링크 지우기 → 거절 (403)', r.s === 403, String(r.s));
+
+  r = await call(share, {query:{action:'mine'}, tok:tS});
+  check('공유: 내 링크 목록', r.s === 200 && r.j.shares.length === 1 && r.j.shares[0].id === sid, `${r.j.shares?.length}개`);
+
+  await call(share, {method:'POST', query:{action:'delete'}, tok:tS, body:{id:sid}});
+  r = await call(share, {query:{id:sid}});
+  const mine = (await call(share, {query:{action:'mine'}, tok:tS})).j.shares.length;
+  check('공유: 내가 지우면 링크가 죽고 목록에서도 사라짐', r.s === 404 && mine === 0, `${r.s} · 목록 ${mine}개`);
+
+  for (let i = 0; i < 3; i++) await call(share, {method:'POST', query:{action:'create'}, tok:tT, body:{url:'https://x/' + i + '.msk'}});
+  r = await call(share, {method:'POST', query:{action:'create'}, tok:tT, body:{url:'https://x/4.msk'}});
+  check('🛡 공유: 1분에 4개째 → 도배 막힘 (429)', r.s === 429, String(r.s));
 }
 
 console.log(`\nDB 결과: ${results.filter(Boolean).length}/${results.length} 통과`); process.exit(results.every(Boolean) ? 0 : 1);

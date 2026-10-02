@@ -140,3 +140,24 @@ let resizeT = 0;
 window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { DPR = clamp(window.devicePixelRatio || 1, 1, 3); drawAll(); drawPlaylist(); }, 80); });
 const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)'); if (mq && mq.addEventListener) mq.addEventListener('change', () => { drawAll(); buildRack(); drawPlaylist(); });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawAll(); drawPlaylist(); });
+
+
+/* 공유 페이지(/s/<id>)가 곡을 들려줄 때 쓰는 창구.
+   ?render=1 로 열렸을 때만 켜지고, 곡 주소를 받아 소리를 만들어 Blob 주소로 돌려준다. */
+(() => {
+  if (!/[?&]render=1/.test(location.search)) return;
+  window.addEventListener('message', async ev => {
+    const d = ev.data;
+    if (!d || d.type !== 'msk-render' || typeof d.url !== 'string') return;
+    const reply = o => ev.source && ev.source.postMessage({type:'msk-rendered', id:d.id, ...o}, '*');
+    try {
+      const u = new Uint8Array(await (await fetch(d.url)).arrayBuffer());
+      const got = await decodeMSK(u);
+      S = normalize(got.song); S.playMode = 'song';
+      const buf = await renderWav();
+      const blob = new Blob([buf instanceof Uint8Array ? buf : new Uint8Array(buf)], {type:'audio/wav'});
+      reply({ok:true, audio:URL.createObjectURL(blob), name:got.name || ''});
+    } catch (e) { reply({ok:false, error:String(e && e.message || e).slice(0, 120)}); }
+  });
+  try { parent.postMessage({type:'msk-render-ready'}, '*'); } catch (e) {}
+})();

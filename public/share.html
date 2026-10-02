@@ -1,0 +1,107 @@
+<!doctype html><html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Melody Sketchpad</title>
+<link rel="icon" href="/favicon-32.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:title" content="Melody Sketchpad"><meta property="og:image" content="/og.png">
+<style>
+:root{--bg:#f4f4f8;--panel:#fff;--fg:#1a1a1e;--muted:#8a8a92;--line:#e2e3ea;--acc:#f07c1f}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#121216;--panel:#1b1b21;--fg:#eceef3;--muted:#9a9ca8;--line:#2c2d36}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);min-height:100dvh;display:grid;place-items:center;padding:24px;
+  font:15px/1.6 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:30px 28px;max-width:440px;width:100%;
+  box-shadow:0 2px 20px rgba(0,0,0,.06)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:13px;color:var(--muted);margin-bottom:22px}
+.brand img{width:22px;height:22px;border-radius:6px}
+h1{font-size:22px;margin:0 0 5px;line-height:1.3;word-break:break-word}
+.meta{color:var(--muted);font-size:13px;margin:0 0 22px}
+.play{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+.pbtn{width:56px;height:56px;flex:0 0 56px;border:0;border-radius:50%;background:var(--fg);color:var(--panel);
+  cursor:pointer;font-size:17px;display:grid;place-items:center}
+.pbtn:disabled{opacity:.5;cursor:default}
+.bar{flex:1;height:5px;background:var(--line);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--acc);border-radius:3px;transition:width .15s linear}
+.time{font:11px ui-monospace,monospace;color:var(--muted);min-width:40px;text-align:right}
+.hint{color:var(--muted);font-size:12px;margin:0 0 22px;min-height:18px}
+.btns{display:flex;gap:9px;flex-wrap:wrap}
+.btn{flex:1;min-width:140px;text-align:center;text-decoration:none;padding:11px 14px;border-radius:10px;
+  border:1px solid var(--line);color:inherit;font-size:14px;font-weight:600}
+.btn.acc{background:var(--acc);border-color:var(--acc);color:#fff}
+.err{color:#c0392b}
+</style></head><body>
+<main class="card">
+  <div class="brand"><img src="/apple-touch-icon.png" alt=""><span>Melody Sketchpad</span></div>
+  <h1 id="nm">…</h1>
+  <p class="meta" id="mt"></p>
+  <div class="play"><button class="pbtn" id="pb" disabled>▶</button>
+    <div class="bar"><i id="pg"></i></div><span class="time" id="tm"></span></div>
+  <p class="hint" id="hi"></p>
+  <div class="btns">
+    <a class="btn acc" id="open" href="/app">스케치패드에서 열기</a>
+    <a class="btn" href="/">멜로디 스케치패드란?</a>
+  </div>
+</main>
+<script>
+(()=>{
+const el=i=>document.getElementById(i), isEN=!/^ko/i.test(navigator.language||'');
+const TX={ko:{load:'곡을 불러오는 중…',make:'소리를 만드는 중… 잠시만요',ready:'▶를 누르면 들을 수 있어요',
+  none:'없는 링크예요. 주소를 다시 확인해 주세요.',fail:'이 곡을 들을 수 없어요.',
+  open:'스케치패드에서 열기',what:'멜로디 스케치패드란?',plays:'번 재생',bars:'마디'},
+ en:{load:'Loading the song…',make:'Rendering audio… one moment',ready:'Press ▶ to listen',
+  none:"That link doesn't exist. Check the address.",fail:"This song can't be played.",
+  open:'Open in Sketchpad',what:'What is Melody Sketchpad?',plays:' plays',bars:' bars'}};
+const tx=k=>TX[isEN?'en':'ko'][k];
+document.documentElement.lang=isEN?'en':'ko';
+el('open').textContent=tx('open'); el('open').nextElementSibling.textContent=tx('what');
+const id=location.pathname.split('/').filter(Boolean).pop()||new URLSearchParams(location.search).get('id');
+const mmss=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+let audio=null, url=null;
+(async()=>{
+  el('hi').textContent=tx('load');
+  try{
+    const r=await fetch('/api/share?id='+encodeURIComponent(id||''));
+    if(!r.ok) throw 0;
+    const {share:s}=await r.json();
+    document.title=(s.name||'Song')+' · Melody Sketchpad';
+    el('nm').textContent=s.name||'Untitled';
+    el('mt').textContent=[s.bars?s.bars+tx('bars'):'', s.bpm?s.bpm+' BPM':'', s.plays+tx('plays')].filter(Boolean).join(' · ');
+    el('open').href='/app?open='+encodeURIComponent(id);
+    el('hi').textContent=tx('ready'); el('pb').disabled=false;
+    el('pb').onclick=()=>play(s);
+  }catch(e){ el('nm').textContent='—'; el('hi').textContent=tx('none'); el('hi').className='hint err'; }
+})();
+async function play(s){
+  if(audio&&!audio.paused){ audio.pause(); el('pb').textContent='▶'; return; }
+  if(audio){ audio.play(); el('pb').textContent='■'; return; }
+  el('pb').disabled=true; el('hi').textContent=tx('make');
+  try{
+    // 앱을 숨긴 틀에서 띄우고, 곡 주소만 건네 소리를 만들어 달라고 한다
+    const fr=document.createElement('iframe');
+    fr.src='/app?render=1'; fr.style.cssText='position:fixed;width:1px;height:1px;opacity:0;border:0;left:-9999px';
+    document.body.appendChild(fr);
+    window.__fr=fr;                                   // 틀이 살아 있어야 Blob 주소가 유지됨
+    const id=Math.random().toString(36).slice(2);
+    const got=await new Promise((ok,no)=>{
+      const timer=setTimeout(()=>no(new Error('timeout')), 60000);
+      window.addEventListener('message', function h2(ev){
+        const d=ev.data;
+        if(!d||d.type!=='msk-rendered'||d.id!==id) return;
+        clearTimeout(timer); window.removeEventListener('message',h2);
+        d.ok? ok(d) : no(new Error(d.error||'render'));
+      });
+      const send=()=>fr.contentWindow.postMessage({type:'msk-render', id, url:s.url},'*');
+      window.addEventListener('message', function ready(ev){
+        if(ev.data&&ev.data.type==='msk-render-ready'){ window.removeEventListener('message',ready); send(); }
+      });
+      fr.onload=()=>setTimeout(send, 1500);           // 준비 신호를 놓쳐도 한 번 더
+    });
+    url=got.audio;
+    audio=new Audio(url);
+    audio.ontimeupdate=()=>{ if(audio.duration){ el('pg').style.width=(audio.currentTime/audio.duration*100)+'%';
+      el('tm').textContent=mmss(audio.duration-audio.currentTime);} };
+    audio.onended=()=>{ el('pb').textContent='▶'; el('pg').style.width='0%'; };
+    el('hi').textContent=''; el('pb').disabled=false; el('pb').textContent='■'; audio.play();
+  }catch(e){ el('pb').disabled=false; el('hi').textContent=tx('fail'); el('hi').className='hint err'; }
+}
+})();
+</script></body></html>

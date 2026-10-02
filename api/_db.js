@@ -76,6 +76,17 @@ const SCHEMA = [
      at timestamptz not null default now(),
      primary key (message_id, username))`,
   `create index if not exists msg_reports_msg on msg_reports (message_id)`,
+  // 곡 공유 링크 — 짧은 주소 하나로 곡을 들려준다
+  `create table if not exists shares (
+     id text primary key,
+     username text references users(username) on delete set null,
+     name text not null default '',
+     url text not null,
+     bars int, bpm int, size int,
+     plays int not null default 0,
+     created timestamptz not null default now(),
+     hidden boolean not null default false)`,
+  `create index if not exists shares_user on shares (username, created desc)`,
   // 누가 언제 접속해 있었는지 (사람 목록용)
   `create table if not exists presence (
      username text primary key references users(username) on delete cascade,

@@ -30,6 +30,10 @@
     {
       "source": "/app",
       "destination": "/app/index.html"
+    },
+    {
+      "source": "/s/:id",
+      "destination": "/share.html"
     }
   ]
 }

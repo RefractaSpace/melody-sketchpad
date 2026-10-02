@@ -78,3 +78,27 @@ $('cloudKeyNew').onclick = () => { if (cloudKey() && !confirm('새 키를 만들
 $('cloudKeyCopy').onclick = async () => { try { await navigator.clipboard.writeText(cloudKey()); status('저장소 키를 복사했어요.'); } catch (e) { $('cloudKey').select(); } };
 $('cloudAuto').onchange = () => { lsSet(CA, $('cloudAuto').checked ? '1' : '0'); if ($('cloudAuto').checked && !cloudKey()) { lsSet(CK, newCloudKey()); cloudRefresh(); } };
 $('cloudUp').onclick = async () => { try { await cloudUpload(false); cloudRefresh(); } catch (e) { $('cloudState').textContent = '올리지 못했어요: ' + e.message; } };
+
+/* 공유 링크 만들기 — 곡을 서버에 올리고 /s/<id> 주소를 받는다 */
+async function makeShareLink() {
+  if (!authInfo()) return status('공유하려면 로그인해 주세요.');
+  const b = $('shareBtn'); const old = b.textContent;
+  b.textContent = '…'; b.disabled = true;
+  try {
+    const up = await cloudUpload(true);
+    if (!up || !up.url) throw new Error('곡 주소를 받지 못했어요');
+    const name = (lib.list[lib.current] || {}).name || '내 곡';
+    const bars = Math.max(1, Math.ceil((curPat()?.len || 48) / 48));
+    const r = await fetch((window.MSK_SERVER || '') + '/api/share?action=create', {
+      method:'POST', headers:{'content-type':'application/json', authorization:'Bearer ' + authInfo().token},
+      body:JSON.stringify({name, url:up.url, bars, bpm:S.bpm, size:up.size})});
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.message || '만들지 못했어요');
+    const link = location.origin + j.link;
+    try { await navigator.clipboard.writeText(link); status(`공유 링크를 복사했어요: ${link}`); }
+    catch (e) { prompt('이 링크를 복사해 주세요', link); }
+  } catch (e) { status('공유 링크를 만들지 못했어요: ' + e.message); }
+  finally { b.textContent = old; b.disabled = false; }
+}
+document.addEventListener('DOMContentLoaded', () => { const b = $('shareBtn'); if (b) b.onclick = makeShareLink; });
+if (document.readyState !== 'loading') { const b = $('shareBtn'); if (b) b.onclick = makeShareLink; }
