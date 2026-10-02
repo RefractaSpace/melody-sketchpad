@@ -309,7 +309,7 @@ canvas:focus-visible{outline:2px dashed var(--ink);outline-offset:-2px}
   .wbtn span{display:inline;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .wbtn svg{flex:0 0 auto}
 }
-@media (max-width:420px){ .wbtn span{display:none} .wbtn kbd{display:inline} }
+@media (max-width:420px){ .wbtn kbd{display:none} .wbtn span{display:inline;font-size:12px} .wbtn{padding:7px 9px;gap:5px} }
 @media (max-width:760px){ #win-rack{order:1} #win-roll{order:2} #win-playlist{order:3} #win-mixer{order:4} #win-browser{order:5} }
 
 /* 악보 붙여넣기 · 파일 변환기 */
