@@ -631,6 +631,18 @@ async def main():
           S=normalize(JSON.parse(snap)); save(); refreshAll(); return r})()""")
         check('샘플 악기: 새 악기 15개만 샘플 · 내려받기 · 건반과 세기로 고르기 (피아노 등 기존 악기는 그대로)', not smp.get('off') and not smp.get('loadFail') and smp.get('insts', 0) >= 15 and smp.get('hasViolin') and not smp.get('hasPiano') and smp.get('bufs', 0) > 10 and smp.get('pick'), str(smp))
 
+        # 소개 페이지: 내려받기가 막혀 있는지 (서버에서 실제로 확인)
+        import urllib.request as _u
+        try:
+            _root = URL.rsplit('/app', 1)[0].rstrip('/') + '/'
+            _html = _u.urlopen(_root, timeout=10).read().decode('utf-8', 'replace')
+            _exe = _html.count('MelodySketchpad-Setup.exe')
+            _soon = 'dlsoon' in _html
+        except Exception as _e:
+            _exe, _soon = -1, False
+        check('소개 페이지: Windows 설치 파일 링크가 없고 "준비 중"으로 막혀 있음',
+              _exe == 0 and _soon, f"exe 링크 {_exe}개 · 준비중 표시 {_soon}")
+
         # 언어 뼈대 (앱 쪽)
         i18 = await J("""(()=>{
           if (typeof setLang !== 'function') return {missing:true};
