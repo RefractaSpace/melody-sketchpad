@@ -33,6 +33,21 @@ function applyLang() {
   const b = document.getElementById('langBtn');
   if (b) { b.textContent = LANG === 'ko' ? 'EN' : '한국어'; b.title = LANG === 'ko' ? 'Switch to English' : '한국어로 바꾸기'; }
   document.dispatchEvent(new CustomEvent('langchange', {detail:{lang:LANG}}));
+  // 아직 한 번도 이름을 안 바꾼 곡은 기본 이름도 언어에 맞춘다 (사용자가 지은 이름은 그대로)
+  try {
+    const DEF = ['새 곡', 'New song', '내 첫 곡', 'My first song'];
+    if (typeof lib !== 'undefined' && lib && lib.list) {
+      for (const id in lib.list) {
+        const cur = lib.list[id].name;
+        if (!DEF.includes(cur)) continue;                       // 직접 지은 이름은 건드리지 않음
+        const ko = (cur === '내 첫 곡' || cur === 'My first song') ? '내 첫 곡' : '새 곡';
+        lib.list[id].name = tMsg(ko);
+      }
+      if (typeof saveLib === 'function') saveLib();
+      const inp = document.getElementById('projName');
+      if (inp && lib.list[lib.current]) inp.value = lib.list[lib.current].name;
+    }
+  } catch (e) {}
   if (typeof refreshAll === 'function' && typeof S !== 'undefined' && S) try { refreshAll(); } catch (e) {}   // 코드가 만드는 이름도 다시 그리기
 }
 function setLang(v) {

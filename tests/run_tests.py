@@ -658,6 +658,36 @@ async def main():
               and i18['fallback'] == '없는열쇠입니다',
               f"{i18.get('langs')} · en→{i18.get('en')} · ko→{i18.get('ko')} · 없는열쇠→{i18.get('fallback')}")
 
+        # 영어 화면에 한글이 남아 있지 않은지 (코드가 만드는 글자 포함)
+        ko_left = await J("""(async()=>{
+          lib.list[lib.current].name = '새 곡'; saveLib();          // 앞선 테스트가 바꿔 놓은 이름을 기본값으로
+          setLang('en'); await new Promise(r => setTimeout(r, 500));
+          // 사용자가 만든 이름(AI 결과·올린 파일·녹음)은 번역 대상이 아니므로 뺀다
+          const mine = /^AI:|\.(wav|mp3|msk|mid)$|마이크 녹음|내가 지은|^녹음 \d+$/;   // 사용자가 만든 채널 이름
+          const seen = [...document.querySelectorAll('button,option,h3,span,label,div,input')]
+            .filter(e => e.offsetParent && e.children.length === 0
+                         && /[가-힣]/.test((e.textContent || '') + (e.value || '')))
+            .map(e => (e.textContent || '').trim() || e.value)
+            .filter(x => !mine.test(x)).slice(0, 6);
+          const r = {left:seen, name:document.getElementById('projName').value,
+                     roll:document.getElementById('rollTitle')?.textContent};
+          setLang('ko'); await new Promise(r2 => setTimeout(r2, 400));
+          r.nameKo = document.getElementById('projName').value;
+          return r})()""")
+        check('영어 화면: 보이는 한글 0개 · 기본 곡 이름도 영어 · 한국어로 되돌아감',
+              len(ko_left.get('left', ['?'])) == 0 and ko_left.get('name') == 'New song'
+              and ko_left.get('nameKo') == '새 곡' and '피아노' not in (ko_left.get('roll') or ''),
+              f"남은 한글 {ko_left.get('left')} · 이름 {ko_left.get('name')} → {ko_left.get('nameKo')} · 롤 {ko_left.get('roll')}")
+
+        ko_keep = await J("""(async()=>{
+          lib.list[lib.current].name = '내가 지은 곡'; saveLib();
+          setLang('en'); await new Promise(r => setTimeout(r, 400));
+          const v = document.getElementById('projName').value;
+          lib.list[lib.current].name = '새 곡'; saveLib();
+          setLang('ko'); await new Promise(r => setTimeout(r, 300));
+          return v})()""")
+        check('영어로 바꿔도 직접 지은 곡 이름은 그대로', ko_keep == '내가 지은 곡', str(ko_keep))
+
         # 알림 문구 영어
         msg = await J("""(async()=>{
           if (typeof tMsg !== 'function') return {missing:true};

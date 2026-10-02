@@ -10,8 +10,8 @@ async function decode(ab) { const ac = decoder(); return await new Promise((res,
 // slot: 'ch:<id>' (채널마다). 예전 칸 이름 'melody'·'trk:…'·'kick'… 도 찾아 씀
 function sampleCtl(slot, label) {
   const w = document.createElement('div'); w.className = 'smp'; const s = SAMPLES[slot], ch = chById(slot.slice(3)), isTrack = !!(ch && ch.kind === 'synth');
-  const nm = document.createElement('span'); nm.className = 'sn'; nm.textContent = s ? s.name : (isTrack && SAMPLES.melody ? '공용 샘플: ' + SAMPLES.melody.name : '기본 소리');
-  const up = document.createElement('button'); up.className = 'tbtn xs'; up.textContent = s ? '바꾸기' : '내 샘플'; up.setAttribute('aria-label', label + ' 샘플 넣기');
+  const nm = document.createElement('span'); nm.className = 'sn'; nm.textContent = s ? tMsg(s.name) : (isTrack && SAMPLES.melody ? tMsg('공용 샘플: ') + SAMPLES.melody.name : tMsg('기본 소리'));
+  const up = document.createElement('button'); up.className = 'tbtn xs'; up.textContent = tMsg(s ? '바꾸기' : '내 샘플'); up.setAttribute('aria-label', label + ' 샘플 넣기');
   const fi = document.createElement('input'); fi.type = 'file'; fi.accept = 'audio/*'; fi.hidden = true;
   up.onclick = () => fi.click();
   fi.onchange = async () => {
@@ -23,9 +23,9 @@ function sampleCtl(slot, label) {
       buildMixer(); status(`${label}에 "${f.name}"을 넣었어요.`);
     } catch (e) { status('이 파일은 소리로 읽을 수 없어요. wav나 mp3로 넣어 주세요.'); }
   };
-  const mc = document.createElement('button'), recNow = typeof mic !== 'undefined' && mic && mic.slot === slot; mc.className = 'tbtn xs' + (recNow ? ' micon' : ''); mc.textContent = recNow ? '■ 멈춤' : '녹음'; mc.classList.toggle('ic-mic', !recNow);
+  const mc = document.createElement('button'), recNow = typeof mic !== 'undefined' && mic && mic.slot === slot; mc.className = 'tbtn xs' + (recNow ? ' micon' : ''); mc.textContent = tMsg(recNow ? '■ 멈춤' : '녹음'); mc.classList.toggle('ic-mic', !recNow);
   mc.setAttribute('aria-label', label + (recNow ? ' 마이크 녹음 멈추기' : ' 마이크로 녹음')); mc.onclick = () => micToggle(slot, label);
-  const ed = document.createElement('button'); ed.className = 'tbtn xs ic-cut'; ed.textContent = '편집'; ed.hidden = !SAMPLES[slot]; ed.setAttribute('aria-label', label + ' 샘플 편집'); ed.onclick = () => openSampleEditor(slot, label);
+  const ed = document.createElement('button'); ed.className = 'tbtn xs ic-cut'; ed.textContent = tMsg('편집'); ed.hidden = !SAMPLES[slot]; ed.setAttribute('aria-label', label + ' 샘플 편집'); ed.onclick = () => openSampleEditor(slot, label);
   w.append(nm, up, mc, ed, fi);
   const smCh = slot.startsWith('ch:') ? chById(slot.slice(3)) : null;
   if (smCh && smCh.kind === 'synth' && SAMPLES[slot]) {   // 샘플러: 구간 반복 · 조각을 건반에

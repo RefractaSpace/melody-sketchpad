@@ -1,9 +1,9 @@
 /* 06-mixer.js — 믹서 (채널 랙의 채널마다 한 줄 · 코드 · 베이스 · 마스터) */
 function mixSlider(label, val, min, max, step, on, fmt) {
   const w = document.createElement('label'); w.className = 'knob';
-  const s = document.createElement('input'); s.type = 'range'; s.min = min; s.max = max; s.step = step; s.value = val; s.setAttribute('aria-label', label);
+  const s = document.createElement('input'); s.type = 'range'; s.min = min; s.max = max; s.step = step; s.value = val; s.setAttribute('aria-label', tMsg(label));
   const v = document.createElement('span'); v.className = 'kv'; v.textContent = fmt(val);
-  const l = document.createElement('span'); l.className = 'kl'; l.textContent = label;
+  const l = document.createElement('span'); l.className = 'kl'; l.textContent = tMsg(label);
   s.oninput = () => { on(+s.value); v.textContent = fmt(+s.value); }; s.onchange = () => save();
   w.append(l, s, v); return w;
 }
@@ -21,7 +21,7 @@ function fxFmt(type, j) {
   return pct;
 }
 const remix = () => { if (E) applyMix(E, S.mix); };
-function subTitle(st, t) { const h = document.createElement('div'); h.className = 'sub'; h.textContent = t; st.appendChild(h); }
+function subTitle(st, txt) { const h = document.createElement('div'); h.className = 'sub'; h.textContent = tMsg(txt); st.appendChild(h); }
 function toneKnobs(st, T) {
   subTitle(st, '음색');
   st.appendChild(mixSlider('밝기', T.br, 0.3, 2, 0.05, v => { T.br = v; }, v => pct(v) + '%'));
@@ -71,8 +71,8 @@ function fxSection(st, m, label) {
   }
 }
 function selectEl(label, opts, val, on) {
-  const s = document.createElement('select'); s.setAttribute('aria-label', label);
-  for (const [v, t] of opts) { const o = document.createElement('option'); o.value = v; o.textContent = t; s.appendChild(o); }
+  const s = document.createElement('select'); s.setAttribute('aria-label', tMsg(label));
+  for (const [v, txt] of opts) { const o = document.createElement('option'); o.value = v; o.textContent = tMsg(txt); s.appendChild(o); }
   s.value = val; s.onchange = () => { on(s.value); save(); }; return s;
 }
 function buildMixer() {
@@ -99,7 +99,7 @@ function buildMixer() {
   st.innerHTML = '<div class="sh"><b>마스터</b></div>';
   st.appendChild(mixSlider('볼륨', ma.v, 0, 1.2, 0.01, v => { ma.v = v; remix(); }, pct));
   st.appendChild(mixSlider('사이드체인', ma.sc, 0, 0.9, 0.01, v => { ma.sc = v; }, pct));
-  st.appendChild(mixSlider('리버브 길이', ma.size, 0, 3, 1, v => { ma.size = v; remix(); }, v => ['짧게','보통','길게','아주 길게'][v]));
+  st.appendChild(mixSlider('리버브 길이', ma.size, 0, 3, 1, v => { ma.size = v; remix(); }, v => tMsg(['짧게','보통','길게','아주 길게'][v])));
   fxSection(st, ma, '마스터');
   const kx = document.createElement('div'); kx.className = 'sx';
   kx.appendChild(selectEl('드럼 키트', [['edm','키트: EDM'],['808','키트: 808'],['hard','키트: 하드'],['acoustic','키트: 어쿠스틱풍']], S.kit, v => {

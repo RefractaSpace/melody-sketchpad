@@ -25,7 +25,7 @@ function buildBrowser() {
     bItem(s, n, [['▶', () => { ensureCtx(); applyMix(E, S.mix); bassPlay(E, k, 36 + S.root, ctx.currentTime + 0.02, 0.6); }, n + ' 베이스 미리 듣기'],
       ['쓰기', () => { S.bassInst = k; if (S.bassMode === 'off') S.bassMode = '8th'; save(); buildBrowser(); buildMixer(); }, n + ' 베이스로 쓰기']], S.bassInst === k && S.bassMode !== 'off');
   s = bSection('패턴');
-  S.patterns.forEach((P, i) => { const it = bItem(s, `${P.name} · ${P.bars}마디`, [['색', () => { pushUndo(); P.color = (P.color + 1) % PAT_COLORS.length; save(); buildBrowser(); drawPlaylist(); }, `${P.name} 색 바꾸기 (지금 ${P.color ? P.color + '번' : '없음'})`], ['열기', () => { selectPattern(i); openWin('roll'); }], ['이름', () => renamePattern(i)], ['삭제', () => deletePattern(i)]], i === S.pat);
+  S.patterns.forEach((P, i) => { const it = bItem(s, `${tMsg(P.name)} · ${P.bars}${tMsg('마디')}`, [['색', () => { pushUndo(); P.color = (P.color + 1) % PAT_COLORS.length; save(); buildBrowser(); drawPlaylist(); }, `${P.name} 색 바꾸기 (지금 ${P.color ? P.color + '번' : '없음'})`], ['열기', () => { selectPattern(i); openWin('roll'); }], ['이름', () => renamePattern(i)], ['삭제', () => deletePattern(i)]], i === S.pat);
     if (P.color) it.style.boxShadow = `inset 4px 0 ${PAT_COLORS[P.color]}`; });
   s = bSection('녹음');
   bItem(s, mic ? '마이크 녹음 중…' : '마이크로 녹음해서 새 채널', [[mic ? '■ 멈춤' : '녹음', () => micNewChannel(), mic ? '마이크 녹음 멈추기' : '마이크로 녹음해서 새 채널 만들기']]);
