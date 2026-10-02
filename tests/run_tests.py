@@ -631,6 +631,21 @@ async def main():
           S=normalize(JSON.parse(snap)); save(); refreshAll(); return r})()""")
         check('샘플 악기: 새 악기 15개만 샘플 · 내려받기 · 건반과 세기로 고르기 (피아노 등 기존 악기는 그대로)', not smp.get('off') and not smp.get('loadFail') and smp.get('insts', 0) >= 15 and smp.get('hasViolin') and not smp.get('hasPiano') and smp.get('bufs', 0) > 10 and smp.get('pick'), str(smp))
 
+        # 언어 뼈대 (앱 쪽)
+        i18 = await J("""(()=>{
+          if (typeof setLang !== 'function') return {missing:true};
+          const before = (typeof myTier === 'function') ? null : null;
+          const r = {has:true, langs:Object.keys(I18N_LANGS), fn:typeof t === 'function'};
+          const cur = document.documentElement.lang;
+          setLang('en'); r.en = document.documentElement.lang;
+          setLang('ko'); r.ko = document.documentElement.lang;
+          r.fallback = t('없는열쇠입니다');            // 번역이 없으면 원문 그대로
+          return r})()""")
+        check('언어: 한국어·영어 전환이 되고, 번역이 없으면 원문을 그대로 보여 줌',
+              i18.get('has') and i18['langs'] == ['ko', 'en'] and i18['en'] == 'en' and i18['ko'] == 'ko'
+              and i18['fallback'] == '없는열쇠입니다',
+              f"{i18.get('langs')} · en→{i18.get('en')} · ko→{i18.get('ko')} · 없는열쇠→{i18.get('fallback')}")
+
         # 6: 음정 보정 — 실제 목소리에 가까운 조건 (비브라토·흔들림·숨소리·무성음)
         vp = await J("""(()=>{
           const sr=44100;

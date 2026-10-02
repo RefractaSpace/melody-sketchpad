@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>멜로디 스케치패드 6 시리즈</title>
+<title data-i18n="d89fb8d">멜로디 스케치패드 6 시리즈</title>
 <meta name="description" content="떠오른 멜로디를 바로 곡으로. 스케치패드 SE, 6, 6 Pro, 6 Max와 가족 앱.">
 <meta property="og:title" content="멜로디 스케치패드 6 시리즈">
 <meta property="og:description" content="음정은 맞추고, 감정은 그대로. 스케치패드 6 시리즈.">
@@ -161,63 +161,65 @@ footer .fn{flex-basis:100%;font-size:12px;color:#8a93a6;margin:0}footer nav{disp
 .road li.done i{border-color:var(--acc);color:var(--acc)}
 .road li.now i{background:var(--acc);border-color:var(--acc);color:#fff}
 @media(max-width:600px){.road li{flex-wrap:wrap}.road i{margin-left:38px}}}
+.langbtn{margin-left:10px;font:600 11px ui-monospace,monospace;padding:4px 9px;border-radius:99px;border:1px solid var(--line);background:none;color:var(--muted);cursor:pointer}
+.langbtn:hover{color:var(--fg);border-color:var(--fg)}
 </style>
 </head>
 <body>
 <header class="top">
   <div class="w">
-    <a class="brand" href="#top"><img src="img/icon.png" alt="" width="28" height="28" style="border-radius:7px">멜로디 스케치패드</a>
-    <nav aria-label="페이지 안 이동"><a href="#lineup">라인업</a><a href="#roadmap">로드맵</a><a href="#ai">음악 AI</a><a href="#apps">가족 앱</a><a href="#download">다운로드</a><a href="#faq">질문</a></nav>
-    <a class="btn sm acc" href="/app">웹에서 시작</a>
-    <button class="mbtn" id="mbtn" type="button" aria-label="메뉴 열기" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7h14M3 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    <a class="brand" href="#top"><img src="img/icon.png" alt="" width="28" height="28" style="border-radius:7px"><span data-i18n="d214c20">멜로디 스케치패드</span></a>
+    <nav aria-label="페이지 안 이동" data-i18n-aria="ded2a12"><button id="langBtn" class="langbtn" type="button" aria-label="Language">EN</button><a href="#lineup" data-i18n="d3a815b">라인업</a><a href="#roadmap" data-i18n="dcf0d4f">로드맵</a><a href="#ai" data-i18n="d731737">음악 AI</a><a href="#apps" data-i18n="dda16a1">가족 앱</a><a href="#download" data-i18n="d612ca2">다운로드</a><a href="#faq" data-i18n="df765cf">질문</a></nav>
+    <a class="btn sm acc" href="/app" data-i18n="dce324c">웹에서 시작</a>
+    <button class="mbtn" id="mbtn" type="button" aria-label="메뉴 열기" data-i18n-aria="df0f197" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7h14M3 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
   </div>
 </header>
-<nav class="msheet" id="msheet" aria-label="전체 메뉴"><a href="#lineup">라인업</a><a href="#ai">음악 AI</a><a href="#apps">가족 앱</a><a href="#download">다운로드</a><a href="#faq">질문</a><a href="/app">웹에서 시작</a></nav>
+<nav class="msheet" id="msheet" aria-label="전체 메뉴" data-i18n-aria="d339300"><a href="#lineup" data-i18n="d3a815b">라인업</a><a href="#ai" data-i18n="d731737">음악 AI</a><a href="#apps" data-i18n="dda16a1">가족 앱</a><a href="#download" data-i18n="d612ca2">다운로드</a><a href="#faq" data-i18n="df765cf">질문</a><a href="/app" data-i18n="dce324c">웹에서 시작</a></nav>
 
 <main id="top">
   <section class="hero6" aria-labelledby="h-hero">
     <div class="w h6grid">
       <div class="h6text">
-        <p class="kick6">스케치패드 6 · 출시 예정</p>
-        <h1 id="h-hero">음정은 맞추고,<br>감정은 그대로.</h1>
-        <p class="sub6">스케치패드 6에서는 음악 AI 2가 반주와 편곡까지 채우고, 목소리를 녹음하면 음정을 맞춥니다.</p>
-        <div class="cta"><a class="btn wht" href="#lineup">모델 고르기</a><a class="btn wline" href="/app">SE 무료로 시작</a></div>
+        <p class="kick6" data-i18n="d2f3e16">스케치패드 6 · 출시 예정</p>
+        <h1 id="h-hero"><span data-i18n="d565cf4">음정은 맞추고,</span><br><span data-i18n="dd731d7">감정은 그대로.</span></h1>
+        <p class="sub6" data-i18n="d60871f">스케치패드 6에서는 음악 AI 2가 반주와 편곡까지 채우고, 목소리를 녹음하면 음정을 맞춥니다.</p>
+        <div class="cta"><a class="btn wht" href="#lineup" data-i18n="d5b6ee8">모델 고르기</a><a class="btn wline" href="/app" data-i18n="d33f9e1">SE 무료로 시작</a></div>
       </div>
       <div class="meters" aria-hidden="true">
-        <div class="m"><div class="mt"><i class="mf"></i><b class="pk"></b></div><span>보컬</span></div><div class="m"><div class="mt"><i class="mf"></i><b class="pk"></b></div><span>멜로디</span></div><div class="m"><div class="mt"><i class="mf"></i><b class="pk"></b></div><span>베이스</span></div><div class="m"><div class="mt"><i class="mf"></i><b class="pk"></b></div><span>반주</span></div><div class="m"><div class="mt"><i class="mf"></i><b class="pk"></b></div><span>드럼</span></div><div class="m"><div class="mt"><i class="mf"></i><b class="pk"></b></div><span>마스터</span></div>
+        <div class="m"><div class="mt"><i class="mf"></i><b class="pk"></b></div><span data-i18n="d4e01b4">보컬</span></div><div class="m"><div class="mt"><i class="mf"></i><b class="pk"></b></div><span data-i18n="da4504a">멜로디</span></div><div class="m"><div class="mt"><i class="mf"></i><b class="pk"></b></div><span data-i18n="d27c7af">베이스</span></div><div class="m"><div class="mt"><i class="mf"></i><b class="pk"></b></div><span data-i18n="dc20f8f">반주</span></div><div class="m"><div class="mt"><i class="mf"></i><b class="pk"></b></div><span data-i18n="d62d3a0">드럼</span></div><div class="m"><div class="mt"><i class="mf"></i><b class="pk"></b></div><span data-i18n="d3bccff">마스터</span></div>
       </div>
     </div>
     <div class="w h6vid">
       <div class="ad"><video id="demoVid" muted loop playsinline preload="metadata" poster="video/poster.jpg" data-steps="0,10.11,17.61,27.88,36.19" aria-label="실제 스케치패드 화면 녹화: 피아노 롤에 멜로디 8음을 찍고, 음악 AI에 '신나는 여름 축제, 드럼'을 입력해 8마디를 만든 뒤, AI 멜로디 채널을 골라 재생하는 모습"><source src="video/demo.webm" type="video/webm"><source src="video/demo.mp4" type="video/mp4"></video></div>
-      <p class="adnote">실제 앱 화면을 녹화했습니다. AI가 곡을 짓는 약 1분은 1.6초로 줄여서 보여 줍니다.</p>
-      <ol class="adsteps" aria-hidden="true"><li><i></i><b>1</b>멜로디를 찍고</li><li><i></i><b>2</b>AI에게 한 줄</li><li><i></i><b>3</b>반주 · 드럼 · 편곡</li><li><i></i><b>4</b>바로 재생</li></ol>
+      <p class="adnote" data-i18n="d781feb">실제 앱 화면을 녹화했습니다. AI가 곡을 짓는 약 1분은 1.6초로 줄여서 보여 줍니다.</p>
+      <ol class="adsteps" aria-hidden="true"><li><i></i><b>1</b><span data-i18n="dddc016">멜로디를 찍고</span></li><li><i></i><b>2</b><span data-i18n="d71ddc9">AI에게 한 줄</span></li><li><i></i><b>3</b><span data-i18n="da75c1e">반주 · 드럼 · 편곡</span></li><li><i></i><b>4</b><span data-i18n="de8256e">바로 재생</span></li></ol>
     </div>
   </section>
 
   <section class="sec" id="lineup" aria-labelledby="h-line">
     <div class="w">
       <p class="lbl rise">LINEUP</p>
-      <h2 class="rise" id="h-line">네 가지 스케치패드.</h2>
-      <p class="desc rise">같은 작곡 엔진 위에서, 쓸 수 있는 기능의 길이가 다릅니다. 조각이 길수록 할 수 있는 것이 많습니다.</p>
+      <h2 class="rise" id="h-line" data-i18n="d73ee7f">네 가지 스케치패드.</h2>
+      <p class="desc rise" data-i18n="d6ec185">같은 작곡 엔진 위에서, 쓸 수 있는 기능의 길이가 다릅니다. 조각이 길수록 할 수 있는 것이 많습니다.</p>
       <div class="pl" role="list">
         <div class="ruler" aria-hidden="true"><span></span><div class="ticks"><span>1</span><span>2</span><span>3</span><span>4</span></div><span></span></div>
-        <div class="lane" role="listitem"><div class="name"><b>SE</b><span>무료</span></div><div class="track"><div class="clip" style="width:30%;background:#6F7B95"><i>채널 8</i><i>기본 악기</i><i>WAV</i><i>AI 하루 3번</i></div></div><div class="act"><a class="btn sm" href="/app">웹에서 시작</a></div></div>
-        <div class="lane" role="listitem"><div class="name"><b>스케치패드 6</b><span>가격 곧 공개</span></div><div class="track"><div class="clip" style="width:58%;background:var(--c1)"><i>Windows 앱</i><i>채널 16</i><i>신스·샘플러</i><i>이펙트 11</i><i>보컬 + 음정 보정</i><i>AI 하루 30번</i><i>튜너</i></div></div><div class="act"><span class="btn sm wait">출시 예정</span></div></div>
-        <div class="lane" role="listitem"><div class="name"><b>스케치패드 6 Pro</b><span>가격 곧 공개</span></div><div class="track"><div class="clip" style="width:82%;background:var(--c2)"><i>6의 전부</i><i>스템·버스</i><i>샘플 늘이기</i><i>음정 곡선 편집</i><i>AI 무제한</i><i>AI 작곡기</i><i>곡 500개</i></div></div><div class="act"><span class="btn sm wait">출시 예정</span></div></div>
-        <div class="lane" role="listitem"><div class="name"><b>스케치패드 6 Max</b><span>가격 곧 공개</span></div><div class="track"><div class="clip" style="width:100%;background:var(--c4)"><i>6 Pro의 전부</i><i>곡 저장 무제한</i><i>PC 3대</i><i>사운드 팩 전부</i><i>새 기능 먼저</i><i>가족 앱 전부</i></div></div><div class="act"><span class="btn sm wait">출시 예정</span></div></div>
+        <div class="lane" role="listitem"><div class="name"><b>SE</b><span data-i18n="d667dd4"><span data-i18n="d667dd4">무료</span></span></div><div class="track"><div class="clip" style="width:30%;background:#6F7B95"><i data-i18n="da14016"><span data-i18n="da14016">채널 8</span></i><i data-i18n="d592eb6"><span data-i18n="d592eb6">기본 악기</span></i><i>WAV</i><i data-i18n="de62a21"><span data-i18n="de62a21">AI 하루 3번</span></i></div></div><div class="act"><a class="btn sm" href="/app" data-i18n="dce324c">웹에서 시작</a></div></div>
+        <div class="lane" role="listitem"><div class="name"><b data-i18n="d68c5c9"><span data-i18n="d68c5c9">스케치패드 6</span></b><span data-i18n="ddd1dd7"><span data-i18n="ddd1dd7">가격 곧 공개</span></span></div><div class="track"><div class="clip" style="width:58%;background:var(--c1)"><i data-i18n="d99fb10"><span data-i18n="d99fb10">Windows 앱</span></i><i data-i18n="d0e2154"><span data-i18n="d0e2154">채널 16</span></i><i data-i18n="d4773e4"><span data-i18n="d4773e4">신스·샘플러</span></i><i data-i18n="d4d4aa6"><span data-i18n="d4d4aa6">이펙트 11</span></i><i data-i18n="d3fce14"><span data-i18n="d3fce14">보컬 + 음정 보정</span></i><i data-i18n="deae017"><span data-i18n="deae017">AI 하루 30번</span></i><i data-i18n="dad2d9a"><span data-i18n="dad2d9a">튜너</span></i></div></div><div class="act"><span class="btn sm wait" data-i18n="d651b71"><span data-i18n="d651b71">출시 예정</span></span></div></div>
+        <div class="lane" role="listitem"><div class="name"><b data-i18n="d12a795"><span data-i18n="d12a795">스케치패드 6 Pro</span></b><span data-i18n="ddd1dd7"><span data-i18n="ddd1dd7">가격 곧 공개</span></span></div><div class="track"><div class="clip" style="width:82%;background:var(--c2)"><i data-i18n="d8eb871"><span data-i18n="d8eb871">6의 전부</span></i><i data-i18n="d2df6f1"><span data-i18n="d2df6f1">스템·버스</span></i><i data-i18n="dcd71c0"><span data-i18n="dcd71c0">샘플 늘이기</span></i><i data-i18n="d888005"><span data-i18n="d888005">음정 곡선 편집</span></i><i data-i18n="db826f5"><span data-i18n="db826f5">AI 무제한</span></i><i data-i18n="d81baa6"><span data-i18n="d81baa6">AI 작곡기</span></i><i data-i18n="d467ad6"><span data-i18n="d467ad6">곡 500개</span></i></div></div><div class="act"><span class="btn sm wait" data-i18n="d651b71"><span data-i18n="d651b71">출시 예정</span></span></div></div>
+        <div class="lane" role="listitem"><div class="name"><b data-i18n="d3f0b73"><span data-i18n="d3f0b73">스케치패드 6 Max</span></b><span data-i18n="ddd1dd7"><span data-i18n="ddd1dd7">가격 곧 공개</span></span></div><div class="track"><div class="clip" style="width:100%;background:var(--c4)"><i data-i18n="ded5867"><span data-i18n="ded5867">6 Pro의 전부</span></i><i data-i18n="d7be0cb"><span data-i18n="d7be0cb">곡 저장 무제한</span></i><i data-i18n="d91c1b9"><span data-i18n="d91c1b9">PC 3대</span></i><i data-i18n="dc0c8d2"><span data-i18n="dc0c8d2">사운드 팩 전부</span></i><i data-i18n="dba09bf"><span data-i18n="dba09bf">새 기능 먼저</span></i><i data-i18n="da499e9"><span data-i18n="da499e9">가족 앱 전부</span></i></div></div><div class="act"><span class="btn sm wait" data-i18n="d651b71"><span data-i18n="d651b71">출시 예정</span></span></div></div>
       </div>
-      <div class="cmp-wrap" role="region" aria-label="모델 비교 표" tabindex="0">
+      <div class="cmp-wrap" role="region" aria-label="모델 비교 표" data-i18n-aria="da68a68" tabindex="0">
         <table class="cmp"><caption>COMPARE</caption>
           <thead><tr><th scope="col"></th><th scope="col">SE</th><th scope="col">6</th><th scope="col">6 Pro</th><th scope="col">6 Max</th></tr></thead>
           <tbody>
-            <tr><th scope="row">Windows 앱</th><td>–</td><td>●</td><td>●</td><td>●</td></tr>
-            <tr><th scope="row">채널</th><td>8</td><td>16</td><td>16</td><td>16</td></tr>
-            <tr><th scope="row">신스 · 샘플러</th><td>–</td><td>●</td><td>●</td><td>●</td></tr>
-            <tr><th scope="row">보컬 녹음 + 음정 보정</th><td>–</td><td>자동</td><td>곡선 편집</td><td>곡선 편집</td></tr>
-            <tr><th scope="row">음악 AI 2</th><td>하루 3번</td><td>하루 30번</td><td>무제한</td><td>무제한</td></tr>
-            <tr><th scope="row">스템 · 버스 · 샘플 늘이기</th><td>–</td><td>–</td><td>●</td><td>●</td></tr>
-            <tr><th scope="row">계정 곡 저장</th><td>3곡</td><td>50곡</td><td>500곡</td><td>무제한</td></tr>
-            <tr><th scope="row">설치할 수 있는 PC</th><td>–</td><td>1대</td><td>2대</td><td>3대</td></tr>
+            <tr><th scope="row" data-i18n="d99fb10">Windows 앱</th><td>–</td><td>●</td><td>●</td><td>●</td></tr>
+            <tr><th scope="row" data-i18n="df0c839">채널</th><td>8</td><td>16</td><td>16</td><td>16</td></tr>
+            <tr><th scope="row" data-i18n="da2c130">신스 · 샘플러</th><td>–</td><td>●</td><td>●</td><td>●</td></tr>
+            <tr><th scope="row" data-i18n="d2d59cb">보컬 녹음 + 음정 보정</th><td>–</td><td data-i18n="d415513">자동</td><td data-i18n="d8055c9">곡선 편집</td><td data-i18n="d8055c9">곡선 편집</td></tr>
+            <tr><th scope="row" data-i18n="d82a6c1">음악 AI 2</th><td data-i18n="d2e96c4">하루 3번</td><td data-i18n="dbf2b3f">하루 30번</td><td data-i18n="d7fe271">무제한</td><td data-i18n="d7fe271">무제한</td></tr>
+            <tr><th scope="row" data-i18n="d82b356">스템 · 버스 · 샘플 늘이기</th><td>–</td><td>–</td><td>●</td><td>●</td></tr>
+            <tr><th scope="row" data-i18n="d8353f3">계정 곡 저장</th><td data-i18n="d2dc072">3곡</td><td data-i18n="dbdca54">50곡</td><td data-i18n="d9ee804">500곡</td><td data-i18n="d7fe271">무제한</td></tr>
+            <tr><th scope="row" data-i18n="dbe490f">설치할 수 있는 PC</th><td>–</td><td data-i18n="d9e400d">1대</td><td data-i18n="d6a240b">2대</td><td data-i18n="d91a491">3대</td></tr>
           </tbody></table>
       </div>
     </div>
@@ -226,16 +228,16 @@ footer .fn{flex-basis:100%;font-size:12px;color:#8a93a6;margin:0}footer nav{disp
   <section class="sec" id="roadmap" aria-labelledby="h-road">
     <div class="w">
       <p class="lbl rise">ROADMAP</p>
-      <h2 class="rise" id="h-road">지금 만들고 있는 것.</h2>
-      <p class="desc rise">스케치패드 6에서 달라지는 것과, 그다음에 올 것들입니다. 계획은 바뀔 수 있습니다.</p>
+      <h2 class="rise" id="h-road" data-i18n="d51807d">지금 만들고 있는 것.</h2>
+      <p class="desc rise" data-i18n="dfbc752">스케치패드 6에서 달라지는 것과, 그다음에 올 것들입니다. 계획은 바뀔 수 있습니다.</p>
       <ol class="road rise">
-        <li class="done"><div><b>화면 정리</b><span>버튼을 파일 메뉴로 모으고, 그림문자를 선 아이콘으로</span></div><i>완료</i></li>
-        <li class="done"><div><b>드럼 키트</b><span>드럼을 피아노 롤에서 음처럼 찍기 — 칸 사이 박자, 꾸밈음, 음마다 세기</span></div><i>완료</i></li>
-        <li class="done"><div><b>악기 145개</b><span>표준 악기 128개 + 오케스트라 실제 녹음 15종 + 그랜드 피아노 Pro·Max</span></div><i>완료</i></li>
-        <li class="done"><div><b>더 빠르게</b><span>첫 화면이 뜨는 시간을 줄임 (느린 컴퓨터에서 약 28%)</span></div><i>완료</i></li>
-        <li class="now"><div><b>보컬 녹음 · 음정 보정</b><span>노래를 녹음하면 음정을 맞추고, 세기를 낮춰 원래 목소리 느낌을 남길 수 있습니다</span></div><i>만드는 중</i></li>
-        <li class="done"><div><b>음악 AI 2</b><span>신경망이 반주와 편곡까지 — 인트로부터 아웃트로까지 곡 전체</span></div><i>완료</i></li>
-        <li class="now"><div><b>모델 나누기</b><span>SE · 6 · 6 Pro · 6 Max — 악기와 기능이 등급에 따라 달라져요</span></div><i>만드는 중</i></li>
+        <li class="done"><div><b data-i18n="d897bb8"><span data-i18n="d897bb8">화면 정리</span></b><span data-i18n="d4f6bf0"><span data-i18n="d4f6bf0">버튼을 파일 메뉴로 모으고, 그림문자를 선 아이콘으로</span></span></div><i data-i18n="d4f8e30">완료</i></li>
+        <li class="done"><div><b data-i18n="d3474f4"><span data-i18n="d3474f4">드럼 키트</span></b><span data-i18n="d9e9837"><span data-i18n="d9e9837">드럼을 피아노 롤에서 음처럼 찍기 — 칸 사이 박자, 꾸밈음, 음마다 세기</span></span></div><i data-i18n="d4f8e30">완료</i></li>
+        <li class="done"><div><b data-i18n="defb7ce"><span data-i18n="defb7ce">악기 145개</span></b><span data-i18n="d81e8e1"><span data-i18n="d81e8e1">표준 악기 128개 + 오케스트라 실제 녹음 15종 + 그랜드 피아노 Pro·Max</span></span></div><i data-i18n="d4f8e30">완료</i></li>
+        <li class="done"><div><b data-i18n="d3357dc"><span data-i18n="d3357dc">더 빠르게</span></b><span data-i18n="da1c62d"><span data-i18n="da1c62d">첫 화면이 뜨는 시간을 줄임 (느린 컴퓨터에서 약 28%)</span></span></div><i data-i18n="d4f8e30">완료</i></li>
+        <li class="now"><div><b data-i18n="d8442fb"><span data-i18n="d8442fb">보컬 녹음 · 음정 보정</span></b><span data-i18n="d6aa94b"><span data-i18n="d6aa94b">노래를 녹음하면 음정을 맞추고, 세기를 낮춰 원래 목소리 느낌을 남길 수 있습니다</span></span></div><i data-i18n="df7c1bf">만드는 중</i></li>
+        <li class="done"><div><b data-i18n="d82a6c1"><span data-i18n="d82a6c1">음악 AI 2</span></b><span data-i18n="dff1d93"><span data-i18n="dff1d93">신경망이 반주와 편곡까지 — 인트로부터 아웃트로까지 곡 전체</span></span></div><i data-i18n="d4f8e30">완료</i></li>
+        <li class="now"><div><b data-i18n="da95b36"><span data-i18n="da95b36">모델 나누기</span></b><span data-i18n="d0fc0b4"><span data-i18n="d0fc0b4">SE · 6 · 6 Pro · 6 Max — 악기와 기능이 등급에 따라 달라져요</span></span></div><i data-i18n="df7c1bf">만드는 중</i></li>
       </ol>
     </div>
   </section>
@@ -243,14 +245,14 @@ footer .fn{flex-basis:100%;font-size:12px;color:#8a93a6;margin:0}footer nav{disp
     <div class="w aigrid">
       <div>
         <p class="lbl rise">MUSIC AI 2</p>
-        <h2 class="rise" id="h-ai">한 줄을 적으면,<br>나머지는 AI가 연주합니다.</h2>
-        <p class="desc rise">음악으로 학습한 신경망이 브라우저 안에서 곡을 짓습니다. 방향은 음악 규칙이 잡고, 실제 음은 신경망이 고릅니다.</p>
+        <h2 class="rise" id="h-ai"><span data-i18n="df5dd63">한 줄을 적으면,</span><br><span data-i18n="d530c47">나머지는 AI가 연주합니다.</span></h2>
+        <p class="desc rise" data-i18n="d3d5855">음악으로 학습한 신경망이 브라우저 안에서 곡을 짓습니다. 방향은 음악 규칙이 잡고, 실제 음은 신경망이 고릅니다.</p>
         <ol class="flow">
-          <li><b>MELODY</b>코드 위에서 멜로디를 여러 번 짓고 가장 좋은 것</li>
-          <li><b>BASS</b>같은 신경망이 낮은 음역에서</li>
-          <li><b>COMP</b>코드에 맞춰 피아노·기타·현악 반주</li>
-          <li><b>DRUMS</b>비트, 구간 끝 필인, 사람처럼 흔들리는 박자</li>
-          <li><b>ARRANGE</b>인트로부터 아웃트로까지 36마디</li>
+          <li><b>MELODY</b><span data-i18n="d6b3d56">코드 위에서 멜로디를 여러 번 짓고 가장 좋은 것</span></li>
+          <li><b>BASS</b><span data-i18n="db1c800">같은 신경망이 낮은 음역에서</span></li>
+          <li><b>COMP</b><span data-i18n="d615104">코드에 맞춰 피아노·기타·현악 반주</span></li>
+          <li><b>DRUMS</b><span data-i18n="d5330cb">비트, 구간 끝 필인, 사람처럼 흔들리는 박자</span></li>
+          <li><b>ARRANGE</b><span data-i18n="d2ceec0">인트로부터 아웃트로까지 36마디</span></li>
         </ol>
       </div>
       <div class="shot"><img src="img/ai.jpg" alt="음악 AI 대화상자와 AI가 만든 패턴" width="1440" height="900" loading="lazy"></div>
@@ -260,13 +262,13 @@ footer .fn{flex-basis:100%;font-size:12px;color:#8a93a6;margin:0}footer nav{disp
   <section class="sec" aria-labelledby="h-gen">
     <div class="w">
       <p class="lbl rise">UPDATES</p>
-      <h2 class="rise" id="h-gen">한 번 사면, 세 세대.</h2>
+      <h2 class="rise" id="h-gen" data-i18n="d6e8433">한 번 사면, 세 세대.</h2>
       <p class="desc rise">스케치패드 6을 사면 7과 8까지 추가 비용이 없습니다. 9부터는 30% 할인된 가격으로 넘어갑니다.<sup>*</sup></p>
       <div class="gen"><div class="gline">
-        <div class="g buy"><div class="dot">6</div><p><b>구입</b>가격 곧 공개부터</p></div>
-        <div class="g on"><div class="dot">7</div><p><b>무료</b>다음 세대</p></div>
-        <div class="g on"><div class="dot">8</div><p><b>무료</b>그다음 세대</p></div>
-        <div class="g"><div class="dot">9</div><p><b>30% 할인</b>업그레이드</p></div>
+        <div class="g buy"><div class="dot">6</div><p><b data-i18n="df3f0eb"><span data-i18n="df3f0eb">구입</span></b><span data-i18n="dce791e">가격 곧 공개부터</span></p></div>
+        <div class="g on"><div class="dot">7</div><p><b data-i18n="d667dd4"><span data-i18n="d667dd4">무료</span></b><span data-i18n="d1100ea">다음 세대</span></p></div>
+        <div class="g on"><div class="dot">8</div><p><b data-i18n="d667dd4"><span data-i18n="d667dd4">무료</span></b><span data-i18n="d3d0f2e">그다음 세대</span></p></div>
+        <div class="g"><div class="dot">9</div><p><b data-i18n="d7ed1e8"><span data-i18n="d7ed1e8">30% 할인</span></b><span data-i18n="d8cf2cc">업그레이드</span></p></div>
       </div></div>
     </div>
   </section>
@@ -274,13 +276,13 @@ footer .fn{flex-basis:100%;font-size:12px;color:#8a93a6;margin:0}footer nav{disp
   <section class="sec" id="apps" aria-labelledby="h-apps">
     <div class="w">
       <p class="lbl rise">FAMILY APPS</p>
-      <h2 class="rise" id="h-apps">하나만 필요할 때.</h2>
-      <p class="desc rise">스케치패드의 한 기능만 떼어 낸 작은 앱입니다. 6 시리즈에는 모델에 따라 함께 들어 있습니다.</p>
+      <h2 class="rise" id="h-apps" data-i18n="dd5ce16">하나만 필요할 때.</h2>
+      <p class="desc rise" data-i18n="d37ae74">스케치패드의 한 기능만 떼어 낸 작은 앱입니다. 6 시리즈에는 모델에 따라 함께 들어 있습니다.</p>
       <div class="rack" role="list">
-        <div class="ch" role="listitem"><div class="nm"><b>AI 작곡기</b><span>한 줄로 곡 한 곡</span></div><div class="steps" data-p="1000100010101000" data-c="#1F3FD8" aria-hidden="true"></div><div class="pr"><b>가격 곧 공개</b>6 Pro 이상 포함 · <a href="/?app=composer" style="color:#1F3FD8;font-weight:600">써 보기</a></div></div>
-        <div class="ch" role="listitem"><div class="nm"><b>튜너</b><span>노래하면 음정을 맞춤</span></div><div class="steps" data-p="1100110011001100" data-c="#4A63E0" aria-hidden="true"></div><div class="pr"><b>가격 곧 공개</b>6 이상 포함 · 출시 예정</div></div>
-        <div class="ch" role="listitem"><div class="nm"><b>신스</b><span>소리를 만들고 연주</span></div><div class="steps" data-p="1010001010100010" data-c="#0E1F75" aria-hidden="true"></div><div class="pr"><b>가격 곧 공개</b>6 Max 포함 · 출시 예정</div></div>
-        <div class="ch" role="listitem"><div class="nm"><b>플레이어</b><span>곡을 듣고 링크로 나눔</span></div><div class="steps" data-p="1000000010000000" data-c="#E0B000" aria-hidden="true"></div><div class="pr"><b>무료</b>출시 예정</div></div>
+        <div class="ch" role="listitem"><div class="nm"><b data-i18n="d81baa6"><span data-i18n="d81baa6">AI 작곡기</span></b><span data-i18n="d061dec"><span data-i18n="d061dec">한 줄로 곡 한 곡</span></span></div><div class="steps" data-p="1000100010101000" data-c="#1F3FD8" aria-hidden="true"></div><div class="pr"><b data-i18n="ddd1dd7"><span data-i18n="ddd1dd7">가격 곧 공개</span></b>6 Pro 이상 포함 · <a href="/?app=composer" style="color:#1F3FD8;font-weight:600" data-i18n="d40fb5c">써 보기</a></div></div>
+        <div class="ch" role="listitem"><div class="nm"><b data-i18n="dad2d9a"><span data-i18n="dad2d9a">튜너</span></b><span data-i18n="decc8af"><span data-i18n="decc8af">노래하면 음정을 맞춤</span></span></div><div class="steps" data-p="1100110011001100" data-c="#4A63E0" aria-hidden="true"></div><div class="pr"><b data-i18n="ddd1dd7"><span data-i18n="ddd1dd7">가격 곧 공개</span></b><span data-i18n="d931e90">6 이상 포함 · 출시 예정</span></div></div>
+        <div class="ch" role="listitem"><div class="nm"><b data-i18n="d209ed1"><span data-i18n="d209ed1">신스</span></b><span data-i18n="da8f824"><span data-i18n="da8f824">소리를 만들고 연주</span></span></div><div class="steps" data-p="1010001010100010" data-c="#0E1F75" aria-hidden="true"></div><div class="pr"><b data-i18n="ddd1dd7"><span data-i18n="ddd1dd7">가격 곧 공개</span></b><span data-i18n="dd9b0c5">6 Max 포함 · 출시 예정</span></div></div>
+        <div class="ch" role="listitem"><div class="nm"><b data-i18n="d5d1946"><span data-i18n="d5d1946">플레이어</span></b><span data-i18n="da9dcd6"><span data-i18n="da9dcd6">곡을 듣고 링크로 나눔</span></span></div><div class="steps" data-p="1000000010000000" data-c="#E0B000" aria-hidden="true"></div><div class="pr"><b data-i18n="d667dd4"><span data-i18n="d667dd4">무료</span></b><span data-i18n="d651b71">출시 예정</span></div></div>
       </div>
     </div>
   </section>
@@ -288,13 +290,13 @@ footer .fn{flex-basis:100%;font-size:12px;color:#8a93a6;margin:0}footer nav{disp
   <section class="sec" id="download" aria-labelledby="h-dl">
     <div class="w">
       <p class="lbl rise">DOWNLOAD</p>
-      <h2 class="rise" id="h-dl">지금은 무료로.</h2>
-      <p class="desc rise">6 시리즈가 나오기 전까지 지금 버전은 무료입니다. 이미 내려받은 5.x는 6이 나와도 계속 쓸 수 있습니다.</p>
+      <h2 class="rise" id="h-dl" data-i18n="d75b16b">지금은 무료로.</h2>
+      <p class="desc rise" data-i18n="d8257f0">6 시리즈가 나오기 전까지 지금 버전은 무료입니다. 이미 내려받은 5.x는 6이 나와도 계속 쓸 수 있습니다.</p>
       <div class="two">
-        <div class="box"><h3>Windows 앱</h3><p class="v" id="dlVer">Windows 10, 11 (64비트)</p><a class="btn acc" href="https://github.com/RefractaSpace/melody-sketchpad/releases/latest/download/MelodySketchpad-Setup.exe">내려받기</a>
-          <ol><li>설치 프로그램 실행</li><li>"PC 보호" 창이 뜨면 추가 정보 → 실행</li><li>설치 폴더 선택, 이후 업데이트는 자동</li></ol></div>
-        <div class="box"><h3>웹</h3><p class="v">크롬, 엣지, 사파리 · 휴대폰에서도</p><a class="btn" href="/app">웹에서 바로 시작</a>
-          <ol><li>설치 없이 바로 열림</li><li>곡은 브라우저에, 로그인하면 계정에도 저장</li><li>한 번 연 뒤에는 인터넷 없이 편집·재생</li></ol></div>
+        <div class="box"><h3 data-i18n="d99fb10">Windows 앱</h3><p class="v" id="dlVer" data-i18n="d3a4b81">Windows 10, 11 (64비트)</p><a class="btn acc" href="https://github.com/RefractaSpace/melody-sketchpad/releases/latest/download/MelodySketchpad-Setup.exe" data-i18n="d49905a">내려받기</a>
+          <ol><li data-i18n="de911e0">설치 프로그램 실행</li><li data-i18n="d4f6647">"PC 보호" 창이 뜨면 추가 정보 → 실행</li><li data-i18n="d1b7601">설치 폴더 선택, 이후 업데이트는 자동</li></ol></div>
+        <div class="box"><h3 data-i18n="d5b44f3">웹</h3><p class="v" data-i18n="d076189">크롬, 엣지, 사파리 · 휴대폰에서도</p><a class="btn" href="/app" data-i18n="d6606fd">웹에서 바로 시작</a>
+          <ol><li data-i18n="db277dc">설치 없이 바로 열림</li><li data-i18n="d71644d">곡은 브라우저에, 로그인하면 계정에도 저장</li><li data-i18n="ddb42ff">한 번 연 뒤에는 인터넷 없이 편집·재생</li></ol></div>
       </div>
     </div>
   </section>
@@ -302,22 +304,22 @@ footer .fn{flex-basis:100%;font-size:12px;color:#8a93a6;margin:0}footer nav{disp
   <section class="sec" id="faq" aria-labelledby="h-faq">
     <div class="w"><div class="faq">
       <p class="lbl rise">FAQ</p>
-      <h2 class="rise" id="h-faq">자주 묻는 질문.</h2>
-      <details><summary>무료로도 쓸 수 있나요?</summary><p>네. 웹의 SE는 계속 무료이고 광고도 없습니다. 지금 내려받은 5.x도 계속 쓸 수 있습니다. 6 시리즈의 새 기능과 Windows 앱 6은 유료입니다.</p></details>
-      <details><summary>6을 사면 업데이트는 언제까지 받나요?</summary><p>산 세대와 다음 두 세대까지 무료입니다. 6을 사면 6, 7, 8을 받고, 9부터는 30% 할인된 가격으로 업그레이드할 수 있습니다.</p></details>
-      <details><summary>6 Pro와 6 Max는 무엇이 다른가요?</summary><p>편집 기능과 음악 AI는 같습니다. 6 Max는 계정 곡 저장이 무제한이고, PC 3대에 설치할 수 있으며, 사운드 팩과 가족 앱이 모두 들어 있습니다.</p></details>
-      <details><summary>음악 AI는 인터넷이 필요한가요?</summary><p>처음 한 번 모델을 내려받을 때만 필요합니다. 이후에는 내 컴퓨터(브라우저) 안에서 실행됩니다. 만드는 시간은 컴퓨터 사양에 따라 다릅니다.</p></details>
-      <details><summary>맥 앱도 있나요?</summary><p>현재는 Windows 앱만 제공합니다. 맥에서는 웹 버전을 사용하면 되고, 기능은 같습니다.</p></details>
+      <h2 class="rise" id="h-faq" data-i18n="d39a7d8">자주 묻는 질문.</h2>
+      <details><summary data-i18n="dbfdf12">무료로도 쓸 수 있나요?</summary><p data-i18n="d8d5d5a">네. 웹의 SE는 계속 무료이고 광고도 없습니다. 지금 내려받은 5.x도 계속 쓸 수 있습니다. 6 시리즈의 새 기능과 Windows 앱 6은 유료입니다.</p></details>
+      <details><summary data-i18n="d217cbe">6을 사면 업데이트는 언제까지 받나요?</summary><p data-i18n="dc59ee9">산 세대와 다음 두 세대까지 무료입니다. 6을 사면 6, 7, 8을 받고, 9부터는 30% 할인된 가격으로 업그레이드할 수 있습니다.</p></details>
+      <details><summary data-i18n="d6e4d49">6 Pro와 6 Max는 무엇이 다른가요?</summary><p data-i18n="d81737c">편집 기능과 음악 AI는 같습니다. 6 Max는 계정 곡 저장이 무제한이고, PC 3대에 설치할 수 있으며, 사운드 팩과 가족 앱이 모두 들어 있습니다.</p></details>
+      <details><summary data-i18n="df6020f">음악 AI는 인터넷이 필요한가요?</summary><p data-i18n="d38b08f">처음 한 번 모델을 내려받을 때만 필요합니다. 이후에는 내 컴퓨터(브라우저) 안에서 실행됩니다. 만드는 시간은 컴퓨터 사양에 따라 다릅니다.</p></details>
+      <details><summary data-i18n="d02291b">맥 앱도 있나요?</summary><p data-i18n="d45d148">현재는 Windows 앱만 제공합니다. 맥에서는 웹 버전을 사용하면 되고, 기능은 같습니다.</p></details>
     </div></div>
   </section>
 </main>
 
 <footer>
   <div class="w">
-    <span class="brand"><img src="img/icon.png" alt="" width="22" height="22" style="border-radius:5px">멜로디 스케치패드</span>
-    <span>© 2026 멜로디 스케치패드</span>
-    <nav aria-label="바닥 링크"><a href="/app">웹 앱</a><a href="https://github.com/RefractaSpace/melody-sketchpad/releases" id="notesLink">릴리스 노트</a><a href="https://github.com/RefractaSpace/melody-sketchpad">GitHub</a><span>약관 · 개인정보처리방침 준비 중</span></nav>
-    <p class="fn">* 가격과 기능은 출시 예정 기준이며 출시 전에 바뀔 수 있습니다. 아직 결제는 받지 않습니다. 할인 업그레이드는 같은 모델 기준입니다.</p>
+    <span class="brand"><img src="img/icon.png" alt="" width="22" height="22" style="border-radius:5px"><span data-i18n="d214c20">멜로디 스케치패드</span></span>
+    <span data-i18n="d981b6a"><span data-i18n="d981b6a">© 2026 멜로디 스케치패드</span></span>
+    <nav aria-label="바닥 링크" data-i18n-aria="d1c41d1"><a href="/app" data-i18n="ddb82a9">웹 앱</a><a href="https://github.com/RefractaSpace/melody-sketchpad/releases" id="notesLink" data-i18n="d9e3929">릴리스 노트</a><a href="https://github.com/RefractaSpace/melody-sketchpad">GitHub</a><span data-i18n="dce3340">약관 · 개인정보처리방침 준비 중</span></nav>
+    <p class="fn" data-i18n="d585eec">* 가격과 기능은 출시 예정 기준이며 출시 전에 바뀔 수 있습니다. 아직 결제는 받지 않습니다. 할인 업그레이드는 같은 모델 기준입니다.</p>
   </div>
 </footer>
 
@@ -368,5 +370,7 @@ document.querySelectorAll('.rise, .pl, .gen').forEach(el => REDUCE ? el.classLis
 })();
 fetch('/api/release').then(r => r.ok ? r.json() : null).then(rel => { if (!rel || !rel.version) return; const mb = Math.round(rel.size / 1048576); document.getElementById('dlVer').textContent = `버전 ${rel.version} (${mb}MB) · Windows 10, 11 (64비트)`; document.getElementById('notesLink').href = rel.notes; }).catch(() => {});
 </script>
+<script>window.I18N={"ko": {"d89fb8d": "멜로디 스케치패드 6 시리즈", "d214c20": "멜로디 스케치패드", "d3a815b": "라인업", "dcf0d4f": "로드맵", "d731737": "음악 AI", "dda16a1": "가족 앱", "d612ca2": "다운로드", "df765cf": "질문", "dce324c": "웹에서 시작", "d2f3e16": "스케치패드 6 · 출시 예정", "dd731d7": "감정은 그대로.", "d60871f": "스케치패드 6에서는 음악 AI 2가 반주와 편곡까지 채우고, 목소리를 녹음하면 음정을 맞춥니다.", "d5b6ee8": "모델 고르기", "d33f9e1": "SE 무료로 시작", "d4e01b4": "보컬", "da4504a": "멜로디", "d27c7af": "베이스", "dc20f8f": "반주", "d62d3a0": "드럼", "d3bccff": "마스터", "d781feb": "실제 앱 화면을 녹화했습니다. AI가 곡을 짓는 약 1분은 1.6초로 줄여서 보여 줍니다.", "d73ee7f": "네 가지 스케치패드.", "d6ec185": "같은 작곡 엔진 위에서, 쓸 수 있는 기능의 길이가 다릅니다. 조각이 길수록 할 수 있는 것이 많습니다.", "d667dd4": "무료", "da14016": "채널 8", "d592eb6": "기본 악기", "de62a21": "AI 하루 3번", "d68c5c9": "스케치패드 6", "ddd1dd7": "가격 곧 공개", "d99fb10": "Windows 앱", "d0e2154": "채널 16", "d4773e4": "신스·샘플러", "d4d4aa6": "이펙트 11", "d3fce14": "보컬 + 음정 보정", "deae017": "AI 하루 30번", "dad2d9a": "튜너", "d651b71": "출시 예정", "d12a795": "스케치패드 6 Pro", "d8eb871": "6의 전부", "d2df6f1": "스템·버스", "dcd71c0": "샘플 늘이기", "d888005": "음정 곡선 편집", "db826f5": "AI 무제한", "d81baa6": "AI 작곡기", "d467ad6": "곡 500개", "d3f0b73": "스케치패드 6 Max", "ded5867": "6 Pro의 전부", "d7be0cb": "곡 저장 무제한", "d91c1b9": "PC 3대", "dc0c8d2": "사운드 팩 전부", "dba09bf": "새 기능 먼저", "da499e9": "가족 앱 전부", "df0c839": "채널", "da2c130": "신스 · 샘플러", "d2d59cb": "보컬 녹음 + 음정 보정", "d415513": "자동", "d8055c9": "곡선 편집", "d82a6c1": "음악 AI 2", "d2e96c4": "하루 3번", "dbf2b3f": "하루 30번", "d7fe271": "무제한", "d82b356": "스템 · 버스 · 샘플 늘이기", "d8353f3": "계정 곡 저장", "d2dc072": "3곡", "dbdca54": "50곡", "d9ee804": "500곡", "dbe490f": "설치할 수 있는 PC", "d9e400d": "1대", "d6a240b": "2대", "d91a491": "3대", "d51807d": "지금 만들고 있는 것.", "dfbc752": "스케치패드 6에서 달라지는 것과, 그다음에 올 것들입니다. 계획은 바뀔 수 있습니다.", "d897bb8": "화면 정리", "d4f6bf0": "버튼을 파일 메뉴로 모으고, 그림문자를 선 아이콘으로", "d4f8e30": "완료", "d3474f4": "드럼 키트", "d9e9837": "드럼을 피아노 롤에서 음처럼 찍기 — 칸 사이 박자, 꾸밈음, 음마다 세기", "defb7ce": "악기 145개", "d81e8e1": "표준 악기 128개 + 오케스트라 실제 녹음 15종 + 그랜드 피아노 Pro·Max", "d3357dc": "더 빠르게", "da1c62d": "첫 화면이 뜨는 시간을 줄임 (느린 컴퓨터에서 약 28%)", "d8442fb": "보컬 녹음 · 음정 보정", "d6aa94b": "노래를 녹음하면 음정을 맞추고, 세기를 낮춰 원래 목소리 느낌을 남길 수 있습니다", "df7c1bf": "만드는 중", "dff1d93": "신경망이 반주와 편곡까지 — 인트로부터 아웃트로까지 곡 전체", "da95b36": "모델 나누기", "d0fc0b4": "SE · 6 · 6 Pro · 6 Max — 악기와 기능이 등급에 따라 달라져요", "d530c47": "나머지는 AI가 연주합니다.", "d3d5855": "음악으로 학습한 신경망이 브라우저 안에서 곡을 짓습니다. 방향은 음악 규칙이 잡고, 실제 음은 신경망이 고릅니다.", "d6e8433": "한 번 사면, 세 세대.", "df3f0eb": "구입", "d7ed1e8": "30% 할인", "dd5ce16": "하나만 필요할 때.", "d37ae74": "스케치패드의 한 기능만 떼어 낸 작은 앱입니다. 6 시리즈에는 모델에 따라 함께 들어 있습니다.", "d061dec": "한 줄로 곡 한 곡", "d40fb5c": "써 보기", "decc8af": "노래하면 음정을 맞춤", "d209ed1": "신스", "da8f824": "소리를 만들고 연주", "d5d1946": "플레이어", "da9dcd6": "곡을 듣고 링크로 나눔", "d75b16b": "지금은 무료로.", "d8257f0": "6 시리즈가 나오기 전까지 지금 버전은 무료입니다. 이미 내려받은 5.x는 6이 나와도 계속 쓸 수 있습니다.", "d3a4b81": "Windows 10, 11 (64비트)", "d49905a": "내려받기", "de911e0": "설치 프로그램 실행", "d4f6647": "\"PC 보호\" 창이 뜨면 추가 정보 → 실행", "d1b7601": "설치 폴더 선택, 이후 업데이트는 자동", "d5b44f3": "웹", "d076189": "크롬, 엣지, 사파리 · 휴대폰에서도", "d6606fd": "웹에서 바로 시작", "db277dc": "설치 없이 바로 열림", "d71644d": "곡은 브라우저에, 로그인하면 계정에도 저장", "ddb42ff": "한 번 연 뒤에는 인터넷 없이 편집·재생", "d39a7d8": "자주 묻는 질문.", "dbfdf12": "무료로도 쓸 수 있나요?", "d8d5d5a": "네. 웹의 SE는 계속 무료이고 광고도 없습니다. 지금 내려받은 5.x도 계속 쓸 수 있습니다. 6 시리즈의 새 기능과 Windows 앱 6은 유료입니다.", "d217cbe": "6을 사면 업데이트는 언제까지 받나요?", "dc59ee9": "산 세대와 다음 두 세대까지 무료입니다. 6을 사면 6, 7, 8을 받고, 9부터는 30% 할인된 가격으로 업그레이드할 수 있습니다.", "d6e4d49": "6 Pro와 6 Max는 무엇이 다른가요?", "d81737c": "편집 기능과 음악 AI는 같습니다. 6 Max는 계정 곡 저장이 무제한이고, PC 3대에 설치할 수 있으며, 사운드 팩과 가족 앱이 모두 들어 있습니다.", "df6020f": "음악 AI는 인터넷이 필요한가요?", "d38b08f": "처음 한 번 모델을 내려받을 때만 필요합니다. 이후에는 내 컴퓨터(브라우저) 안에서 실행됩니다. 만드는 시간은 컴퓨터 사양에 따라 다릅니다.", "d02291b": "맥 앱도 있나요?", "d45d148": "현재는 Windows 앱만 제공합니다. 맥에서는 웹 버전을 사용하면 되고, 기능은 같습니다.", "d981b6a": "© 2026 멜로디 스케치패드", "ddb82a9": "웹 앱", "d9e3929": "릴리스 노트", "dce3340": "약관 · 개인정보처리방침 준비 중", "d585eec": "* 가격과 기능은 출시 예정 기준이며 출시 전에 바뀔 수 있습니다. 아직 결제는 받지 않습니다. 할인 업그레이드는 같은 모델 기준입니다.", "ded2a12": "페이지 안 이동", "df0f197": "메뉴 열기", "d339300": "전체 메뉴", "da68a68": "모델 비교 표", "d1c41d1": "바닥 링크", "d565cf4": "음정은 맞추고,", "dddc016": "멜로디를 찍고", "d71ddc9": "AI에게 한 줄", "da75c1e": "반주 · 드럼 · 편곡", "de8256e": "바로 재생", "df5dd63": "한 줄을 적으면,", "d6b3d56": "코드 위에서 멜로디를 여러 번 짓고 가장 좋은 것", "db1c800": "같은 신경망이 낮은 음역에서", "d615104": "코드에 맞춰 피아노·기타·현악 반주", "d5330cb": "비트, 구간 끝 필인, 사람처럼 흔들리는 박자", "d2ceec0": "인트로부터 아웃트로까지 36마디", "dce791e": "가격 곧 공개부터", "d1100ea": "다음 세대", "d3d0f2e": "그다음 세대", "d8cf2cc": "업그레이드", "d931e90": "6 이상 포함 · 출시 예정", "dd9b0c5": "6 Max 포함 · 출시 예정"}, "en": {"d89fb8d": "Melody Sketchpad 6 Series", "d214c20": "Melody Sketchpad", "d3a815b": "Lineup", "dcf0d4f": "Roadmap", "d731737": "Music AI", "dda16a1": "Companion Apps", "d612ca2": "Download", "df765cf": "FAQ", "dce324c": "Open in browser", "d2f3e16": "Sketchpad 6 · Coming soon", "dd731d7": "Feeling untouched.", "d60871f": "In Sketchpad 6, Music AI 2 fills in the backing and the arrangement, and when you record your voice it corrects the pitch.", "d5b6ee8": "Compare models", "d33f9e1": "Start free with SE", "d4e01b4": "Vocals", "da4504a": "Melody", "d27c7af": "Bass", "dc20f8f": "Backing", "d62d3a0": "Drums", "d3bccff": "Master", "d781feb": "Recorded from the real app. The minute or so the AI takes to write a song is sped up to 1.6 seconds here.", "d73ee7f": "Four Sketchpads.", "d6ec185": "Same engine underneath — the models differ in how far the features reach. The longer the bar, the more you can do.", "d667dd4": "Free", "da14016": "8 channels", "d592eb6": "Basic instruments", "de62a21": "AI 3×/day", "d68c5c9": "Sketchpad 6", "ddd1dd7": "Price soon", "d99fb10": "Windows app", "d0e2154": "16 channels", "d4773e4": "Synth · sampler", "d4d4aa6": "11 effects", "d3fce14": "Vocals + pitch correction", "deae017": "AI 30×/day", "dad2d9a": "Tuner", "d651b71": "Coming soon", "d12a795": "Sketchpad 6 Pro", "d8eb871": "Everything in 6", "d2df6f1": "Stems · buses", "dcd71c0": "Time-stretch", "d888005": "Pitch curve editing", "db826f5": "Unlimited AI", "d81baa6": "AI Composer", "d467ad6": "500 songs", "d3f0b73": "Sketchpad 6 Max", "ded5867": "Everything in 6 Pro", "d7be0cb": "Unlimited song storage", "d91c1b9": "3 PCs", "dc0c8d2": "All sound packs", "dba09bf": "Early access", "da499e9": "All companion apps", "df0c839": "Channels", "da2c130": "Synth · sampler", "d2d59cb": "Vocal recording + pitch correction", "d415513": "Automatic", "d8055c9": "Curve editing", "d82a6c1": "Music AI 2", "d2e96c4": "3×/day", "dbf2b3f": "30×/day", "d7fe271": "Unlimited", "d82b356": "Stems · buses · time-stretch", "d8353f3": "Cloud song storage", "d2dc072": "3 songs", "dbdca54": "50 songs", "d9ee804": "500 songs", "dbe490f": "PCs you can install on", "d9e400d": "1", "d6a240b": "2", "d91a491": "3", "d51807d": "What we're building.", "dfbc752": "What changes in Sketchpad 6, and what comes after. Plans may change.", "d897bb8": "Cleaner interface", "d4f6bf0": "Buttons gathered into a File menu, emoji replaced with line icons", "d4f8e30": "Done", "d3474f4": "Drum kit", "d9e9837": "Program drums in the piano roll like notes — off-grid timing, flams, per-hit velocity", "defb7ce": "145 instruments", "d81e8e1": "128 General MIDI instruments + 15 real orchestral recordings + Grand Piano Pro/Max", "d3357dc": "Faster start", "da1c62d": "Cut first-paint time (about 28% on slower machines)", "d8442fb": "Vocal recording · pitch correction", "d6aa94b": "Record your singing and the pitch gets corrected — dial the strength down to keep your own voice", "df7c1bf": "In progress", "dff1d93": "A neural net writes the backing and the arrangement — intro through outro", "da95b36": "Model tiers", "d0fc0b4": "SE · 6 · 6 Pro · 6 Max — instruments and features differ by model", "d530c47": "the AI plays the rest.", "d3d5855": "A neural net trained on music writes songs inside your browser. Music theory sets the direction; the net picks the actual notes.", "d6e8433": "Buy once, three generations.", "df3f0eb": "Buy", "d7ed1e8": "30% off", "dd5ce16": "When you only need one thing.", "d37ae74": "Small apps, each one feature of Sketchpad on its own. Included with the 6 series depending on the model.", "d061dec": "One line, one song", "d40fb5c": "Try it", "decc8af": "Sing and it corrects the pitch", "d209ed1": "Synth", "da8f824": "Design sounds and play them", "d5d1946": "Player", "da9dcd6": "Listen and share with a link", "d75b16b": "Free for now.", "d8257f0": "Until the 6 series ships, the current version is free. If you already have 5.x, it keeps working after 6 arrives.", "d3a4b81": "Windows 10, 11 (64-bit)", "d49905a": "Download", "de911e0": "Run the installer", "d4f6647": "If \"Windows protected your PC\" appears: More info → Run anyway", "d1b7601": "Pick a folder; updates are automatic from then on", "d5b44f3": "Web", "d076189": "Chrome, Edge, Safari · phones too", "d6606fd": "Open in browser", "db277dc": "Opens instantly, nothing to install", "d71644d": "Songs save in your browser, and to your account if you sign in", "ddb42ff": "After the first visit, edit and play offline", "d39a7d8": "Frequently asked.", "dbfdf12": "Can I use it for free?", "d8d5d5a": "Yes. SE on the web stays free, with no ads. The 5.x you already downloaded keeps working too. The new 6-series features and the Windows app for 6 are paid.", "d217cbe": "How long do updates last if I buy 6?", "dc59ee9": "The generation you bought plus the next two. Buy 6 and you get 6, 7 and 8; from 9 on you upgrade at 30% off.", "d6e4d49": "What's the difference between 6 Pro and 6 Max?", "d81737c": "The editing features and Music AI are the same. 6 Max adds unlimited cloud song storage, installs on 3 PCs, and includes every sound pack and companion app.", "df6020f": "Does Music AI need an internet connection?", "d38b08f": "Only the first time, to download the model. After that it runs inside your own browser. How long it takes depends on your machine.", "d02291b": "Is there a Mac app?", "d45d148": "Only a Windows app for now. On a Mac, use the web version — the features are the same.", "d981b6a": "© 2026 Melody Sketchpad", "ddb82a9": "Web app", "d9e3929": "Release notes", "dce3340": "Terms · Privacy policy coming soon", "d585eec": "* Prices and features are planned and may change before release. No payments are being taken yet. Discounted upgrades apply within the same model.", "ded2a12": "On this page", "df0f197": "Open menu", "d339300": "Full menu", "da68a68": "Model comparison table", "d1c41d1": "Footer links", "d565cf4": "Pitch corrected.", "dddc016": "Draw a melody", "d71ddc9": "Type one line to the AI", "da75c1e": "Backing · drums · arrangement", "de8256e": "Play it right away", "df5dd63": "Write one line,", "d6b3d56": "Writes several melodies over the chords and keeps the best", "db1c800": "The same net, down in the low register", "d615104": "Piano, guitar and strings backing that follows the chords", "d5330cb": "Beats, end-of-section fills, human-feeling timing", "d2ceec0": "36 bars, intro through outro", "dce791e": "Price soon", "d1100ea": "Next generation", "d3d0f2e": "The one after", "d8cf2cc": "Upgrade", "d931e90": "Included with 6 and up · Coming soon", "dd9b0c5": "Included with 6 Max · Coming soon"}}</script>
+<script src="/i18n.js" defer></script>
 </body>
 </html>
