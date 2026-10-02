@@ -26,7 +26,7 @@ function plOverlay(blit = true) {
 }
 function drawPlaylistBase() {
   const tracks = S.playlist.tracks, w = MAX_BARS * PL_BAR, h = tracks * PL_ROW + saH();
-  if (plHead.childElementCount !== tracks) { plHead.innerHTML = ''; for (let i = 0; i < tracks; i++) { const d = document.createElement('div'); d.textContent = '트랙 ' + (i + 1); plHead.appendChild(d); } }
+  if (plHead.childElementCount !== tracks) { plHead.innerHTML = ''; for (let i = 0; i < tracks; i++) { const d = document.createElement('div'); d.textContent = (typeof t === 'function' ? t('트랙') : '트랙') + ' ' + (i + 1); plHead.appendChild(d); } }
   // 눈금자
   let x = sizeCanvas(plr, w, PL_RULER); x.fillStyle = CS.panel2; x.fillRect(0, 0, w, PL_RULER); x.fillStyle = CS.line; x.fillRect(0, PL_RULER - 1, w, 1);
   x.font = '600 10px "IBM Plex Mono",monospace'; x.textBaseline = 'middle';

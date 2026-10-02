@@ -33,6 +33,7 @@ function applyLang() {
   const b = document.getElementById('langBtn');
   if (b) { b.textContent = LANG === 'ko' ? 'EN' : '한국어'; b.title = LANG === 'ko' ? 'Switch to English' : '한국어로 바꾸기'; }
   document.dispatchEvent(new CustomEvent('langchange', {detail:{lang:LANG}}));
+  if (typeof refreshAll === 'function' && typeof S !== 'undefined' && S) try { refreshAll(); } catch (e) {}   // 코드가 만드는 이름도 다시 그리기
 }
 function setLang(v) {
   if (!I18N_LANGS[v]) return false;

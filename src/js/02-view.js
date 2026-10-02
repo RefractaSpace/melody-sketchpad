@@ -161,7 +161,7 @@ function drawChordRow() {
 
 function drawAll() {
   readCss(); layoutBoxes();
-  $('corner').textContent = names()[S.root] + (S.mode === 'minor' ? ' 단조' : ' 장조');
+  $('corner').textContent = names()[S.root] + ' ' + (typeof t === 'function' ? t(S.mode === 'minor' ? '단조' : '장조') : (S.mode === 'minor' ? '단조' : '장조'));
   drawKeys(); drawRuler(); drawRoll(); drawLanes();
 }
 // 여러 번 요청돼도 한 프레임에 한 번만 그림

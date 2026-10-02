@@ -646,6 +646,33 @@ async def main():
               and i18['fallback'] == '없는열쇠입니다',
               f"{i18.get('langs')} · en→{i18.get('en')} · ko→{i18.get('ko')} · 없는열쇠→{i18.get('fallback')}")
 
+        # 앱 화면 영어
+        enui = await J("""(async()=>{
+          if (typeof setLang !== 'function') return {missing:true};
+          S = normalize(blank());
+          setLang('en'); refreshAll();                   // 언어를 바꾼 뒤에 다시 그려야 반영됨
+          await new Promise(r => setTimeout(r, 500));
+          const r = {
+            rack:[...document.querySelectorAll('.cname')].map(e => e.textContent).slice(0, 3),
+            track:document.querySelector('#plHead div')?.textContent,
+            key:document.getElementById('corner')?.textContent,
+            pat:document.querySelector('#patSel option')?.textContent,
+            inst:[...document.querySelectorAll('#chAdd option')].slice(1, 3).map(o => o.textContent),
+            group:document.querySelector('#chAdd optgroup')?.label,
+            foot:[...document.querySelectorAll('footer.actions button,footer.actions a')].map(e => e.textContent.trim()).filter(Boolean).slice(0, 3)};
+          setLang('ko'); refreshAll(); await new Promise(r2 => setTimeout(r2, 400));
+          r.backKo = document.querySelector('.cname')?.textContent;
+          return r})()""")
+        ko = lambda s: bool(s) and any('\uac00' <= c <= '\ud7a3' for c in str(s))
+        check('영어: 채널·트랙·조·패턴 이름이 영어로 바뀜',
+              not ko(enui['rack']) and not ko(enui['track']) and not ko(enui['key']) and not ko(enui['pat']),
+              f"{enui['rack']} · {enui['track']} · {enui['key']} · {enui['pat']}")
+        check('영어: 악기 선택지·분류·아래 버튼이 영어로 바뀜',
+              not ko(enui['inst']) and not ko(enui['group']) and not ko(enui['foot']),
+              f"{enui['inst']} · {enui['group']} · {enui['foot']}")
+        check('영어: 한국어로 되돌리면 다시 한국어',
+              ko(enui['backKo']), str(enui['backKo']))
+
         # 6: 음정 보정 — 실제 목소리에 가까운 조건 (비브라토·흔들림·숨소리·무성음)
         vp = await J("""(()=>{
           const sr=44100;

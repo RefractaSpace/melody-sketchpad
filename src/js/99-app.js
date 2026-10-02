@@ -14,7 +14,7 @@ function fillBarSelects() {
 }
 function fillPatSel() {
   const s = $('patSel'); s.innerHTML = '';
-  S.patterns.forEach((P, i) => { const o = document.createElement('option'); o.value = i; o.textContent = `${P.name} (${P.bars}마디)`; s.appendChild(o); });
+  S.patterns.forEach((P, i) => { const o = document.createElement('option'); o.value = i; o.textContent = `${nameOf(P.name)} (${P.bars}${typeof t === 'function' ? t('마디단위') : '마디'})`; s.appendChild(o); });
   s.value = S.pat;
 }
 function refreshTitles() {
