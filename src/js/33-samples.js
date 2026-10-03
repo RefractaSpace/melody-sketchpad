@@ -40,7 +40,9 @@ function smpLoad(inst) {
         ? {lo:z.k[0], hi:z.k[1], root:z.r, vs:z.vs}
         : {lo:z.k[0], hi:z.k[1], root:z.r, one:z.s, va:z.va || null,
            ct:z.ct || 0, ft:z.ft || 0, lp:z.lp || 0});
-      return SMP.ready[inst] = {meta, bufs, rows, gain:Math.pow(10, (meta.gain || 0) / 20)};
+      // 샘플마다 잰 미세 음정 (센트). 녹음마다 몇 센트씩 어긋나 있어 그만큼 되돌린다
+      const sft = {}; for (const s of meta.samples) if (s.ft) sft[s.i] = s.ft;
+      return SMP.ready[inst] = {meta, bufs, rows, sft, gain:Math.pow(10, (meta.gain || 0) / 20)};
     } catch (e) {
       // 한 번 실패해도 다시 받아 볼 수 있게 기록을 지운다 (안 그러면 영원히 합성음)
       delete SMP.load[inst];
@@ -62,27 +64,13 @@ const INST_GAIN = {
   'trombone': 1.3, 'flute': 0.55, 'horn': 0.75, 'bassoon': 0.8, 'bass': 0.5,
 };
 
-/* 샘플 음높이 바로잡기
-   오케스트라 샘플의 inst.json 에 적힌 원음(r)이 모두 12 낮게 들어가 있다.
-   (바이올린 최저 r=43 인데 실제 바이올린 최저음은 55)
-   그래서 C4 를 치면 C5 가 울렸다. 글로켄슈필은 반대로 12 높게 적혀 있음.
-   서버 파일을 다시 만들기 전까지 재생할 때 바로잡는다.
-   값은 실제 소리의 기본 주파수를 재서 구한 것. */
-const PITCH_FIX = {
-  'violin': -12,
-  'viola': -12,
-  'cello': -12,
-  'flute': -12,
-  'oboe': -12,
-  'clarinet': -12,
-  'bassoon': -12,
-  'horn': -12,
-  'trumpet': -12,
-  'trombone': -12,
-  'glock': -12,
-  'tuba': -12,
-  'contrabass': -12
-};
+/* 샘플 음높이 바로잡기 — 이제 비어 있음
+   예전에는 오케스트라 inst.json 의 원음(r)과 건반 구역(k)이 모두 12 낮게 적혀 있어서
+   재생할 때 -12 로 땜질했다. 그러면 음높이는 맞아도 한 옥타브 위 녹음을 끌어내려 써서 소리가 둔했다.
+   지금은 원본(VSCO 2 CE FLAC)의 실제 기본 주파수를 재서 r·k 를 고쳤으므로 보정이 필요 없다.
+   (마림바·실로폰은 예전 땜질에서도 빠져 1옥타브 높게 울렸음 — 같이 고쳐짐)
+   다른 샘플 묶음을 붙였는데 음이 어긋나면 여기에 악기별 반음 값을 넣을 수 있다. */
+const PITCH_FIX = {};
 
 function smpPickAll(pack, p, v) {
   const vel = Math.max(1, Math.round((v == null ? 0.9 : v) * 127)), out = [];
@@ -90,7 +78,7 @@ function smpPickAll(pack, p, v) {
     if (p < z.lo || p > z.hi) continue;
     if (z.vs) {                                   // 세기마다 다른 소리 (VSCO·살라만더)
       const hit = z.vs.find(([top]) => vel <= top) || z.vs[z.vs.length - 1];
-      if (hit && pack.bufs[hit[1]]) out.push({buf:pack.bufs[hit[1]], root:z.root, att:0});
+      if (hit && pack.bufs[hit[1]]) out.push({buf:pack.bufs[hit[1]], root:z.root, att:0, ft:(pack.sft && pack.sft[hit[1]]) || 0});
       continue;
     }
     let att = 0;                                  // 소리 하나 + 세기별 음량 깎기 (GeneralUser GS)

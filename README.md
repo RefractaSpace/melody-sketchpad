@@ -36,7 +36,7 @@
 - `docs/msk-format.md` — MSK 형식 설명서 (바이트 구조)
 - `docs/score-format.md` — 악보 텍스트 형식 설명서
 - `songs/` — 예제 곡 (악보 형식)
-- `tests/run_tests.py` — 브라우저 자동 테스트 (55가지)
+- `tests/run_tests.py` — 브라우저 자동 테스트 (109가지)
 - `vercel.json` — "빌드 없이 public 폴더를 배포" 설정
 
 ## 배포
@@ -50,11 +50,15 @@
 
 ## 크레딧
 - 피아노 소리: **Salamander Grand Piano V3** — Alexander Holm, [CC-BY 3.0](https://creativecommons.org/licenses/by/3.0/). 원본: https://archive.org/details/SalamanderGrandPianoV3 (21음을 최대 8초로 자르고 56kbps mp3로 변환함)
+- 표준 악기 128종: **GeneralUser GS** — S. Christian Collins (자유 사용 허용, 앱 안 '소리 출처' 창에 표기)
+- 오케스트라 15종(현악 4 · 목관 4 · 금관 4 · 마림바 · 글로켄슈필 · 실로폰): **VSCO 2 Community Edition** — Versilian Studios, [CC0](https://creativecommons.org/publicdomain/zero/1.0/) (출처 표기 의무 없음, 감사의 뜻으로 적음). 원본: https://s3.amazonaws.com/VersilianStudios/VSCO-2.1-XRNI-20170216.zip
+  - 원본 FLAC을 모노 · 최대 6초(마림바·글로켄 4초, 실로폰 3초) · 끝 0.25초 페이드로 자르고 opus 56kbps로 변환 (마림바·튜바는 고음 손실이 측정돼 96kbps)
+  - 원음(`r`)·건반 구역(`k`)·미세 음정(`ft`, 센트)은 파일 이름이 아니라 **실제 소리의 기본 주파수를 재서** 정함. 파일 이름의 옥타브 표기가 실제보다 12 낮으니 다시 만들 때 주의
 
 ## 원본을 고친 뒤
 1. `src/` 안의 파일을 고쳐요 (`src/index.html`을 열어 바로 확인)
 2. `python src/build.py` 실행 → `public/`이 다시 만들어져요 (`--min`을 붙이면 terser로 압축)
-3. `python tests/run_tests.py public/index.html`로 자동 테스트 (55가지)
+3. `python tests/run_tests.py public/index.html`로 자동 테스트 (109가지)
 4. GitHub에 올리면 사이트가 자동으로 바뀌어요
 
 ## 저장소 공개 범위

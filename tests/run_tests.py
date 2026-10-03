@@ -825,7 +825,7 @@ async def main():
         # (실제 샘플을 받으면 메모리가 터지므로 inst.json 의 표기만 확인한다)
         pitch = await J("""(async()=>{
           const idx = await smpIndex(); const out = {};
-          const LOW = {violin:55, flute:60, cello:36, glock:79};
+          const LOW = {violin:55, flute:60, cello:36, glock:79, marimba:41, xylo:67};
           for (const inst of Object.keys(LOW)) {
             if (!idx[inst]) { out[inst] = '없음'; continue; }
             const m = await (await fetch(SMP_BASE + 'samples/' + idx[inst].dir + '/inst.json')).json();
@@ -838,6 +838,31 @@ async def main():
         check('샘플 음높이: 보정을 더하면 실제 악기 음역과 맞음',
               all(isinstance(v,(int,float)) and abs(v) <= 2 for v in pitch.values()),
               ' · '.join(f'{k} {v:+}' if isinstance(v,(int,float)) else f'{k} {v}' for k,v in pitch.items()))
+
+        # 건반 구역 — 구역(k)이 원음(r)과 12 어긋나 한 옥타브 위 녹음을 끌어내려 쓰던 버그
+        # 실제 악기 음역 안의 건반은 있는 녹음 중 가장 가까운 것을 써야 한다 (구역 경계라 ±2까지 허용)
+        # 예전 버그였다면 이 값이 약 12가 나온다
+        zone = await J("""(async()=>{
+          const idx = await smpIndex(); const out = {};
+          const RANGE = {violin:[55,96], viola:[48,84], cello:[36,72], contrabass:[28,55], flute:[60,96],
+            oboe:[58,89], clarinet:[50,89], bassoon:[34,72], horn:[41,77], trumpet:[54,84], trombone:[40,72],
+            tuba:[29,62], marimba:[41,96], glock:[79,108], xylo:[67,108]};
+          for (const [inst,[lo,hi]] of Object.entries(RANGE)) {
+            const m = await (await fetch(SMP_BASE + 'samples/' + idx[inst].dir + '/inst.json')).json();
+            const roots = m.zones.map(z => z.r);
+            let worst = 0;
+            for (let k = lo; k <= hi; k++) {
+              const z = m.zones.find(z => k >= z.k[0] && k <= z.k[1]);
+              const best = Math.min(...roots.map(r => Math.abs(k - r)));
+              worst = Math.max(worst, z ? Math.abs(k - z.r) - best : 99);
+            }
+            out[inst] = worst;
+          }
+          out.fix = Object.keys(PITCH_FIX).length;
+          return out;})()""")
+        check('건반 구역: 악기 음역의 모든 건반이 가까운 녹음을 씀 (땜질 보정 0개)',
+              zone.pop('fix') == 0 and all(v <= 2 for v in zone.values()),
+              ' · '.join(f'{k} {v}' for k, v in zone.items()))
 
         # 6: 악기 145개 · 라이선스 표기
         big = await J("""(async()=>{const idx=await smpIndex(); const r={n:Object.keys(idx).length};
