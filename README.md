@@ -56,3 +56,16 @@
 2. `python src/build.py` 실행 → `public/`이 다시 만들어져요 (`--min`을 붙이면 terser로 압축)
 3. `python tests/run_tests.py public/index.html`로 자동 테스트 (55가지)
 4. GitHub에 올리면 사이트가 자동으로 바뀌어요
+
+## 저장소 공개 범위
+
+지금은 공개입니다. 코드를 보여 주는 편이 신뢰에 도움이 되고, 비공개로 바꾸면
+GitHub 릴리스의 설치 파일도 함께 잠겨 내려받기가 막히기 때문입니다.
+
+**6 출시(결제 시작) 때 비공개로 바꿉니다.** 그때 할 일:
+
+1. 설치 파일을 다른 곳으로 옮기기 (Cloudflare R2 권장 — 전송 무료)
+   Vercel Blob 은 Hobby 1GB 한도라 115MB 설치 파일에 맞지 않음
+   (한도를 넘기면 30일간 Blob 접근이 막혀 **사용자 곡 저장까지 멈춤**)
+2. `api/release.js` 의 TAGS 주소를 새 위치로
+3. GitHub Settings → Danger Zone → Make private

@@ -6,3 +6,11 @@ __pycache__/
 desktop/app/
 desktop/dist/
 node_modules/
+
+# 비밀은 절대 올리지 않기
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.json
