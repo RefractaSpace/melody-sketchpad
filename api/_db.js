@@ -87,6 +87,22 @@ const SCHEMA = [
      created timestamptz not null default now(),
      hidden boolean not null default false)`,
   `create index if not exists shares_user on shares (username, created desc)`,
+  // 접속 통계 — 날마다 한 줄씩 쌓아 둔다 (누가 왔는지는 남기지 않음)
+  `create table if not exists daily (
+     day date not null,
+     kind text not null,
+     key text not null default '',
+     n int not null default 0,
+     primary key (day, kind, key))`,
+  // 오류 기록 — 앱에서 터진 것을 모아 본다
+  `create table if not exists errlog (
+     id bigserial primary key,
+     at timestamptz not null default now(),
+     msg text not null,
+     where_ text not null default '',
+     ua text not null default '',
+     n int not null default 1)`,
+  `create index if not exists errlog_at on errlog (at desc)`,
   // 누가 언제 접속해 있었는지 (사람 목록용)
   `create table if not exists presence (
      username text primary key references users(username) on delete cascade,

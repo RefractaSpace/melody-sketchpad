@@ -102,3 +102,36 @@ async function makeShareLink() {
 }
 document.addEventListener('DOMContentLoaded', () => { const b = $('shareBtn'); if (b) b.onclick = makeShareLink; });
 if (document.readyState !== 'loading') { const b = $('shareBtn'); if (b) b.onclick = makeShareLink; }
+
+/* 개발자 페이지용 — 방문 한 번과 터진 오류를 서버에 알린다 (누가 왔는지는 안 보냄) */
+(() => {
+  const send = (action, body) => {
+    try {
+      fetch((window.MSK_SERVER || '') + '/api/stats?action=' + action,
+            {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body),
+             keepalive:true}).catch(() => {});
+    } catch (e) {}
+  };
+  // 하루에 한 번만 센다
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    if (localStorage.getItem('msk.hit') !== today) {
+      localStorage.setItem('msk.hit', today);
+      send('hit', {lang:(typeof LANG !== 'undefined' ? LANG : 'ko'),
+                   device:(matchMedia('(pointer:coarse)').matches ? 'phone' : 'desktop')});
+    }
+  } catch (e) {}
+  // 오류는 같은 것을 거푸 보내지 않는다
+  const seen = new Set();
+  addEventListener('error', ev => {
+    const m = String(ev.message || '').slice(0, 300); if (!m || seen.has(m)) return;
+    seen.add(m);
+    send('err', {msg:m, where:`${(ev.filename || '').split('/').pop()}:${ev.lineno || 0}`,
+                 ua:navigator.userAgent.slice(0, 160)});
+  });
+  addEventListener('unhandledrejection', ev => {
+    const m = String(ev.reason && ev.reason.message || ev.reason || '').slice(0, 300);
+    if (!m || seen.has(m)) return;
+    seen.add(m); send('err', {msg:m, where:'promise', ua:navigator.userAgent.slice(0, 160)});
+  });
+})();

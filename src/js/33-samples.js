@@ -26,10 +26,13 @@ function smpLoad(inst) {
       const meta = await (await fetch(dir + '/inst.json')).json();
       ensureCtx();
       const bufs = {};
-      await Promise.all(meta.samples.map(async s => {
-        const ab = await (await fetch(`${dir}/${s.i}.opus`)).arrayBuffer();
-        bufs[s.i] = await ctx.decodeAudioData(ab);
-      }));
+      // 한꺼번에 다 받으면 샘플이 많은 악기(피아노 122개)에서 실패하므로 8개씩 나눠 받는다
+      for (let i = 0; i < meta.samples.length; i += 8) {
+        await Promise.all(meta.samples.slice(i, i + 8).map(async s => {
+          const ab = await (await fetch(`${dir}/${s.i}.opus`)).arrayBuffer();
+          bufs[s.i] = await ctx.decodeAudioData(ab);
+        }));
+      }
       // 두 가지 정보 형식을 모두 받음:
       //   살라만더·VSCO → vs: [[세기 위끝, 소리 번호], …]
       //   GeneralUser GS → s: 소리 번호 하나 + va: [[세기 위끝, 음량 깎기(0.1dB)], …]
@@ -38,7 +41,12 @@ function smpLoad(inst) {
         : {lo:z.k[0], hi:z.k[1], root:z.r, one:z.s, va:z.va || null,
            ct:z.ct || 0, ft:z.ft || 0, lp:z.lp || 0});
       return SMP.ready[inst] = {meta, bufs, rows, gain:Math.pow(10, (meta.gain || 0) / 20)};
-    } catch (e) { return null; }
+    } catch (e) {
+      // 한 번 실패해도 다시 받아 볼 수 있게 기록을 지운다 (안 그러면 영원히 합성음)
+      delete SMP.load[inst];
+      console.warn('샘플을 받지 못했어요:', inst, e && e.message);
+      return null;
+    }
   })();
   return SMP.load[inst];
 }

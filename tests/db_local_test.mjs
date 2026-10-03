@@ -24,7 +24,7 @@ store.put('community/aaaaaaaaaaaa/post-x.json', Buffer.from(JSON.stringify({id:'
 store.put('community/bbbbbbbbbbbb/song-y.msk', MSK);
 store.put('community/bbbbbbbbbbbb/post-y.json', Buffer.from(JSON.stringify({id:'bbbbbbbbbbbb', title:'지워진 사람 글', desc:'', tags:[], author:'ghost', created:'2026-09-03T00:00:00.000Z', likes:[], comments:[], reports:[]})));
 
-const share = (await import('../api/share.js')).default, chat = (await import('../api/chat.js')).default, auth = (await import('../api/auth.js')).default, lic = (await import('../api/license.js')).default, pay = (await import('../api/checkout.js')).default, comm = (await import('../api/community.js')).default, { migrateFromBlob } = await import('../api/_db.js');
+const stats = (await import('../api/stats.js')).default, share = (await import('../api/share.js')).default, chat = (await import('../api/chat.js')).default, auth = (await import('../api/auth.js')).default, lic = (await import('../api/license.js')).default, pay = (await import('../api/checkout.js')).default, comm = (await import('../api/community.js')).default, { migrateFromBlob } = await import('../api/_db.js');
 const call = (h, {method = 'GET', query = {}, tok, body} = {}) => new Promise(resolve => {
   const res = {c:200, setHeader() {}, status(c) { this.c = c; return this; },
     set statusCode(c) { this.c = c; }, get statusCode() { return this.c; },
@@ -334,6 +334,58 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
   for (let i = 0; i < 3; i++) await call(share, {method:'POST', query:{action:'create'}, tok:tT, body:{url:'https://x/' + i + '.msk'}});
   r = await call(share, {method:'POST', query:{action:'create'}, tok:tT, body:{url:'https://x/4.msk'}});
   check('🛡 공유: 1분에 4개째 → 도배 막힘 (429)', r.s === 429, String(r.s));
+}
+
+
+// ── 개발자 페이지 (통계·관리) ──────────────────────────────
+{
+  // refracta 는 앞에서 이미 가입했으므로 로그인으로 토큰을 받는다
+  const tAdmin = (await call(auth, {method:'POST', query:{action:'login'},
+                   body:{username:'refracta', password:'pass_word_123'}})).j.token;
+  const tUser = await signup('nobody1');
+
+  let r = await call(stats, {method:'POST', query:{action:'hit'}, body:{lang:'en', device:'phone'}});
+  check('통계: 로그인 없이도 방문이 세어짐', r.s === 200 && r.j.ok, String(r.s));
+
+  await call(stats, {method:'POST', query:{action:'hit'}, body:{lang:'ko', device:'desktop'}});
+  await call(stats, {method:'POST', query:{action:'err'}, body:{msg:'TypeError: x is null', where:'app.js:12'}});
+  await call(stats, {method:'POST', query:{action:'err'}, body:{msg:'TypeError: x is null', where:'app.js:12'}});
+
+  r = await call(stats, {query:{action:'overview'}});
+  check('🛡 통계: 로그인 없이 보기 → 거절 (403)', r.s === 403, String(r.s));
+
+  r = await call(stats, {query:{action:'overview'}, tok:tUser});
+  check('🛡 통계: 보통 사용자가 보기 → 거절 (403)', r.s === 403, String(r.s));
+
+  r = await call(stats, {query:{action:'overview'}, tok:tAdmin});
+  const vis = (r.j.rows || []).filter(x => x.kind === 'visit').reduce((a, b) => a + b.n, 0);
+  check('통계: 관리자는 한눈에 보기 (방문·사용자·곡 수)',
+        r.s === 200 && vis === 2 && r.j.total.users >= 2, `방문 ${vis} · 사용자 ${r.j.total?.users}`);
+
+  r = await call(stats, {query:{action:'errors'}, tok:tAdmin});
+  const same = (r.j.errors || []).find(e => e.msg.includes('x is null'));
+  check('통계: 같은 오류는 한 줄로 모아 셈 (2번)', r.s === 200 && same && same.n === 2, `n=${same && same.n}`);
+
+  // 곡 목록·숨기기
+  const sh = await call(share, {method:'POST', query:{action:'create'}, tok:tUser,
+                                body:{url:'https://x/s.msk', name:'시험 곡', bars:4, bpm:100}});
+  r = await call(stats, {query:{action:'songs'}, tok:tAdmin});
+  check('통계: 곡 목록에 새 공유가 보임',
+        r.s === 200 && r.j.songs.some(x => x.id === sh.j.id), `${r.j.songs?.length}개`);
+
+  r = await call(stats, {method:'POST', query:{action:'hide-song'}, tok:tUser, body:{id:sh.j.id}});
+  check('🛡 통계: 보통 사용자가 곡 숨기기 → 거절 (403)', r.s === 403, String(r.s));
+
+  await call(stats, {method:'POST', query:{action:'hide-song'}, tok:tAdmin, body:{id:sh.j.id}});
+  r = await call(share, {query:{id:sh.j.id}});
+  check('통계: 관리자가 숨기면 링크가 죽음', r.s === 404, String(r.s));
+
+  r = await call(stats, {query:{action:'users'}, tok:tAdmin});
+  const me = (r.j.users || []).find(u => u.username === 'nobody1');
+  check('통계: 사용자 목록에 곡 수가 함께 나옴', r.s === 200 && me && me.songs === 1, JSON.stringify(me));
+
+  r = await call(stats, {method:'POST', query:{action:'del-user'}, tok:tAdmin, body:{username:'refracta'}});
+  check('🛡 통계: 관리자 자신은 못 지움 (400)', r.s === 400, String(r.s));
 }
 
 console.log(`\nDB 결과: ${results.filter(Boolean).length}/${results.length} 통과`); process.exit(results.every(Boolean) ? 0 : 1);

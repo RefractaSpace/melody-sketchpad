@@ -1,0 +1,177 @@
+<!doctype html><html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>개발자 · Melody Sketchpad</title><link rel="icon" href="/favicon-32.png">
+<meta name="robots" content="noindex">
+<style>
+:root{--bg:#f5f6f9;--panel:#fff;--fg:#17171b;--muted:#8b8d98;--line:#e3e4ec;--acc:#f07c1f;--ok:#17a34a;--bad:#d4342c}
+@media(prefers-color-scheme:dark){:root{--bg:#111116;--panel:#1a1a20;--fg:#eceef3;--muted:#9a9ca8;--line:#2b2c35}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);padding:20px;
+  font:14px/1.6 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+h1{font-size:19px;margin:0 0 4px}.sub{color:var(--muted);font-size:13px;margin:0 0 20px}
+.wrap{max-width:1100px;margin:0 auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card b{display:block;font-size:26px;line-height:1.15;font-variant-numeric:tabular-nums}
+.card span{color:var(--muted);font-size:12px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.tab{padding:7px 13px;border:1px solid var(--line);background:var(--panel);color:inherit;
+  border-radius:8px;cursor:pointer;font-size:13px}
+.tab.on{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:520px}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:12px}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.btn{padding:4px 10px;border:1px solid var(--line);background:transparent;color:inherit;border-radius:6px;cursor:pointer;font-size:12px}
+.btn:hover{border-color:var(--acc);color:var(--acc)}
+.chart{display:flex;align-items:flex-end;gap:2px;height:120px;margin-top:6px}
+.chart i{flex:1;background:var(--acc);border-radius:2px 2px 0 0;min-height:2px;opacity:.85}
+.chart i:hover{opacity:1}
+.axis{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:4px}
+.msg{color:var(--muted);padding:26px 0;text-align:center}
+.err{color:var(--bad)}
+.hid{opacity:.45}
+input{padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:inherit;font:inherit}
+.login{max-width:330px;margin:70px auto;text-align:center}
+.login input{width:100%;margin-bottom:9px}
+.login .btn{width:100%;padding:10px}
+</style></head><body>
+<div class="wrap" id="app"><p class="msg">불러오는 중…</p></div>
+<script>
+const API = '/api';
+const el = i => document.getElementById(i);
+const esc = s => String(s == null ? '' : s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const d2 = n => (n == null ? '-' : Number(n).toLocaleString());
+const day = s => String(s).slice(5, 10);
+let tok = localStorage.getItem('msk.auth') ? JSON.parse(localStorage.getItem('msk.auth')).token : null;
+
+async function api(path, opt = {}) {
+  const r = await fetch(API + path, {...opt,
+    headers:{'content-type':'application/json', ...(tok ? {authorization:'Bearer ' + tok} : {}), ...(opt.headers||{})}});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.message || j.error || ('HTTP ' + r.status)), {status:r.status});
+  return j;
+}
+function loginView(msg) {
+  el('app').innerHTML = `<div class="login"><h1>개발자 페이지</h1>
+    <p class="sub">${esc(msg || '관리자 계정으로 들어와 주세요')}</p>
+    <input id="u" placeholder="아이디" autocomplete="username">
+    <input id="p" type="password" placeholder="비밀번호" autocomplete="current-password">
+    <button class="btn" id="go">들어가기</button><p class="sub" id="e"></p></div>`;
+  el('go').onclick = async () => {
+    try {
+      const j = await api('/auth?action=login', {method:'POST',
+        body:JSON.stringify({username:el('u').value.trim(), password:el('p').value})});
+      tok = j.token; localStorage.setItem('msk.auth', JSON.stringify({username:j.username, token:j.token}));
+      load();
+    } catch (e) { el('e').textContent = e.message; el('e').className = 'sub err'; }
+  };
+  el('p').onkeydown = ev => { if (ev.key === 'Enter') el('go').click(); };
+}
+let TAB = 'overview', DATA = {};
+async function load() {
+  try {
+    el('app').innerHTML = '<p class="msg">불러오는 중…</p>';
+    DATA.ov = await api('/stats?action=overview&days=30');
+    draw();
+  } catch (e) {
+    if (e.status === 401 || e.status === 403) return loginView(e.status === 403 ? '관리자 계정이 아니에요' : null);
+    el('app').innerHTML = `<p class="msg err">${esc(e.message)}</p>`;
+  }
+}
+function draw() {
+  const t = DATA.ov.total;
+  el('app').innerHTML = `
+    <h1>개발자 페이지</h1><p class="sub">Melody Sketchpad · 최근 30일</p>
+    <div class="cards">
+      ${[['방문', sumKind('visit')], ['가입', t.users], ['공유 곡', t.shares],
+         ['재생', t.plays], ['커뮤니티 글', t.messages], ['오류 (7일)', t.errors7]]
+        .map(([k, v]) => `<div class="card"><b>${d2(v)}</b><span>${k}</span></div>`).join('')}
+    </div>
+    <div class="tabs">${[['overview','한눈에'],['users','사용자'],['songs','곡'],['errors','오류']]
+      .map(([k, n]) => `<button class="tab${TAB === k ? ' on' : ''}" data-t="${k}">${n}</button>`).join('')}
+      <button class="tab" id="re">새로 고침</button></div>
+    <div id="body"></div>`;
+  document.querySelectorAll('.tab[data-t]').forEach(b => b.onclick = () => { TAB = b.dataset.t; draw(); body(); });
+  el('re').onclick = load;
+  body();
+}
+const sumKind = k => (DATA.ov.rows || []).filter(r => r.kind === k).reduce((a, b) => a + b.n, 0);
+function byDay(kind) {
+  const m = new Map();
+  for (const r of DATA.ov.rows || []) if (r.kind === kind) m.set(r.day, (m.get(r.day) || 0) + r.n);
+  return [...m.entries()].sort((a, b) => a[0] < b[0] ? -1 : 1);
+}
+async function body() {
+  const B = el('body'); B.innerHTML = '<p class="msg">…</p>';
+  try {
+    if (TAB === 'overview') {
+      const v = byDay('visit'), mx = Math.max(1, ...v.map(x => x[1]));
+      const grp = k => {
+        const m = new Map();
+        for (const r of DATA.ov.rows || []) if (r.kind === k) m.set(r.key, (m.get(r.key) || 0) + r.n);
+        return [...m.entries()].sort((a, b) => b[1] - a[1]);
+      };
+      B.innerHTML = `
+        <div class="box"><b>날마다 방문</b>
+          <div class="chart">${v.map(([d, n]) =>
+            `<i style="height:${n / mx * 100}%" title="${day(d)} · ${n}"></i>`).join('') || '<span class="msg">아직 없어요</span>'}</div>
+          <div class="axis"><span>${v.length ? day(v[0][0]) : ''}</span><span>${v.length ? day(v[v.length-1][0]) : ''}</span></div></div>
+        <div class="box"><b>언어 · 기기</b>
+          <table><tr><th>언어</th><th class="num">방문</th><th>기기</th><th class="num">방문</th></tr>
+          ${(() => { const L = grp('lang'), D = grp('device'), n = Math.max(L.length, D.length, 1);
+            return Array.from({length:n}, (_, i) =>
+              `<tr><td>${esc(L[i]?.[0] || '')}</td><td class="num">${L[i] ? d2(L[i][1]) : ''}</td>
+                   <td>${esc(D[i]?.[0] || '')}</td><td class="num">${D[i] ? d2(D[i][1]) : ''}</td></tr>`).join(''); })()}
+          </table></div>
+        <div class="box"><b>많이 들은 곡</b>
+          <table><tr><th>이름</th><th class="num">재생</th><th>만든 날</th></tr>
+          ${(DATA.ov.topSongs || []).map(s =>
+            `<tr><td>${esc(s.name || '(이름 없음)')}</td><td class="num">${d2(s.plays)}</td><td>${day(s.created)}</td></tr>`).join('')
+            || '<tr><td colspan="3" class="msg">아직 없어요</td></tr>'}
+          </table></div>`;
+      return;
+    }
+    if (TAB === 'users') {
+      const { users } = await api('/stats?action=users');
+      B.innerHTML = `<div class="box"><table>
+        <tr><th>아이디</th><th>가입</th><th class="num">곡</th><th class="num">글</th><th></th></tr>
+        ${users.map(u => `<tr><td>${esc(u.username)}</td><td>${day(u.created)}</td>
+          <td class="num">${d2(u.songs)}</td><td class="num">${d2(u.msgs)}</td>
+          <td><button class="btn" data-del="${esc(u.username)}">지우기</button></td></tr>`).join('')
+          || '<tr><td colspan="5" class="msg">아직 없어요</td></tr>'}</table></div>`;
+      B.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+        if (!confirm(`"${b.dataset.del}" 계정을 지울까요? 되돌릴 수 없어요.`)) return;
+        try { await api('/stats?action=del-user', {method:'POST', body:JSON.stringify({username:b.dataset.del})}); body(); }
+        catch (e) { alert(e.message); }
+      });
+      return;
+    }
+    if (TAB === 'songs') {
+      const { songs } = await api('/stats?action=songs');
+      B.innerHTML = `<div class="box"><table>
+        <tr><th>이름</th><th>만든 사람</th><th class="num">마디</th><th class="num">BPM</th>
+            <th class="num">재생</th><th>날짜</th><th></th></tr>
+        ${songs.map(s => `<tr class="${s.hidden ? 'hid' : ''}">
+          <td><a href="/s/${esc(s.id)}" target="_blank" style="color:inherit">${esc(s.name || '(이름 없음)')}</a></td>
+          <td>${esc(s.username || '-')}</td><td class="num">${d2(s.bars)}</td><td class="num">${d2(s.bpm)}</td>
+          <td class="num">${d2(s.plays)}</td><td>${day(s.created)}</td>
+          <td><button class="btn" data-h="${esc(s.id)}">${s.hidden ? '다시 보이기' : '숨기기'}</button></td></tr>`).join('')
+          || '<tr><td colspan="7" class="msg">아직 없어요</td></tr>'}</table></div>`;
+      B.querySelectorAll('[data-h]').forEach(b => b.onclick = async () => {
+        try { await api('/stats?action=hide-song', {method:'POST', body:JSON.stringify({id:b.dataset.h})}); body(); }
+        catch (e) { alert(e.message); }
+      });
+      return;
+    }
+    const { errors } = await api('/stats?action=errors');
+    B.innerHTML = `<div class="box"><table>
+      <tr><th class="num">번</th><th>오류</th><th>어디</th><th>마지막</th></tr>
+      ${errors.map(e => `<tr><td class="num">${d2(e.n)}</td><td class="err">${esc(e.msg)}</td>
+        <td>${esc(e.where_ || '-')}</td><td>${day(e.at)} ${String(e.at).slice(11, 16)}</td></tr>`).join('')
+        || '<tr><td colspan="4" class="msg">오류가 없어요 👍</td></tr>'}</table></div>`;
+  } catch (e) { B.innerHTML = `<p class="msg err">${esc(e.message)}</p>`; }
+}
+tok ? load() : loginView();
+</script></body></html>
