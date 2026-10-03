@@ -794,20 +794,20 @@ async def main():
           setTier('se');
           r.sub={violin:playInst('violin'), pianoMax:playInst('pianoMax'), piano:playInst('piano')};
           const snap=JSON.stringify(S);
-          S=normalize(blank()); S.channels[0].inst='violin'; refreshAll();
+          S=normalize(blank()); S.channels[0].inst='pianoMax'; refreshAll();   // 지금도 잠긴 악기
           const P=curPat(); for(const c of S.channels) P.notes[c.id]=[]; P.notes[S.channels[0].id]=[{p:72,s:0,l:48,v:.9}];
           S.bpm=120; S.playMode='pattern';
           const b=await renderWav(); const u=b instanceof Uint8Array?b:new Uint8Array(b); const dv=new DataView(u.buffer,u.byteOffset);
           const n=(u.length-44)>>1; let mx=0; for(let i=0;i<n;i++){const v=Math.abs(dv.getInt16(44+i*2,true))/32768; if(v>mx)mx=v}
-          r.peak=+mx.toFixed(3); r.keep=S.channels[0].inst==='violin';
+          r.peak=+mx.toFixed(3); r.keep=S.channels[0].inst==='pianoMax';
           setTier(before||'max'); S=normalize(JSON.parse(snap)); save(); refreshAll(); return r})()""")
-        check('등급별 악기: 출시 전 SE도 표준 128개 · Pro는 오케스트라 · Max는 피아노 Max',
-              tier['se']['gm'] == 128 and not tier['se']['vio'] and tier['se']['base']
-              and tier['six']['gm'] == 128 and not tier['six']['vio']
+        check('등급별 악기: 출시 전 SE도 표준 128개 + 오케스트라 · Max만 피아노 Max',
+              tier['se']['gm'] == 128 and tier['se']['vio'] and tier['se']['base']
+              and tier['six']['gm'] == 128 and tier['six']['vio']
               and tier['pro']['vio'] and not tier['pro']['max'] and tier['max']['max'],
               f"SE {tier['se']['n']} · 6 {tier['six']['n']} · Pro {tier['pro']['n']} · Max {tier['max']['n']}")
-        check('등급: 잠긴 악기를 쓰는 곡도 비슷한 소리로 재생되고 악기 이름은 그대로',
-              tier['sub']['violin'] == 'strings' and tier['sub']['piano'] == 'piano' and tier['peak'] > 0.02 and tier['keep'],
+        check('등급: 오케스트라는 그대로 · 잠긴 Max 피아노만 대신 재생 · 악기 이름은 보존',
+              tier['sub']['violin'] == 'violin' and tier['sub']['pianoMax'] == 'piano' and tier['peak'] > 0.02 and tier['keep'],
               str(tier['sub']) + f" · 소리 {tier['peak']} · 이름유지 {tier['keep']}")
 
         # 6: 악기 145개 · 라이선스 표기

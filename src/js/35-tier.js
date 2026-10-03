@@ -3,6 +3,8 @@
    지금은 브라우저에 저장된 값으로 확인해요 (개발용). 판매를 시작하면 서버에서 확인하도록 바꿔야 해요. */
 // 출시(결제 시작) 전까지 표준 악기 128개를 무료로 열어 둔다. 결제가 열리면 false로.
 const FREE_GM = true;
+// 오케스트라 실제 녹음 15종도 출시 전까지 열어 둔다. 결제를 열 때 false로.
+const FREE_ORCH = true;
 const TIERS = ['se', 'six', 'pro', 'max'];
 const TIER_NAME = {se:'SE', six:'스케치패드 6', pro:'6 Pro', max:'6 Max'};
 const TIER_RANK = {se:0, six:1, pro:2, max:3};
@@ -13,7 +15,8 @@ function instTier(inst) {
   if (inst === 'pianoPro') return 'pro';
   if (/^gm\d+$/.test(inst)) return FREE_GM ? 'se' : 'six';   // 출시 전에는 표준 악기 128개도 무료
   if (['violin','viola','cello','contrabass','flute','clarinet','oboe','bassoon',
-       'trumpet','horn','trombone','tuba','marimba','glock','xylo'].includes(inst)) return 'pro';
+       'trumpet','horn','trombone','tuba','marimba','glock','xylo'].includes(inst))
+    return FREE_ORCH ? 'se' : 'pro';
   return 'se';                                  // 기존 합성 악기·드럼·드럼 키트
 }
 let serverTier = null;                            // 서버가 알려 준 등급 (이게 있으면 이걸 씀)
