@@ -637,11 +637,12 @@ async def main():
             _root = URL.rsplit('/app', 1)[0].rstrip('/') + '/'
             _html = _u.urlopen(_root, timeout=10).read().decode('utf-8', 'replace')
             _exe = _html.count('MelodySketchpad-Setup.exe')
-            _soon = 'dlsoon' in _html
+            _h = _html
         except Exception as _e:
-            _exe, _soon = -1, False
-        check('소개 페이지: Windows 설치 파일 링크가 없고 "준비 중"으로 막혀 있음',
-              _exe == 0 and _soon, f"exe 링크 {_exe}개 · 준비중 표시 {_soon}")
+            _exe, _h = -1, ''
+        check('소개 페이지: Windows 내려받기와 예전 버전 자리가 있음',
+              _exe >= 1 and 'olderList' in _h and '/api/release?list=1' in _h,
+              f"exe 링크 {_exe}개 · 예전버전 {'olderList' in _h}")
 
         # 소개 페이지: 로그인 단추와 대화 상자가 있는지
         try:
