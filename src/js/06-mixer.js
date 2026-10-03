@@ -30,9 +30,9 @@ function toneKnobs(st, T) {
 }
 function channelStrip(key, label) {
   const m = S.mix[key], st = document.createElement('div'); st.className = 'strip'; st.setAttribute('role', 'group'); st.setAttribute('aria-label', label + ' 채널');
-  const hd = document.createElement('div'); hd.className = 'sh'; const b = document.createElement('b'); b.textContent = label; hd.appendChild(b);
+  const hd = document.createElement('div'); hd.className = 'sh'; const b = document.createElement('b'); b.textContent = tMsg(label); hd.appendChild(b);
   const ms = document.createElement('div'); ms.className = 'ms';
-  const btn = (txt, title, get, set) => { const x = document.createElement('button'); x.className = 'tbtn xs'; x.textContent = txt; x.title = title; x.setAttribute('aria-label', label + ' ' + title); x.setAttribute('aria-pressed', !!get()); x.onclick = () => { set(!get()); x.setAttribute('aria-pressed', !!get()); remix(); save(); }; ms.appendChild(x); };
+  const btn = (txt, title, get, set) => { const x = document.createElement('button'); x.className = 'tbtn xs'; x.textContent = txt; x.title = tMsg(title); x.setAttribute('aria-label', label + ' ' + title); x.setAttribute('aria-pressed', !!get()); x.onclick = () => { set(!get()); x.setAttribute('aria-pressed', !!get()); remix(); save(); }; ms.appendChild(x); };
   btn('M', '뮤트', () => m.mute, v => m.mute = v ? 1 : 0);
   btn('S', '솔로', () => m.solo, v => m.solo = v ? 1 : 0);
   const kc = key.startsWith('ch:') ? chById(key.slice(3)) : null;
@@ -78,7 +78,7 @@ function selectEl(label, opts, val, on) {
 function buildMixer() {
   const box = $('mixerStrips'); box.innerHTML = '';
   S.channels.forEach((c, i) => {
-    const st = channelStrip(chKey(c), `${i + 1}. ${c.name}`); st.classList.add('trk'); if (i === S.ch) st.classList.add('cur');
+    const st = channelStrip(chKey(c), `${i + 1}. ${nameOf(c.name)}`); st.classList.add('trk'); if (i === S.ch) st.classList.add('cur');
     const ex = document.createElement('div'); ex.className = 'sx';
     if (c.kind === 'synth') {
       toneKnobs(st, c.tone);
@@ -96,7 +96,7 @@ function buildMixer() {
     ex.appendChild(selectEl('베이스 패턴', [['off','끔'],['sustain','길게'],['8th','8분'],['offbeat','오프비트']], S.bassMode, v => S.bassMode = v));
     ex.appendChild(selectEl('베이스 소리', [['reese','리스'],['sub','서브'],['saw','톱니']], S.bassInst, v => S.bassInst = v)); st.appendChild(ex); box.appendChild(st); }
   const ma = S.mix.master, st = document.createElement('div'); st.className = 'strip master'; st.setAttribute('role', 'group'); st.setAttribute('aria-label', '마스터');
-  st.innerHTML = '<div class="sh"><b>마스터</b></div>';
+  st.innerHTML = '<div class="sh"><b>' + tMsg('마스터') + '</b></div>';
   st.appendChild(mixSlider('볼륨', ma.v, 0, 1.2, 0.01, v => { ma.v = v; remix(); }, pct));
   st.appendChild(mixSlider('사이드체인', ma.sc, 0, 0.9, 0.01, v => { ma.sc = v; }, pct));
   st.appendChild(mixSlider('리버브 길이', ma.size, 0, 3, 1, v => { ma.size = v; remix(); }, v => tMsg(['짧게','보통','길게','아주 길게'][v])));

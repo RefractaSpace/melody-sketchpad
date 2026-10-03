@@ -15,14 +15,14 @@ function buildRack() {
   S.channels.forEach((c, ci) => {
     const m = S.mix[chKey(c)], arr = notesOf(P, c);
     const row = document.createElement('div'); row.className = 'rrow' + (ci === S.ch ? ' sel' : ''); row.setAttribute('role', 'group'); row.setAttribute('aria-label', c.name + ' 채널');
-    const led = document.createElement('button'); led.className = 'led'; led.title = '켜기 / 끄기 (뮤트)'; led.setAttribute('aria-label', c.name + ' 켜기'); led.setAttribute('aria-pressed', !m.mute);
+    const led = document.createElement('button'); led.className = 'led'; led.title = tMsg('켜기 / 끄기 (뮤트)'); led.setAttribute('aria-label', c.name + ' 켜기'); led.setAttribute('aria-pressed', !m.mute);
     led.onclick = () => { m.mute = m.mute ? 0 : 1; led.setAttribute('aria-pressed', !m.mute); if (E) applyMix(E, S.mix); save(); buildMixer(); };
-    const vol = document.createElement('input'); vol.type = 'range'; vol.className = 'rvol'; vol.min = 0; vol.max = 1.2; vol.step = 0.01; vol.value = m.v; vol.title = '볼륨'; vol.setAttribute('aria-label', c.name + ' 볼륨');
+    const vol = document.createElement('input'); vol.type = 'range'; vol.className = 'rvol'; vol.min = 0; vol.max = 1.2; vol.step = 0.01; vol.value = m.v; vol.title = tMsg('볼륨'); vol.setAttribute('aria-label', c.name + ' 볼륨');
     vol.oninput = () => { m.v = +vol.value; if (E) applyMix(E, S.mix); }; vol.onchange = () => { save(); buildMixer(); };
     const nm = document.createElement('button'); nm.className = 'cname'; nm.title = tMsg('누르면 이 채널의 피아노 롤'); nm.setAttribute('aria-label', `${tMsg(c.name)}, ${c.kind === 'drum' ? tMsg('드럼') + ' ' + tMsg(DRUM_NAME[c.inst]) : tMsg(INSTS[c.inst])}`);
     nm.textContent = nameOf(c.name); const sm = document.createElement('small'); sm.textContent = c.kind === 'drum' ? '' : tMsg(INSTS[c.inst]); if (sm.textContent && sm.textContent !== nm.textContent) nm.appendChild(sm);
     nm.onclick = () => { selectChannel(ci); openWin('roll'); };
-    const more = document.createElement('button'); more.className = 'cmore'; more.textContent = '⋯'; more.title = '채널 메뉴'; more.setAttribute('aria-label', c.name + ' 메뉴'); more.setAttribute('aria-haspopup', 'menu');
+    const more = document.createElement('button'); more.className = 'cmore'; more.textContent = '⋯'; more.title = tMsg('채널 메뉴'); more.setAttribute('aria-label', c.name + ' 메뉴'); more.setAttribute('aria-haspopup', 'menu');
     more.onclick = e => channelMenu(ci, e.currentTarget);
     row.append(led, vol, nm, more);
     if (arr.length && !stepFriendly(c, arr)) {

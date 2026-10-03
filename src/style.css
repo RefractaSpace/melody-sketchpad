@@ -442,3 +442,7 @@ body.cmp-ppl-on .cmp-ppl{display:block}
   font-size:10.5px;padding:0 2px;opacity:0}
 .cmm:hover .cmm-rep,.cmm-rep:focus{opacity:1}
 .cmm-rep:hover{color:#c0392b}
+
+/* 언어별 문단: 도움말처럼 글 안에 굵은 글씨가 섞인 긴 문단은 언어마다 따로 둔다 */
+html[lang="en"] .ko-only{display:none}
+html:not([lang="en"]) .en-only{display:none}

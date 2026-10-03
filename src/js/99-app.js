@@ -31,8 +31,9 @@ function syncControls() {
 }
 // 화면 전체를 곡 데이터에 맞춰 다시 그림
 // ---- 박자표 · 스윙 ----
-$('meterSel').innerHTML = METERS.map(m => `<option value="${m.join('/')}">${m.join('/')}박자</option>`).join('');
-function syncMeterUI() { $('meterSel').value = meterOf(S).join('/'); $('swingSel').value = String(Math.round((S.swing || 0) * 5) / 5); }
+const buildMeterSel = () => { $('meterSel').innerHTML = METERS.map(m => `<option value="${m.join('/')}">${tMsg(m.join('/') + '박자')}</option>`).join(''); };
+buildMeterSel();
+function syncMeterUI() { buildMeterSel(); $('meterSel').value = meterOf(S).join('/'); $('swingSel').value = String(Math.round((S.swing || 0) * 5) / 5); }
 // 박자를 바꿔도 음·자동화·템포 위치(틱)는 그대로. 패턴 마디 수와 조각 위치만 새 마디 길이로 다시 계산
 function setMeter(m) {
   const old = BAR_T, nb = barTicksOf(m); if (meterOf(S).join('/') === m.join('/')) return; pushUndo();
