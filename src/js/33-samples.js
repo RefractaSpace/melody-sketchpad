@@ -52,6 +52,16 @@ function smpLoad(inst) {
 }
 // 건반·세기에 맞는 소리 고르기
 // 한 건반에 구역이 여러 개면 모두 겹쳐서 낸다 (악기 하나가 여러 소리를 합쳐 두껍게 만드는 경우)
+/* 악기별 음량 고르기
+   같은 세기로 한 음씩 재 보니 바이올린 0.08 · 플루트 0.75 로 9배 차이가 났다.
+   그래서 합주하면 선율 악기가 저음에 묻힌다.
+   한 번에 맞추려다 소리가 찢어진 적이 있어, 최대 2.5배까지만 조심스럽게 올린다.
+   (여러 음이 겹치면 세기가 합쳐지므로 과하게 올리면 안 됨) */
+const INST_GAIN = {
+  'violin': 2.5, 'viola': 1.6, 'glock': 1.8, 'strings': 1.6, 'contrabass': 1.3,
+  'trombone': 1.3, 'flute': 0.55, 'horn': 0.75, 'bassoon': 0.8, 'bass': 0.5,
+};
+
 /* 샘플 음높이 바로잡기
    오케스트라 샘플의 inst.json 에 적힌 원음(r)이 모두 12 낮게 들어가 있다.
    (바이올린 최저 r=43 인데 실제 바이올린 최저음은 55)
@@ -104,7 +114,7 @@ function smpPlay(EE, ch, p, t, d, v, dest) {
   for (const hit of hits) {
     const src = EE.ac.createBufferSource(); src.buffer = hit.buf;
     src.playbackRate.value = Math.pow(2, (p - hit.root + (PITCH_FIX[inst] || 0)) / 12 + (hit.ct || 0) / 12 + (hit.ft || 0) / 1200);
-    const g = EE.ac.createGain(), vol = pack.gain * (v == null ? 0.9 : v) * Math.pow(10, -(hit.att || 0) / 200);   // att는 0.1dB 단위로 깎기
+    const g = EE.ac.createGain(), vol = pack.gain * (INST_GAIN[inst] || 1) * (v == null ? 0.9 : v) * Math.pow(10, -(hit.att || 0) / 200);   // att는 0.1dB 단위로 깎기
     const dur = d != null ? d : hit.buf.duration;
     const rel = Math.min(0.25, dur * 0.3);
     g.gain.setValueAtTime(0.0001, t);
