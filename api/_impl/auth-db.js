@@ -23,6 +23,30 @@ export default async function handler(req, res) {
     }
     if (req.method !== 'POST') return res.status(405).json({error:'method'});
     const body = await readJson(req);
+    /* 비밀번호를 잊었을 때 — Vercel 환경변수 RESET_KEY 를 아는 사람만 바꿀 수 있다.
+       로그인이 필요 없으므로, 열쇠가 없으면 아예 동작하지 않게 막는다. */
+    if (action === 'reset') {
+      const KEY = process.env.RESET_KEY || '';
+      if (KEY.length < 16) return res.status(503).json({error:'off', message:'재설정이 꺼져 있어요'});
+      const given = String(body.key || '');
+      // 길이가 달라도 시간이 같게 비교 (열쇠를 한 글자씩 알아내는 공격 막기)
+      const ok = given.length === KEY.length &&
+        crypto.timingSafeEqual(Buffer.from(given), Buffer.from(KEY));
+      if (!ok) {
+        await new Promise(r => setTimeout(r, 800));          // 마구 찔러보지 못하게
+        return res.status(403).json({error:'bad-key', message:'열쇠가 달라요'});
+      }
+      const who = String(body.username || '').trim();
+      const np = String(body.password || '');
+      if (np.length < 8 || np.length > 200) return res.status(400).json({error:'bad-password', message:'새 비밀번호는 8글자 이상이에요'});
+      const rec2 = await user(who);
+      if (!rec2) return res.status(404).json({error:'no-user', message:'없는 계정이에요'});
+      const salt = crypto.randomBytes(16), hash = await scrypt(np, salt);
+      await q(`update users set salt = $2, hash = $3, changed = now() where username = $1`,
+              [who, salt.toString('base64'), hash.toString('base64')]);
+      return res.status(200).json({ok:true, username:who});
+    }
+
     if (action === 'signup' || action === 'login') {
       const username = String(body.username || '').trim().toLowerCase(), password = String(body.password || '');
       if (!/^[a-z0-9_]{3,20}$/.test(username)) return res.status(400).json({error:'bad-username', message:'아이디는 영문 소문자·숫자·_ 3~20글자예요'});

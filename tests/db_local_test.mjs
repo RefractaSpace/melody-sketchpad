@@ -388,4 +388,45 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
   check('🛡 통계: 관리자 자신은 못 지움 (400)', r.s === 400, String(r.s));
 }
 
+
+// ── 비밀번호 잊었을 때 재설정 ───────────────────────────────
+{
+  const KEY = 'test_reset_key_0123456789';
+  process.env.RESET_KEY = KEY;
+  await signup('forgetful', 'old_pass_1234');
+
+  let r = await call(auth, {method:'POST', query:{action:'reset'},
+                            body:{key:'틀린열쇠', username:'forgetful', password:'new_pass_1234'}});
+  check('🛡 재설정: 열쇠가 틀리면 거절 (403)', r.s === 403, String(r.s));
+
+  r = await call(auth, {method:'POST', query:{action:'login'},
+                        body:{username:'forgetful', password:'new_pass_1234'}});
+  check('🛡 재설정: 틀린 열쇠로는 비밀번호가 안 바뀜', r.s !== 200, String(r.s));
+
+  r = await call(auth, {method:'POST', query:{action:'reset'},
+                        body:{key:KEY, username:'nosuchperson', password:'new_pass_1234'}});
+  check('재설정: 없는 계정 → 404', r.s === 404, String(r.s));
+
+  r = await call(auth, {method:'POST', query:{action:'reset'},
+                        body:{key:KEY, username:'forgetful', password:'123'}});
+  check('재설정: 너무 짧은 비밀번호 → 400', r.s === 400, String(r.s));
+
+  r = await call(auth, {method:'POST', query:{action:'reset'},
+                        body:{key:KEY, username:'forgetful', password:'new_pass_1234'}});
+  check('재설정: 열쇠가 맞으면 바뀜 (로그인 없이)', r.s === 200 && r.j.ok, String(r.s));
+
+  r = await call(auth, {method:'POST', query:{action:'login'},
+                        body:{username:'forgetful', password:'new_pass_1234'}});
+  check('재설정: 새 비밀번호로 로그인됨', r.s === 200 && r.j.token, String(r.s));
+
+  r = await call(auth, {method:'POST', query:{action:'login'},
+                        body:{username:'forgetful', password:'old_pass_1234'}});
+  check('🛡 재설정: 옛 비밀번호는 더 이상 안 먹힘', r.s !== 200, String(r.s));
+
+  delete process.env.RESET_KEY;
+  r = await call(auth, {method:'POST', query:{action:'reset'},
+                        body:{key:KEY, username:'forgetful', password:'other_pass_12'}});
+  check('🛡 재설정: 열쇠를 안 넣어 두면 기능이 꺼져 있음 (503)', r.s === 503, String(r.s));
+}
+
 console.log(`\nDB 결과: ${results.filter(Boolean).length}/${results.length} 통과`); process.exit(results.every(Boolean) ? 0 : 1);
