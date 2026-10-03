@@ -643,6 +643,16 @@ async def main():
         check('소개 페이지: Windows 설치 파일 링크가 없고 "준비 중"으로 막혀 있음',
               _exe == 0 and _soon, f"exe 링크 {_exe}개 · 준비중 표시 {_soon}")
 
+        # 소개 페이지: 로그인 단추와 대화 상자가 있는지
+        try:
+            _root = URL.rsplit('/app', 1)[0].rstrip('/') + '/'
+            _h = _u.urlopen(_root, timeout=10).read().decode('utf-8', 'replace') if 'urllib' in str(type(_u)) or True else ''
+        except Exception:
+            _h = ''
+        check('소개 페이지: 로그인 단추·대화 상자·개발자 페이지 연결이 있음',
+              'navAuth' in _h and 'authDlg' in _h and '/dev' in _h and 'msk.auth' in _h,
+              f"navAuth {'navAuth' in _h} · authDlg {'authDlg' in _h} · /dev {'/dev' in _h}")
+
         # 언어 뼈대 (앱 쪽)
         i18 = await J("""(()=>{
           if (typeof setLang !== 'function') return {missing:true};
