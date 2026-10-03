@@ -52,6 +52,28 @@ function smpLoad(inst) {
 }
 // 건반·세기에 맞는 소리 고르기
 // 한 건반에 구역이 여러 개면 모두 겹쳐서 낸다 (악기 하나가 여러 소리를 합쳐 두껍게 만드는 경우)
+/* 샘플 음높이 바로잡기
+   오케스트라 샘플의 inst.json 에 적힌 원음(r)이 모두 12 낮게 들어가 있다.
+   (바이올린 최저 r=43 인데 실제 바이올린 최저음은 55)
+   그래서 C4 를 치면 C5 가 울렸다. 글로켄슈필은 반대로 12 높게 적혀 있음.
+   서버 파일을 다시 만들기 전까지 재생할 때 바로잡는다.
+   값은 실제 소리의 기본 주파수를 재서 구한 것. */
+const PITCH_FIX = {
+  'violin': -12,
+  'viola': -12,
+  'cello': -12,
+  'flute': -12,
+  'oboe': -12,
+  'clarinet': -12,
+  'bassoon': -12,
+  'horn': -12,
+  'trumpet': -12,
+  'trombone': -12,
+  'glock': -12,
+  'tuba': -12,
+  'contrabass': -12
+};
+
 function smpPickAll(pack, p, v) {
   const vel = Math.max(1, Math.round((v == null ? 0.9 : v) * 127)), out = [];
   for (const z of pack.rows) {
@@ -81,7 +103,7 @@ function smpPlay(EE, ch, p, t, d, v, dest) {
   const hits = smpPickAll(pack, p, v); if (!hits.length) return false;
   for (const hit of hits) {
     const src = EE.ac.createBufferSource(); src.buffer = hit.buf;
-    src.playbackRate.value = Math.pow(2, (p - hit.root) / 12 + (hit.ct || 0) / 12 + (hit.ft || 0) / 1200);
+    src.playbackRate.value = Math.pow(2, (p - hit.root + (PITCH_FIX[inst] || 0)) / 12 + (hit.ct || 0) / 12 + (hit.ft || 0) / 1200);
     const g = EE.ac.createGain(), vol = pack.gain * (v == null ? 0.9 : v) * Math.pow(10, -(hit.att || 0) / 200);   // att는 0.1dB 단위로 깎기
     const dur = d != null ? d : hit.buf.duration;
     const rel = Math.min(0.25, dur * 0.3);

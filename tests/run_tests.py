@@ -821,6 +821,24 @@ async def main():
               tier['sub']['violin'] == 'violin' and tier['sub']['pianoMax'] == 'piano' and tier['peak'] > 0.02 and tier['keep'],
               str(tier['sub']) + f" · 소리 {tier['peak']} · 이름유지 {tier['keep']}")
 
+        # 샘플 음높이 — 원음 표기가 모두 12 낮아 1옥타브 높게 울리던 버그
+        # (실제 샘플을 받으면 메모리가 터지므로 inst.json 의 표기만 확인한다)
+        pitch = await J("""(async()=>{
+          const idx = await smpIndex(); const out = {};
+          const LOW = {violin:55, flute:60, cello:36, glock:79};
+          for (const inst of Object.keys(LOW)) {
+            if (!idx[inst]) { out[inst] = '없음'; continue; }
+            const m = await (await fetch(SMP_BASE + 'samples/' + idx[inst].dir + '/inst.json')).json();
+            const rs = (m.zones||[]).map(z => z.r).filter(r => r != null);
+            if (!rs.length) { out[inst] = '구역없음'; continue; }
+            // 적힌 최저 원음 + 보정 = 실제 악기 최저음 이어야 한다
+            out[inst] = Math.min(...rs) - (PITCH_FIX[inst] || 0) - LOW[inst];
+          }
+          return out;})()""")
+        check('샘플 음높이: 보정을 더하면 실제 악기 음역과 맞음',
+              all(isinstance(v,(int,float)) and abs(v) <= 2 for v in pitch.values()),
+              ' · '.join(f'{k} {v:+}' if isinstance(v,(int,float)) else f'{k} {v}' for k,v in pitch.items()))
+
         # 6: 악기 145개 · 라이선스 표기
         big = await J("""(async()=>{const idx=await smpIndex(); const r={n:Object.keys(idx).length};
           r.gm=Object.keys(idx).filter(k=>/^gm\\d+$/.test(k)).length; r.piano=!!idx.pianoPro&&!!idx.pianoMax;
