@@ -864,6 +864,24 @@ async def main():
               zone.pop('fix') == 0 and all(v <= 2 for v in zone.values()),
               ' · '.join(f'{k} {v}' for k, v in zone.items()))
 
+        # 악보 글 왕복 — 모든 악기를 채널로 넣고 한국어·영어로 쓰고 읽어서 악기가 그대로인지
+        # (이름이 겹치면 다른 악기로 바뀜: 예전에 마림바·뮤트 기타·드럼 키트에서 그랬음)
+        rt = await J("""(()=>{
+          const keep = LANG, s = JSON.parse(JSON.stringify(S)); s.channels = [];
+          for (const k of Object.keys(INSTS)) s.channels.push(newChannel('synth', k, 'ch_' + k));
+          for (const d of Object.keys(DRUM_NAME)) s.channels.push(newChannel('drum', d, 'dr_' + d));
+          const P = s.patterns[0]; P.notes = {}; s.channels.forEach((c, i) => P.notes[c.id] = [{p: c.kind === 'drum' ? DRUM_PITCH : 60, s: (i % 16) * 12, l: 12, v: 0.8}]);
+          s.mix = {}; const song = normalize(s), want = song.channels.map(c => c.kind + ':' + c.inst).join(',');
+          const out = {};
+          for (const [w, r] of [['ko','ko'], ['en','en'], ['en','ko']]) {
+            LANG = w; const txt = withSong(song, () => scoreText('T')); LANG = r;
+            try { const got = parseScore(txt); out[w + '>' + r] = got.song.channels.map(c => c.kind + ':' + c.inst).join(',') === want ? 'ok' : 'diff';
+                  if (w === 'en') out.enKo = /[가-힣]/.test(txt) ? 'hangul' : 'ok'; } catch (e) { out[w + '>' + r] = 'err ' + e.message.slice(0, 40); }
+          }
+          LANG = keep; out.n = song.channels.length; return out; })()""")
+        check('악보 글 왕복: 모든 악기·드럼이 한국어/영어로 쓰고 읽어도 그대로 · 영어 글에 한글 없음',
+              all(rt[k] == 'ok' for k in ('ko>ko', 'en>en', 'en>ko', 'enKo')), json.dumps(rt, ensure_ascii=False))
+
         # 6: 악기 145개 · 라이선스 표기
         big = await J("""(async()=>{const idx=await smpIndex(); const r={n:Object.keys(idx).length};
           r.gm=Object.keys(idx).filter(k=>/^gm\\d+$/.test(k)).length; r.piano=!!idx.pianoPro&&!!idx.pianoMax;

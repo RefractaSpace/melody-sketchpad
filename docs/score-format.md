@@ -95,3 +95,20 @@ BPM: 128
 ## 담지 않는 것
 - 피치 벤드 · 곡 자동화 · 버스·마스터 이펙트 · 신스 설정은 악보에 빠져요 (.msk에는 들어가요).
 - 오디오 클립(녹음·파일 소리)과 내 샘플은 글자로 적을 수 없어서 악보에는 빠져요. 소리까지 옮기려면 `.msk`로 저장하세요.
+
+## 영어 낱말 (English keywords)
+영어 화면에서 "Copy score"를 누르면 아래 영어 낱말로 써요. 읽을 때는 한국어·영어를 섞어 써도 다 받아요.
+
+| 한국어 | English |
+|---|---|
+| `# 멜로디 스케치패드 악보 v1` | `# Melody Sketchpad score v1` |
+| 제목 · 박자 · 스윙 · 조 · 재생 · 템포 변화 | Title · Meter · Swing · Key · Play · Tempo changes |
+| 코드 소리 · 베이스 · 드럼 키트 | Chord sound · Bass · Drum kit |
+| 장조 · 단조 | major · minor |
+| `[채널]` · `[패턴] 이름 \| 4마디 \| 색 2` · `[플레이리스트]` | `[Channels]` · `[Pattern] name \| 4 bars \| color 2` · `[Playlist]` |
+| `킥 = 드럼 킥    볼륨 80 팬 -20 뮤트` | `Kick = Drum Kick    vol 80 pan -20 mute` |
+| 코드: · 멈춤 | Chords: · stop |
+| `피아노 볼륨:` · `피아노 필터:` | `Piano Volume:` · `Piano Filter:` |
+| 트랙 1: | Track 1: |
+
+악기 이름은 앱 화면에 보이는 이름 그대로예요 (예: `바이올린` = `Violin`, `바이올린 솔로` = `Violin Solo`, `마림바 (GM)` = `Marimba (GM)`).

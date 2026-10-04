@@ -227,7 +227,7 @@ function sniffFormat(u) {
   const t = new TextDecoder().decode(u.subarray(0, 4096)).replace(/^\uFEFF/, '').trimStart();
   if (/^MSK\d*\.[A-Za-z0-9_\-]/.test(t)) return 'code';
   if (t.startsWith('{')) return 'json';
-  if (/^#\s*멜로디 스케치패드 악보|^\s*\[(채널|패턴|플레이리스트)|^\s*(BPM|제목|조)\s*[:：]/m.test(t)) return 'score';
+  if (/^#\s*(멜로디 스케치패드 악보|Melody Sketchpad score)|^\s*\[(채널|패턴|플레이리스트|Channels|Pattern|Playlist)|^\s*(BPM|제목|조)\s*[:：]/m.test(t)) return 'score';
   return 'unknown';
 }
 // 어떤 형식이든 곡으로: File, Uint8Array, 또는 글
