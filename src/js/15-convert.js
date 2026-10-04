@@ -7,24 +7,26 @@ function openAsProject(song, name) {
   const id = newId(); lib.list[id] = {name:(name || '불러온 곡').slice(0, 40), updated:Date.now()};
   save(); lsSet(PK(id), songToStore(song)); openProject(id); return id;
 }
-const songSummary = song => withSong(song, () => `채널 ${S.channels.length}개 · 패턴 ${S.patterns.length}개 · 곡 ${songBars()}마디 · ${S.bpm} BPM · ${names()[S.root]} ${S.mode === 'minor' ? '단조' : '장조'} · 음 ${S.patterns.reduce((a, P) => a + Object.values(P.notes).reduce((b, x) => b + x.length, 0), 0)}개`);
+const songSummary = song => withSong(song, () => { const notes = S.patterns.reduce((a, P) => a + Object.values(P.notes).reduce((b, x) => b + x.length, 0), 0);
+  return L2(`채널 ${S.channels.length}개 · 패턴 ${S.patterns.length}개 · 곡 ${songBars()}마디 · ${S.bpm} BPM · ${names()[S.root]} ${S.mode === 'minor' ? '단조' : '장조'} · 음 ${notes}개`,
+            `${pl(S.channels.length, 'channel')} · ${pl(S.patterns.length, 'pattern')} · ${pl(songBars(), 'bar')} · ${S.bpm} BPM · ${names()[S.root]} ${S.mode === 'minor' ? 'minor' : 'major'} · ${pl(notes, 'note')}`); });
 function listMsg(el, head, items) {
   el.innerHTML = ''; const b = document.createElement('b'); b.textContent = head; el.appendChild(b);
-  if (items && items.length) { const ul = document.createElement('ul'); for (const t of items.slice(0, 30)) { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); } if (items.length > 30) { const li = document.createElement('li'); li.textContent = `…그리고 ${items.length - 30}개 더`; ul.appendChild(li); } el.appendChild(ul); }
+  if (items && items.length) { const ul = document.createElement('ul'); for (const t of items.slice(0, 30)) { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); } if (items.length > 30) { const li = document.createElement('li'); li.textContent = L2(`…그리고 ${items.length - 30}개 더`, `…and ${items.length - 30} more`); ul.appendChild(li); } el.appendChild(ul); }
 }
 
 // ---- 악보 붙여넣기 ----
 const scoreTA = $('scoreText'), scoreMsg = $('scoreMsg');
 let pasted = null;   // 검사를 통과한 결과
 async function scoreCheck(selectErr) {
-  const text = scoreTA.value; pasted = null; if (!text.trim()) { scoreMsg.textContent = '악보나 곡 코드를 붙여 넣어 주세요.'; return null; }
+  const text = scoreTA.value; pasted = null; if (!text.trim()) { scoreMsg.textContent = L2('악보나 곡 코드를 붙여 넣어 주세요.', 'Paste a score or a song code.'); return null; }
   const kind = sniffFormat(new TextEncoder().encode(text.slice(0, 4096)));
   try {
     const r = await loadAny(text, '붙여 넣은 곡');
-    listMsg(scoreMsg, `${r.from}로 알아봤어요: ${r.name !== '붙여 넣은 곡' ? '"' + r.name + '" · ' : ''}${songSummary(r.song)}` + (r.warnings.length ? ` · 알림 ${r.warnings.length}개` : ''), r.warnings);
+    listMsg(scoreMsg, L2(`${r.from}로 알아봤어요: `, `Read as ${fmtL(r.from)}: `) + (r.name !== '붙여 넣은 곡' ? '"' + r.name + '" · ' : '') + songSummary(r.song) + (r.warnings.length ? L2(` · 알림 ${r.warnings.length}개`, ` · ${pl(r.warnings.length, 'notice')}`) : ''), r.warnings);
     return pasted = r;
   } catch (e) {
-    listMsg(scoreMsg, '' + (kind === 'unknown' ? '' : FORMAT_NAME[kind] + ': ') + e.message, null);
+    listMsg(scoreMsg, '' + (kind === 'unknown' ? '' : fmtL(FORMAT_NAME[kind]) + ': ') + e.message, null);
     if (selectErr && e.line) { const ls = text.split('\n'); let a = 0; for (let k = 0; k < e.line - 1; k++) a += ls[k].length + 1; scoreTA.focus(); scoreTA.setSelectionRange(a, a + ls[e.line - 1].length); }
     return null;
   }
@@ -61,8 +63,8 @@ $('convClose').onclick = () => $('convDlg').close();
 $('convPick').onclick = () => $('convIn').click();
 $('convIn').onchange = async () => {
   const f = $('convIn').files[0]; $('convIn').value = ''; if (!f) return;
-  try { conv = await loadAny(f); convShow(); announce(`${conv.from} 파일로 알아봤어요. 바꿀 형식을 골라 주세요.`); }
-  catch (e) { conv = null; convShow(); listMsg($('convInfo'), '읽지 못했어요: ' + (e.message || '알 수 없는 형식'), null); }
+  try { conv = await loadAny(f); convShow(); announce(L2(`${conv.from} 파일로 알아봤어요. 바꿀 형식을 골라 주세요.`, `Read as ${fmtL(conv.from)}. Pick a format to convert to.`)); }
+  catch (e) { conv = null; convShow(); listMsg($('convInfo'), L2('읽지 못했어요: ', "Couldn't read it: ") + (e.message || L2('알 수 없는 형식', 'unknown format')), null); }
 };
 $('convCur').onclick = async () => { save(); const song = normalize(JSON.parse(JSON.stringify(S))), sm = await songSamples(song);
   conv = {song, name:lib.list[lib.current].name, from:'지금 곡', warnings:[], samples:Object.entries(sm).map(([slot, v]) => ({slot, name:v.name, root:v.root, ab:v.ab}))}; convShow(); };

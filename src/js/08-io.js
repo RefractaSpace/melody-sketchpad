@@ -305,8 +305,9 @@ $('fileIn').onchange = async () => {
   const f = $('fileIn').files[0]; $('fileIn').value = ''; if (!f) return;
   try {
     const r = await loadAny(f), n = await openLoaded(r);
-    status(`${r.from} 파일로 알아보고 "${lib.list[lib.current].name}"을 새 프로젝트로 열었어요` + (n ? ` (내 샘플 ${n}개)` : '') + (r.warnings.length ? ` · 알림 ${r.warnings.length}개` : '') + (r.info ? ` · ${r.info}` : '') + '.');
-  } catch (e) { status('불러오지 못했어요: ' + (e.message || '알 수 없는 형식')); }
+    status(L2(`${r.from} 파일로 알아보고 "${lib.list[lib.current].name}"을 새 프로젝트로 열었어요` + (n ? ` (내 샘플 ${n}개)` : '') + (r.warnings.length ? ` · 알림 ${r.warnings.length}개` : ''),
+             `Read as ${fmtL(r.from)} and opened "${lib.list[lib.current].name}" as a new project` + (n ? ` (${n} of your samples)` : '') + (r.warnings.length ? ` · ${pl(r.warnings.length, 'notice')}` : '')) + (r.info ? ` · ${r.info}` : '') + '.');
+  } catch (e) { status(L2('불러오지 못했어요: ', "Couldn't open it: ") + (e.message || L2('알 수 없는 형식', 'unknown format'))); }
 };
 
 // ---- 내 프로젝트 (여러 곡) ----

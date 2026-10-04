@@ -191,7 +191,7 @@ async def main():
         wrong2 = os.path.join(tmp, '가짜이름.json'); open(wrong2, 'wb').write(open(mp, 'rb').read())
         await pg.locator('#fileIn').set_input_files(wrong1); await pg.wait_for_timeout(400); st1 = await pg.inner_text('#status')
         await pg.locator('#fileIn').set_input_files(wrong2); await pg.wait_for_timeout(400); st2 = await pg.inner_text('#status')
-        check('확장자가 틀려도 내용을 스캔해서 형식 인식', 'MSK 파일로 알아보고' in st1 and 'MIDI 파일로 알아보고' in st2, f'{st1[:22]} / {st2[:22]}')
+        check('확장자가 틀려도 내용을 스캔해서 형식 인식', ('MSK 파일로 알아보고' in st1 or 'Read as MSK' in st1) and ('MIDI 파일로 알아보고' in st2 or 'Read as MIDI' in st2), f'{st1[:22]} / {st2[:22]}')
         bad = await J("""(async()=>{const u=await encodeMSK(S,'x',{},false);const out=[];
           try{await decodeMSK(u.slice(0,u.length-7))}catch(e){out.push(e.message)}
           const extra=new MskW();extra.chunk('ZZZZ',p=>{p.str('미래의 기능');p.vu(12345)});const body=encodeMskBody(S,'x',{},false),noCrc=body.slice(0,body.length-9);
@@ -211,7 +211,7 @@ async def main():
         code = await J("(async()=>mskToCode(await encodeMSK(S,'코드곡',{})))()")
         await fclick(pg, '#scoreIn'); await pg.fill('#scoreText', code); await pg.wait_for_timeout(400)
         cm = await pg.inner_text('#scoreMsg'); await pg.click('#scoreLoad'); await pg.wait_for_timeout(300)
-        check('곡 코드 붙여넣기 → 새 프로젝트', '곡 코드로 알아봤어요' in cm and await J("lib.list[lib.current].name") == '코드곡', f'{len(code):,}글자')
+        check('곡 코드 붙여넣기 → 새 프로젝트', ('곡 코드로 알아봤어요' in cm or 'Read as song code' in cm) and await J("lib.list[lib.current].name") == '코드곡', f'{len(code):,}글자')
         store = await J("""(()=>{save();clearTimeout(saveT);lsSet(PK(lib.current),songToStore(S));const v=lsGet(PK(lib.current)),j=JSON.stringify(S).length,a=JSON.stringify([S.channels.map(c=>c.id),S.patterns.map(p=>p.id)]);
           openProject(lib.current);return [v.slice(0,5),v.length,j,a===JSON.stringify([S.channels.map(c=>c.id),S.patterns.map(p=>p.id)])]})()""")
         check('내 프로젝트도 MSK로 저장 (번호표 유지)', store[0] == 'MSK1.' and store[3] is True and store[2] / store[1] > 3, f'JSON {store[2]:,}글자 → MSK {store[1]:,}글자')
@@ -223,10 +223,10 @@ async def main():
         er = await J("(()=>{try{parseScore('BPM: 120\\n[채널]\\n피아노 = 피아노\\n[패턴] A | 1마디\\n피아노: 1.1.1 H5 2');return 'no error'}catch(e){return e.message}})()")
         wr = await J("(()=>{const r=parseScore('[채널]\\n피아노 = 피아노\\n[패턴] A | 1마디\\n피아노: 1.1.1 H5 2 | 1.2.1 C5 2');return [r.warnings.join(' / '), notesOf(r.song.patterns[0],r.song.channels[0]).length]})()")
         er2 = await J("(()=>{try{parseScore('[채널]\\n피아노 = 없는악기\\n[패턴] A | 1마디');return 'no error'}catch(e){return e.message}})()")   # 바이올린은 6에서 진짜 악기가 됨
-        check('악보 텍스트: 틀린 곳을 줄 번호로 알려 줌', '4번째 줄' in wr[0] and wr[1] == 1 and '2번째 줄' in er2 and '없는악기' in er2, f'{wr[0][:40]} / {er2[:40]}')
+        check('악보 텍스트: 틀린 곳을 줄 번호로 알려 줌', ('4번째 줄' in wr[0] or 'Line 4' in wr[0]) and wr[1] == 1 and ('2번째 줄' in er2 or 'Line 2' in er2) and '없는악기' in er2, f'{wr[0][:40]} / {er2[:40]}')
         demo = "# 멜로디 스케치패드 악보 v1\n제목: 테스트 곡\nBPM: 128\n조: A 단조\n재생: SONG\n[채널]\n리드 = 슈퍼소    볼륨 80\n킥 = 드럼 킥\n[패턴] 벌스 | 2마디\n코드: 1.1 Am | 2.1 F\n리드: 1.1.1 A4 2 v90 | 1.1.3 C5 2 | 1.2.1 E5 4\n  2.1.1 F5 8 v70\n킥: X...X...X...5... X...X...X...X...\n[플레이리스트]\n트랙 1: 벌스 @1, 벌스 @3\n"
         await fclick(pg, '#scoreIn'); await pg.fill('#scoreText', demo); await pg.wait_for_timeout(450)
-        ok_msg = '알아봤어요' in await pg.inner_text('#scoreMsg'); await pg.click('#scoreLoad'); await pg.wait_for_timeout(300)
+        sm = await pg.inner_text('#scoreMsg'); ok_msg = '알아봤어요' in sm or 'Read as' in sm; await pg.click('#scoreLoad'); await pg.wait_for_timeout(300)
         got = await J("[lib.list[lib.current].name,S.bpm,S.root,S.mode,S.playMode,S.channels.map(c=>c.name),notesOf(S.patterns[0],S.channels[0]).length,notesOf(S.patterns[0],S.channels[1]).map(n=>n.v),chordName(S.patterns[0].chords[4]),S.playlist.clips.length,Math.round(S.mix[chKey(S.channels[0])].v*100)]")
         check('악보 붙여넣기 → 새 프로젝트', ok_msg and got[:6] == ['테스트 곡', 128, 9, 'minor', 'song', ['리드', '킥']] and got[6] == 4 and 0.5 in got[7] and got[8] == 'F' and got[9] == 2 and got[10] == 80, str(got))
         tp = os.path.join(tmp, 'demo.txt'); open(tp, 'w').write(demo)

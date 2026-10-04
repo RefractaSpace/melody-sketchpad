@@ -241,5 +241,9 @@ const chordVoices = c => { const base = 48 + c.r; return QUAL[c.q].map(i => base
 function chordAtBeat(i, p) { const ch = (p || curPat()).chords; for (let k = i; k >= 0; k--) if (ch[k]) return ch[k].x ? null : ch[k]; return null; }
 
 // ---- 알림 ----
+// 문장 안에 곡 이름·숫자가 섞여 번역 사전으로 못 바꾸는 말은 두 벌을 두고 화면 언어로 고른다
+const L2 = (ko, en) => { try { return LANG === 'en' ? en : ko; } catch (e) { return ko; } };
+const pl = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;   // 영어 단수·복수
+const fmtL = v => L2(v, ({'곡 코드':'song code', '프로젝트(.json)':'project (.json)', '악보(.txt)':'score (.txt)', '지금 곡':'current song'})[v] || v);
 function status(s) { const el = $('status'); if (!el) return; el.textContent = (typeof tMsg === 'function' ? tMsg(s) : s); clearTimeout(status.t); status.t = setTimeout(() => el.textContent = '', 4000); }
 function announce(m) { const el = $('sr'); if (el) { el.textContent = ''; setTimeout(() => el.textContent = (typeof tMsg === 'function' ? tMsg(m) : m), 30); } }

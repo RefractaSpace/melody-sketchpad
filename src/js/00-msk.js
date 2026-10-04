@@ -244,7 +244,7 @@ async function loadAny(src, fallbackName) {
     return {song:normalize(s), name:raw.name || name0, from:FORMAT_NAME.json, samples, warnings:[]};
   }
   if (kind === 'score') { const r = parseScore(text()); return {song:r.song, name:r.title || name0, from:FORMAT_NAME.score, samples:[], warnings:r.warnings}; }
-  throw new Error('무슨 형식인지 알 수 없어요 (MSK · 곡 코드 · MIDI · 프로젝트 · 악보를 읽을 수 있어요)');
+  throw new Error(LANG === 'en' ? "Can't tell what format this is (MSK · song code · MIDI · project · score are supported)" : '무슨 형식인지 알 수 없어요 (MSK · 곡 코드 · MIDI · 프로젝트 · 악보를 읽을 수 있어요)');
 }
 // 불러온 곡을 새 프로젝트로 열고, 담겨 있던 내 샘플도 설치
 async function openLoaded(r) {
