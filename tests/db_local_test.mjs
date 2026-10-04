@@ -33,7 +33,7 @@ const call = (h, {method = 'GET', query = {}, tok, body} = {}) => new Promise(re
   h({method, query, headers:tok ? {authorization:'Bearer ' + tok} : {}, body}, res).catch(e => resolve({s:599, j:String(e)}));
 });
 const results = []; const check = (name, ok, d = '') => { results.push(!!ok); console.log((ok ? '  ✅ ' : '  ❌ ') + name + (d ? '  — ' + d : '')); };
-const signup = async (u, pw = 'pass_word_123') => (await call(auth, {method:'POST', query:{action:'signup'}, body:{username:u, password:pw}})).j.token;
+const signup = async (u, pw = 'pass_word_123') => (await call(auth, {method:'POST', query:{action:'signup'}, body:{username:u, password:pw, age14:true}})).j.token;
 
 let r = await call(auth, {query:{action:'health'}});
 const mig = JSON.parse(r.j.migrated || '{}');
@@ -46,14 +46,14 @@ check('다시 옮겨도 중복 없음', Object.values(await migrateFromBlob()).e
 
 const tA = await signup('usera'), tAdmin = await signup('refracta');
 check('회원가입', tA && tAdmin);
-check('같은 아이디 거절', (await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'usera', password:'pass_word_123'}})).s === 409);
-const race = await Promise.all(Array.from({length:6}, () => call(auth, {method:'POST', query:{action:'signup'}, body:{username:'sameid', password:'pass_word_123'}})));
+check('같은 아이디 거절', (await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'usera', password:'pass_word_123', age14:true}})).s === 409);
+const race = await Promise.all(Array.from({length:6}, () => call(auth, {method:'POST', query:{action:'signup'}, body:{username:'sameid', password:'pass_word_123', age14:true}})));
 check('같은 아이디 6명 동시 가입 → 딱 1명만 성공', race.filter(x => x.s === 200).length === 1 && race.filter(x => x.s === 409).length === 5, race.map(x => x.s).join(','));
 for (let i = 0; i < 8; i++) await call(auth, {method:'POST', query:{action:'login'}, body:{username:'usera', password:'wrong_wrong'}});
-check('8번 틀리면 잠금 (DB에 저장 → 모든 서버 공유)', (await call(auth, {method:'POST', query:{action:'login'}, body:{username:'usera', password:'pass_word_123'}})).s === 429);
+check('8번 틀리면 잠금 (DB에 저장 → 모든 서버 공유)', (await call(auth, {method:'POST', query:{action:'login'}, body:{username:'usera', password:'pass_word_123', age14:true}})).s === 429);
 await globalThis.__MSK_PG.query(`delete from login_fails`);
 r = await call(auth, {method:'POST', query:{action:'password'}, tok:tA, body:{old:'pass_word_123', password:'new_pass_456'}});
-check('비밀번호 바꾸기 → 옛 비번 거절 · 새 비번 로그인', r.s === 200 && (await call(auth, {method:'POST', query:{action:'login'}, body:{username:'usera', password:'pass_word_123'}})).s === 401 && (await call(auth, {method:'POST', query:{action:'login'}, body:{username:'usera', password:'new_pass_456'}})).s === 200);
+check('비밀번호 바꾸기 → 옛 비번 거절 · 새 비번 로그인', r.s === 200 && (await call(auth, {method:'POST', query:{action:'login'}, body:{username:'usera', password:'pass_word_123', age14:true}})).s === 401 && (await call(auth, {method:'POST', query:{action:'login'}, body:{username:'usera', password:'new_pass_456'}})).s === 200);
 check('내 정보 · 관리자 표시', (await call(auth, {query:{action:'me'}, tok:tAdmin})).j.admin === true && (await call(auth, {query:{action:'me'}, tok:tA})).j.admin === false);
 
 r = await call(comm, {method:'POST', query:{action:'publish', title:'새 글', tags:'db,테스트', bpm:'120', bars:'4'}, tok:tA, body:MSK}); const pid = r.j.post && r.j.post.id;
@@ -427,6 +427,35 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
   r = await call(auth, {method:'POST', query:{action:'reset'},
                         body:{key:KEY, username:'forgetful', password:'other_pass_12'}});
   check('🛡 재설정: 열쇠를 안 넣어 두면 기능이 꺼져 있음 (503)', r.s === 503, String(r.s));
+}
+
+// ── 개인정보: 만 14세 확인 · 계정 삭제 때 남는 것 없음 · 보관 기간 지난 기록 자동 삭제 ──
+{
+  const { q, cleanOld } = await import('../api/_db.js');
+  const noAge = await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'kid_user', password:'pass_word_123'}});
+  const falseAge = await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'kid_user', password:'pass_word_123', age14:'yes'}});
+  const exists = (await q(`select 1 from users where username = 'kid_user'`)).length;
+  check('🛡 개인정보: 만 14세 이상 확인 없이 가입 → 거절 (400) · 계정 안 생김', noAge.s === 400 && noAge.j.error === 'age' && falseAge.s === 400 && exists === 0, `${noAge.s}/${falseAge.s}`);
+  const tP = await signup('privacy_user');
+  const ag = (await q(`select agreed from users where username = 'privacy_user'`))[0];
+  check('개인정보: 가입하면 동의 시각이 남음', ag && ag.agreed, String(ag && ag.agreed));
+  // 계정에 이것저것 남기기: 공유 링크 · AI 횟수 · 로그인 실패
+  const up = store.put(userDir('privacy_user') + 'songs/x.msk', MSK);
+  await q(`insert into shares (id, username, name, url) values ('pv0001', 'privacy_user', '내 곡', $1)`, [up]);
+  await q(`insert into ai_usage (username, day, n) values ('privacy_user', current_date, 3)`);
+  await call(auth, {method:'POST', query:{action:'login'}, body:{username:'privacy_user', password:'wrong_wrong_1'}});
+  const before = (await q(`select (select count(*) from shares where username='privacy_user')::int s, (select count(*) from ai_usage where username='privacy_user')::int a, (select count(*) from login_fails where username='privacy_user')::int f`))[0];
+  const del = await call(auth, {method:'POST', query:{action:'delete'}, tok:tP, body:{password:'pass_word_123'}});
+  const after = (await q(`select (select count(*) from users where username='privacy_user')::int u, (select count(*) from shares where id='pv0001')::int s, (select count(*) from ai_usage where username='privacy_user')::int a, (select count(*) from login_fails where username='privacy_user')::int f`))[0];
+  const fileLeft = store.list(userDir('privacy_user')).length;
+  check('개인정보: 계정 삭제 → 계정·공유 링크·AI 횟수·로그인 실패·파일 모두 0', del.s === 200 && before.s === 1 && before.a === 1 && before.f === 1 && after.u + after.s + after.a + after.f === 0 && fileLeft === 0, `전 ${JSON.stringify(before)} → 후 ${JSON.stringify(after)} · 파일 ${fileLeft}`);
+  // 보관 기간: 오래된 것만 지워지고 최근 것은 남음
+  await q(`insert into errlog (msg, at) values ('old err', now() - interval '91 days'), ('new err', now() - interval '5 days')`);
+  await q(`insert into ai_usage (username, day, n) values ('old_ai', current_date - 91, 1), ('new_ai', current_date - 5, 1)`);
+  await q(`insert into login_fails (username, n, at) values ('old_fail', 1, now() - interval '25 hours'), ('new_fail', 1, now() - interval '2 hours')`);
+  await cleanOld(true);
+  const k = (await q(`select (select array_agg(msg order by msg) from errlog where msg like '% err') e, (select array_agg(username order by username) from ai_usage where username like '%_ai') a, (select array_agg(username order by username) from login_fails where username like '%_fail') f`))[0];
+  check('개인정보: 보관 기간 지난 기록만 자동 삭제 (오류·AI 90일, 로그인 실패 1일)', JSON.stringify(k) === JSON.stringify({e:['new err'], a:['new_ai'], f:['new_fail']}), JSON.stringify(k));
 }
 
 console.log(`\nDB 결과: ${results.filter(Boolean).length}/${results.length} 통과`); process.exit(results.every(Boolean) ? 0 : 1);

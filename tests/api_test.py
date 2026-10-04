@@ -19,15 +19,15 @@ stamp = str(int(time.time()))[-7:]; U1, U2, U3, PW = 'ta' + stamp, 'tb' + stamp,
 toks = {}
 try:
     # 로그인
-    c, j = req('POST', '/auth?action=signup', {'username': U1, 'password': PW}); toks[U1] = j.get('token'); check('회원가입', c == 200 and toks[U1])
-    check('같은 아이디 가입 거절', req('POST', '/auth?action=signup', {'username': U1, 'password': PW})[0] == 409)
+    c, j = req('POST', '/auth?action=signup', {'username': U1, 'password': PW, 'age14': True}); toks[U1] = j.get('token'); check('회원가입', c == 200 and toks[U1])
+    check('같은 아이디 가입 거절', req('POST', '/auth?action=signup', {'username': U1, 'password': PW, 'age14': True})[0] == 409)
     check('짧은 비밀번호 거절', req('POST', '/auth?action=signup', {'username': 'zz' + stamp, 'password': '123'})[0] == 400)
     check('틀린 비밀번호 거절', req('POST', '/auth?action=login', {'username': U1, 'password': 'wrong_wrong'})[0] == 401)
     c, j = req('GET', '/auth?action=me', tok=toks[U1]); check('내 정보 (관리자 아님)', c == 200 and j['username'] == U1 and j['admin'] is False, json.dumps(j, ensure_ascii=False)[:90])
     check('위조 토큰 거절', req('GET', '/auth?action=me', tok=toks[U1][:-1] + ('x' if toks[U1][-1] != 'x' else 'y'))[0] == 401)
     c, j = req('POST', '/auth?action=password', {'old': PW, 'password': 'new_pass_456'}, tok=toks[U1]); check('비밀번호 바꾸기', c == 200); toks[U1] = j.get('token', toks[U1])
-    check('옛 비밀번호 거절 · 새 비밀번호 로그인', req('POST', '/auth?action=login', {'username': U1, 'password': PW})[0] == 401 and req('POST', '/auth?action=login', {'username': U1, 'password': 'new_pass_456'})[0] == 200)
-    for u in (U2, U3): toks[u] = req('POST', '/auth?action=signup', {'username': u, 'password': PW})[1]['token']
+    check('옛 비밀번호 거절 · 새 비밀번호 로그인', req('POST', '/auth?action=login', {'username': U1, 'password': PW, 'age14': True})[0] == 401 and req('POST', '/auth?action=login', {'username': U1, 'password': 'new_pass_456'})[0] == 200)
+    for u in (U2, U3): toks[u] = req('POST', '/auth?action=signup', {'username': u, 'password': PW, 'age14': True})[1]['token']
     # 곡 저장
     check('곡 id가 짧으면 거절 (4~40글자)', req('PUT', '/songs?id=t1&name=test', MSK, tok=toks[U1], raw=True, ctype='application/octet-stream')[0] == 400)
     c, j = req('PUT', '/songs?id=test01&name=test', MSK, tok=toks[U1], raw=True, ctype='application/octet-stream'); check('계정에 곡 올리기', c == 200)
@@ -55,7 +55,7 @@ try:
     hc, hj = req('GET', '/auth?action=health')
     if hc == 200 and isinstance(hj, dict) and hj.get('db'):
         import concurrent.futures as cf
-        lk = [req('POST', '/auth?action=signup', {'username': f'tl{i}{stamp}', 'password': PW})[1]['token'] for i in range(10)]
+        lk = [req('POST', '/auth?action=signup', {'username': f'tl{i}{stamp}', 'password': PW, 'age14': True})[1]['token'] for i in range(10)]
         for i, t in enumerate(lk): toks[f'tl{i}{stamp}'] = t
         with cf.ThreadPoolExecutor(10) as ex: list(ex.map(lambda t: req('POST', f'/community?action=like&id={pid}', tok=t), lk))
         n = req('GET', f'/community?id={pid}')[1]['post']['likes']

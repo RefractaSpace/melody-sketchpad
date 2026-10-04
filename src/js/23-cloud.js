@@ -53,7 +53,9 @@ async function cloudRefresh() {
 $('cloudBtn').onclick = () => { cloudRefresh(); openDlg($('cloudDlg')); };
 async function authGo(action) {
   const username = $('authUser').value.trim().toLowerCase(), password = $('authPass').value;
-  try { const j = await authCall(action, {username, password}); $('authPass').value = ''; setAuth({token:j.token, username:j.username}); status(action === 'signup' ? `${j.username} 계정을 만들었어요.` : `${j.username}(으)로 로그인했어요.`); cloudRefresh(); }
+  // 만 14세 미만은 가입을 받지 않음 (서버도 확인함)
+  if (action === 'signup' && !$('authAge').checked) { $('cloudState').textContent = tMsg('회원가입하려면 만 14세 이상 확인과 개인정보처리방침 동의에 체크해 주세요. 만 14세 미만은 로그인 없이 쓸 수 있어요.'); $('authAge').focus(); return; }
+  try { const j = await authCall(action, action === 'signup' ? {username, password, age14:true} : {username, password}); $('authPass').value = ''; setAuth({token:j.token, username:j.username}); status(action === 'signup' ? `${j.username} 계정을 만들었어요.` : `${j.username}(으)로 로그인했어요.`); cloudRefresh(); }
   catch (e) { $('cloudState').textContent = (action === 'signup' ? '회원가입 실패: ' : '로그인 실패: ') + e.message; }
 }
 $('authLogin').onclick = () => authGo('login'); $('authSignup').onclick = () => authGo('signup');

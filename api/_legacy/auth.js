@@ -31,6 +31,7 @@ export default async function handler(req, res) {
       const t = tries.get(username) || {n:0, at:0}; if (t.n >= 8 && Date.now() - t.at < 10 * 60e3) return res.status(429).json({error:'slow-down', message:'로그인을 너무 많이 틀렸어요. 10분 뒤에 다시 해 주세요'});
       const found = await findUser(username);
       if (action === 'signup') {
+        if (body.age14 !== true) return res.status(400).json({error:'age', message:'만 14세 이상만 가입할 수 있어요 (개인정보처리방침 동의 필요)'});
         if (found) return res.status(409).json({error:'taken', message:'이미 있는 아이디예요'});
         const salt = crypto.randomBytes(16), hash = await scrypt(password, salt);
         await put(userDir(username) + 'account.json', JSON.stringify({u:username, salt:salt.toString('base64'), hash:hash.toString('base64'), created:new Date().toISOString()}), {access:'public', addRandomSuffix:true, contentType:'application/json'});

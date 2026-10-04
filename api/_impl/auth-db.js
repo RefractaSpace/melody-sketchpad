@@ -54,8 +54,10 @@ export default async function handler(req, res) {
       const [f] = await q(`select n, at from login_fails where username = $1`, [username]);
       if (f && f.n >= 8 && Date.now() - new Date(f.at) < 10 * 60e3) return res.status(429).json({error:'slow-down', message:'로그인을 너무 많이 틀렸어요. 10분 뒤에 다시 해 주세요'});
       if (action === 'signup') {
+        // 만 14세 미만은 가입을 받지 않는다 (보호자 동의 절차가 없으므로). 앱 화면만 막으면 우회되니 서버에서도 확인
+        if (body.age14 !== true) return res.status(400).json({error:'age', message:'만 14세 이상만 가입할 수 있어요 (개인정보처리방침 동의 필요)'});
         const salt = crypto.randomBytes(16), hash = await scrypt(password, salt);
-        const ins = await q(`insert into users (username, salt, hash) values ($1, $2, $3) on conflict do nothing returning username`, [username, salt.toString('base64'), hash.toString('base64')]);   // 같은 아이디 동시 가입도 DB 기본 키가 막음
+        const ins = await q(`insert into users (username, salt, hash, agreed) values ($1, $2, $3, now()) on conflict do nothing returning username`, [username, salt.toString('base64'), hash.toString('base64')]);   // 같은 아이디 동시 가입도 DB 기본 키가 막음
         if (!ins.length) return res.status(409).json({error:'taken', message:'이미 있는 아이디예요'});
         return res.status(200).json({token:makeToken(username), username});
       }
@@ -79,10 +81,13 @@ export default async function handler(req, res) {
     if (action === 'delete') {
       if (!(await verify(body.password, rec))) return res.status(401).json({error:'wrong', message:'비밀번호가 틀렸어요'});
       const posts = await q(`select blob_url from posts where author = $1`, [u]);
+      const shares = await q(`select url from shares where username = $1`, [u]), msgs = await q(`select song_url from messages where username = $1 and song_url is not null`, [u]);
+      await q(`delete from shares where username = $1`, [u]);   // 공유 링크는 on delete set null 이라 직접 지움
+      await q(`delete from ai_usage where username = $1`, [u]); await q(`delete from login_fails where username = $1`, [u]);   // 계정과 묶이지 않은 기록
       await q(`delete from users where username = $1`, [u]);   // 글·좋아요·댓글·신고는 DB가 함께 지움 (on delete cascade)
       const files = await listFiles(userDir(u));
-      await delFiles([...files.map(f => f.url), ...posts.map(p => p.blob_url)]);
-      return res.status(200).json({ok:true, deleted:files.length, posts:posts.length});
+      await delFiles([...new Set([...files.map(f => f.url), ...posts.map(p => p.blob_url), ...shares.map(s => s.url), ...msgs.map(m => m.song_url)])]);
+      return res.status(200).json({ok:true, deleted:files.length, posts:posts.length, shares:shares.length});
     }
     return res.status(400).json({error:'action'});
   } catch (e) { return res.status(500).json({error:'server', message:String(e.message || e).slice(0, 200)}); }

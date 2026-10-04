@@ -108,9 +108,22 @@ const SCHEMA = [
      username text primary key references users(username) on delete cascade,
      channel text, at timestamptz not null default now())`,
 ];
-export function ensureDB() { return ready || (ready = setup().catch(e => { ready = null; throw e; })); }
+// 개인정보처리방침에 적은 보관 기간대로 오래된 기록을 지운다 (서버 하나당 6시간에 한 번)
+let lastClean = 0;
+export async function cleanOld(force) {
+  if (!force && Date.now() - lastClean < 6 * 3600e3) return; lastClean = Date.now();
+  await q(`delete from errlog where at < now() - interval '90 days'`);
+  await q(`delete from ai_usage where day < current_date - 90`);
+  await q(`delete from login_fails where at < now() - interval '1 day'`);
+  await q(`delete from presence where at < now() - interval '1 day'`);
+}
+export async function ensureDB() {
+  await (ready || (ready = setup().catch(e => { ready = null; throw e; })));
+  try { await cleanOld(); } catch (e) {}   // 지우기가 실패해도 요청은 계속
+}
 async function setup() {
   for (const s of SCHEMA) await q(s);
+  await q(`alter table users add column if not exists agreed timestamptz`);   // 가입 때 만 14세 이상·처리방침 동의를 확인한 시각
   if ((await q(`select 1 from meta where k = 'migrated'`)).length) return;
   const n = await migrateFromBlob();
   await q(`insert into meta (k, v) values ('migrated', $1) on conflict (k) do nothing`, [JSON.stringify({at:new Date().toISOString(), ...n})]);
