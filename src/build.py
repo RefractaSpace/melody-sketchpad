@@ -48,3 +48,8 @@ if '--min' in sys.argv:
         if not shutil.which(tool): print(f'{tool}가 없어서 압축은 건너뛰었어요'); continue
         f = os.path.join(app_out, 'app.js' if tool == 'terser' else 'style.css')
         subprocess.run([tool, f] + args + [f], check=True); print(f'압축했어요: {os.path.basename(f)} ({os.path.getsize(f)/1024:.0f} KB)')
+
+# 서비스 워커: 앱 파일 내용으로 버전을 정해 넣는다 (앱이 바뀌면 sw.js도 바뀌어서 브라우저가 새로 설치) — 압축 뒤에 해야 함
+import hashlib as _h
+_v = _h.sha256(b''.join(open(os.path.join(app_out, f), 'rb').read() for f in ('index.html', 'app.js', 'style.css'))).hexdigest()[:12]
+write('sw.js', read('sw.js').replace('__VERSION__', _v))

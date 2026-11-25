@@ -120,7 +120,7 @@ html[lang="ko"] [data-lang="ko"],html[lang="en"] [data-lang="en"]{display:block}
 </table></div>
 <p>전송 시점과 방법: 해당 기능을 쓸 때 암호화된 인터넷 연결(HTTPS)로 전송합니다. 국외 이전을 원하지 않으면 로그인하지 않고 쓰거나(곡은 내 기기에만 저장), AI 창에서 Claude 엔진을 쓰지 않으면 됩니다. 이 경우 서버 저장·공유·커뮤니티·채팅·Claude AI를 쓸 수 없습니다.</p>
 <h3>외부에서 받아 오는 파일</h3>
-<p>피아노 소리·글꼴(jsDelivr), 음악 AI 모델(Google Cloud Storage), MP3 변환 프로그램(Cloudflare cdnjs)은 처음 쓸 때 그 회사의 서버에서 받아 옵니다. 이때 이용자 정보는 보내지 않지만, 파일을 받는 과정에서 그 회사는 IP 주소를 알 수 있습니다. <b>음악 AI(Magenta)는 내 기기의 브라우저 안에서 돌아가</b> 곡을 밖으로 보내지 않습니다.</p>
+<p>피아노 소리·글꼴(jsDelivr), 앱 글꼴(Google Fonts), 음악 AI 모델(Google Cloud Storage), MP3 변환 프로그램(Cloudflare cdnjs)은 처음 쓸 때 그 회사의 서버에서 받아 옵니다. 이때 이용자 정보는 보내지 않지만, 파일을 받는 과정에서 그 회사는 IP 주소를 알 수 있습니다. <b>음악 AI(Magenta)는 내 기기의 브라우저 안에서 돌아가</b> 곡을 밖으로 보내지 않습니다.</p>
 
 <h2>6. 만 14세 미만</h2>
 <p>만 14세 미만은 회원가입을 받지 않습니다. 가입할 때 만 14세 이상인지 확인하며, 만 14세 미만이 가입한 사실을 알게 되면 그 계정과 정보를 지체 없이 지웁니다. 로그인 없이 쓰는 기능은 서버에 개인정보를 저장하지 않으므로 누구나 쓸 수 있습니다.</p>
@@ -133,7 +133,7 @@ html[lang="ko"] [data-lang="ko"],html[lang="en"] [data-lang="en"]{display:block}
 </ul>
 
 <h2>8. 쿠키와 브라우저 저장소</h2>
-<p>쿠키를 쓰지 않습니다. 대신 브라우저 저장소(localStorage, IndexedDB)에 곡, 설정, 로그인 정보(30일 동안 유지되는 서명된 토큰), 하루 한 번 방문을 셌는지 표시를 저장합니다. 브라우저 설정에서 사이트 데이터를 지우면 모두 사라집니다.</p>
+<p>쿠키를 쓰지 않습니다. 대신 브라우저 저장소(localStorage, IndexedDB, Cache Storage)에 곡, 설정, 로그인 정보(30일 동안 유지되는 서명된 토큰), 하루 한 번 방문을 셌는지 표시를 저장합니다. 인터넷 없이도 앱이 열리도록 앱 파일과 한 번 쓴 악기 소리·글꼴·음악 AI 모델은 브라우저 캐시 저장소(Cache Storage)에 사본을 둡니다. 이 사본에는 개인정보가 들어가지 않습니다. 브라우저 설정에서 사이트 데이터를 지우면 모두 사라집니다.</p>
 
 <h2>9. 안전하게 지키는 방법</h2>
 <ul>
@@ -235,7 +235,7 @@ html[lang="ko"] [data-lang="ko"],html[lang="en"] [data-lang="en"]{display:block}
 </table></div>
 <p>When and how: when you use the feature, over an encrypted (HTTPS) connection. To avoid international transfers, use the app without signing in (songs stay on your device) and don't use the Claude engine. You won't be able to use server saving, sharing, community, chat or Claude AI in that case.</p>
 <h3>Files loaded from other servers</h3>
-<p>Piano samples and fonts (jsDelivr), music AI models (Google Cloud Storage) and an MP3 encoder (Cloudflare cdnjs) are downloaded from those providers the first time you use them. We send them no user data, but they can see your IP address while serving the file. <b>The music AI (Magenta) runs inside your browser</b> and doesn't send your songs anywhere.</p>
+<p>Piano samples and fonts (jsDelivr), app fonts (Google Fonts), music AI models (Google Cloud Storage) and an MP3 encoder (Cloudflare cdnjs) are downloaded from those providers the first time you use them. We send them no user data, but they can see your IP address while serving the file. <b>The music AI (Magenta) runs inside your browser</b> and doesn't send your songs anywhere.</p>
 
 <h2>6. Children under 14</h2>
 <p>We don't accept accounts from children under 14. We ask you to confirm your age when you sign up, and if we learn that a child under 14 has an account, we delete it and its data without delay. Features that work without an account don't store personal data on our server and are open to everyone.</p>
@@ -248,7 +248,7 @@ html[lang="ko"] [data-lang="ko"],html[lang="en"] [data-lang="en"]{display:block}
 </ul>
 
 <h2>8. Cookies and browser storage</h2>
-<p>We don't use cookies. We use browser storage (localStorage, IndexedDB) for your songs, settings, sign-in data (a signed token valid for 30 days) and a marker that today's visit was counted. Clearing site data in your browser removes all of it.</p>
+<p>We don't use cookies. We use browser storage (localStorage, IndexedDB, Cache Storage) for your songs, settings, sign-in data (a signed token valid for 30 days) and a marker that today's visit was counted. So the app opens without internet, copies of the app files and of instrument sounds, fonts and music AI models you've used are kept in the browser's Cache Storage. These copies contain no personal data. Clearing site data in your browser removes all of it.</p>
 
 <h2>9. Security</h2>
 <ul>
