@@ -24,6 +24,21 @@
       "source": "/composer",
       "destination": "/app/?app=composer",
       "permanent": false
+    },
+    {
+      "source": "/download",
+      "destination": "/#download",
+      "permanent": false
+    },
+    {
+      "source": "/download/",
+      "destination": "/#download",
+      "permanent": false
+    },
+    {
+      "source": "/download/index.html",
+      "destination": "/#download",
+      "permanent": false
     }
   ],
   "rewrites": [
