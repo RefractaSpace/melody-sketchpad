@@ -466,23 +466,6 @@ document.querySelectorAll('.rise, .pl, .gen').forEach(el => REDUCE ? el.classLis
 })();
 </script>
 
-<script>
-/* 예전 버전 — 최근 3개를 보여준다 (가장 새 것은 위 단추, 나머지 2개를 목록에) */
-(async () => {
-  const box = document.getElementById('older'), ul = document.getElementById('olderList');
-  if (!box) return;
-  try {
-    const r = await fetch('/api/release?list=1&keep=3');
-    const { releases } = await r.json();
-    if (!releases || releases.length < 2) return;
-    const t = k => (window.I18N && window.I18N[document.documentElement.lang] || {})[k] || k;
-    ul.innerHTML = releases.slice(1).map(v => {
-      const f = v.win || v.zip; if (!f) return '';
-      return `<li><a href="${f.url}">${v.tag}</a><span>${f.mb} MB · ${String(v.at).slice(0, 10)}</span></li>`;
-    }).join('');
-    if (ul.children.length) box.hidden = false;
-  } catch (e) {}
-})();
-</script>
+
 </body>
 </html>

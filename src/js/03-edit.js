@@ -31,7 +31,7 @@ rc.addEventListener('pointerdown', e => {
   if (e.button === 2) return;
   ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY}); try { rc.setPointerCapture(e.pointerId); } catch (_) {}
   if (ptrs.size >= 2 || tool === 'hand') {
-    if (drag) { const s = undoStack.pop(); if (s) { S = normalize(JSON.parse(s)); sel.clear(); } drag = null; drawRoll(); }
+    if (drag) { const s = cancelUndo(); if (s) { S = normalize(JSON.parse(s)); sel.clear(); } drag = null; drawRoll(); }
     startPan(); if (tool === 'hand') rc.style.cursor = 'grabbing'; return;
   }
   const q = pos(e); if (q.p < LOW || q.p > HIGH) return; e.preventDefault();
@@ -81,7 +81,7 @@ function upPtr(e) {
   if (pan) { if (ptrs.size === 0) { pan = null; if (tool === 'hand') rc.style.cursor = 'grab'; } return; }
   if (!drag) return;
   if (drag.mode === 'band') { drag = null; selChanged(); return; }
-  if (drag.mode === 'moveSel') { if (!drag.moved) undoStack.pop(); drag = null; save(); drawRoll(); drawLanes(); return; }
+  if (drag.mode === 'moveSel') { if (!drag.moved) cancelUndo(); drag = null; save(); drawRoll(); drawLanes(); return; }
   if (drag.mode === 'move' && !drag.moved) { sel.delete(curNotes()[drag.i]); curNotes().splice(drag.i, 1); }
   drag = null; save(); selChanged();
 }
@@ -135,7 +135,7 @@ lc.addEventListener('pointerup', () => { if (!autoDrag) return; autoDrag = null;
 function autoDelete(e) { if (laneMode === 'vel' || laneMode === 'bend') return; e.preventDefault(); const pts = autoPts(false); if (!pts) return; const i = autoNear(pts, laneHit(e)); if (i < 0) return; pushUndo(); pts.splice(i, 1); autoClean(); save(); drawLanes(); }
 lc.addEventListener('dblclick', autoDelete); lc.addEventListener('contextmenu', autoDelete);
 $('laneMode').onchange = () => { laneMode = $('laneMode').value; drawLanes(); announce('아래 줄: ' + $('laneMode').selectedOptions[0].textContent); };
-lc.addEventListener('pointerdown', e => { const q = laneHit(e); if (q.y < CHORD_H) return; pushUndo(); try { lc.setPointerCapture(e.pointerId); } catch (_) {} velDrag = true; if (!velAt(q.x, q.y)) undoStack.pop(); drawLanes(); drawRoll(); });
+lc.addEventListener('pointerdown', e => { const q = laneHit(e); if (q.y < CHORD_H) return; pushUndo(); try { lc.setPointerCapture(e.pointerId); } catch (_) {} velDrag = true; if (!velAt(q.x, q.y)) cancelUndo(); drawLanes(); drawRoll(); });
 lc.addEventListener('pointermove', e => { if (!velDrag) return; const q = laneHit(e); velAt(q.x, q.y); drawLanes(); drawRoll(); });
 lc.addEventListener('pointerup', () => { if (velDrag) { velDrag = false; save(); drawRack(); announce('세기를 바꿨어요.'); } });
 lc.addEventListener('pointercancel', () => { velDrag = false; });

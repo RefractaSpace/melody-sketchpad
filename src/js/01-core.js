@@ -191,7 +191,7 @@ function loadSong() {
   try { const d = songFromStore(lsGet(PK(lib.current))); if (d) return d; } catch (e) {}
   return normalize(blank());   // 비상 경로도 늘 정리된 곡으로
 }
-let S = loadSong(), undoStack = [], saveT = 0;
+let S = loadSong(), undoStack = [], redoStack = [], redoKeep = null, saveT = 0;
 function save() {
   clearTimeout(saveT);
   saveT = setTimeout(() => {
@@ -200,7 +200,11 @@ function save() {
     lib.list[lib.current].updated = Date.now(); saveLib();
   }, 200);
 }
-function pushUndo() { undoStack.push(JSON.stringify(S)); if (undoStack.length > 60) undoStack.shift(); }
+// 되돌리기·다시하기 — 새로 편집하면 다시하기 기록은 비운다 (갈래가 바뀌었으니까).
+// 다만 눌렀는데 아무것도 안 바뀐 클릭은 cancelUndo()로 취소하는데, 그때 다시하기 기록도 되살린다
+function pushUndo() { undoStack.push(JSON.stringify(S)); if (undoStack.length > 60) undoStack.shift(); redoKeep = redoStack; redoStack = []; undoBtns(); }
+function cancelUndo() { const s = undoStack.pop(); if (redoKeep) { redoStack = redoKeep; redoKeep = null; } undoBtns(); return s; }
+function undoBtns() { for (const [id, st] of [['undo', undoStack], ['redo', redoStack]]) { const b = document.getElementById(id); if (b) { b.setAttribute('aria-disabled', st.length ? 'false' : 'true'); b.classList.toggle('off', !st.length); } } }
 
 // ---- 편집 상태 (여러 모듈이 함께 씀) ----
 let sel = new Set(), clip = null, drag = null, lastVel = 0.8, lastDrumVel = 1;

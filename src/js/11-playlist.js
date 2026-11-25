@@ -87,7 +87,7 @@ plc.addEventListener('pointerdown', e => {
   plDrag = {cl, off:q.bar - cl.bar, moved:false, created, x0:e.clientX, y0:e.clientY, edge, bar0:cl.bar, len0:clipLen(cl), off0:cl.off || 0};
   try { plc.setPointerCapture(e.pointerId); } catch (_) {}
   clearTimeout(plPress);
-  if (!created && e.pointerType !== 'mouse') plPress = setTimeout(() => { if (plDrag && !plDrag.moved) { undoStack.pop(); const c = plDrag.cl; plDrag = null; removeClip(c); } }, 550);
+  if (!created && e.pointerType !== 'mouse') plPress = setTimeout(() => { if (plDrag && !plDrag.moved) { cancelUndo(); const c = plDrag.cl; plDrag = null; removeClip(c); } }, 550);
   drawPlaylist();
 });
 plc.addEventListener('pointermove', e => {
@@ -105,7 +105,7 @@ plc.addEventListener('pointermove', e => {
 plc.addEventListener('mousemove', e => { if (plDrag) return; const q = plPos(e), cl = clipAt(q.bar, q.t); plc.style.cursor = cl && plEdge(cl, q.x) ? 'ew-resize' : cl ? 'grab' : 'crosshair'; });
 function plUp() {
   clearTimeout(plPress); if (!plDrag) return; const d = plDrag; plDrag = null;
-  if (!d.created && !d.moved) { undoStack.pop(); const i = S.patterns.findIndex(p => p.id === d.cl.pat); if (i !== S.pat) selectPattern(i); }
+  if (!d.created && !d.moved) { cancelUndo(); const i = S.patterns.findIndex(p => p.id === d.cl.pat); if (i !== S.pat) selectPattern(i); }
   else { save(); if (d.created) announce(`${patById(d.cl.pat).name}을 ${d.cl.bar + 1}마디 트랙 ${d.cl.t + 1}에 놓았어요.`); else if (d.edge) announce(`${patById(d.cl.pat).name} 조각: ${d.cl.bar + 1}마디부터 ${clipLen(d.cl)}마디`); }
   drawPlaylist();
 }

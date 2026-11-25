@@ -62,10 +62,15 @@ barsSel.onchange = () => {
   for (const cl of S.playlist.clips) if (cl.pat === P.id) cl.bar = Math.min(cl.bar, MAX_BARS - nb);
   startTick = Math.min(startTick, (nb - 1) * BAR_T); save(); refreshAll();
 };
-$('undo').onclick = () => {
-  const s = undoStack.pop(); if (!s) return;
-  S = normalize(JSON.parse(s)); sel.clear(); save(); refreshAll(); if (E) applyMix(E, S.mix);
-};
+// 되돌리기 ↔ 다시하기: 지금 상태를 반대쪽 기록으로 옮기고, 꺼낸 상태로 바꾼다
+function histStep(from, to) {
+  const s = from.pop(); if (!s) return false;
+  to.push(JSON.stringify(S)); if (to.length > 60) to.shift(); redoKeep = null;
+  S = normalize(JSON.parse(s)); sel.clear(); save(); refreshAll(); if (E) applyMix(E, S.mix); undoBtns(); return true;
+}
+$('undo').onclick = () => histStep(undoStack, redoStack);
+$('redo').onclick = () => histStep(redoStack, undoStack);
+undoBtns();
 
 // ---- 패턴 ----
 function selectPattern(i) {
@@ -113,6 +118,7 @@ document.addEventListener('keydown', e => {
   else if (!mod && (k === 'l' || k === 'L')) setPlayMode(S.playMode === 'pat' ? 'song' : 'pat');
   else if (!mod && (k === 'r' || k === 'R')) setRec(!recOn);
   else if (!mod && (k === 'q' || k === 'Q')) quantizeNotes();
+  else if (mod && (k.toLowerCase() === 'y' || (k.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); $('redo').click(); }
   else if (mod && k.toLowerCase() === 'z') { e.preventDefault(); $('undo').click(); }
   else if (!inRoll) return;
   else if (mod && k.toLowerCase() === 'a') { e.preventDefault(); setTool('select'); sel = new Set(curNotes()); selChanged(); }

@@ -640,9 +640,8 @@ async def main():
             _h = _html
         except Exception as _e:
             _exe, _h = -1, ''
-        check('소개 페이지: Windows 내려받기와 예전 버전 자리가 있음',
-              _exe >= 1 and 'olderList' in _h and '/api/release?list=1' in _h,
-              f"exe 링크 {_exe}개 · 예전버전 {'olderList' in _h}")
+        check('소개 페이지: Windows 내려받기는 막혀 있음 (설치 파일 링크 0 · 새 버전 준비 중 표시 · 예전 버전 목록 없음)',
+              _exe == 0 and 'dlSoon' in _h and 'olderList' not in _h, f'exe 링크 {_exe}개')
 
         # 소개 페이지: 로그인 단추와 대화 상자가 있는지
         try:
@@ -881,6 +880,24 @@ async def main():
           LANG = keep; out.n = song.channels.length; return out; })()""")
         check('악보 글 왕복: 모든 악기·드럼이 한국어/영어로 쓰고 읽어도 그대로 · 영어 글에 한글 없음',
               all(rt[k] == 'ok' for k in ('ko>ko', 'en>en', 'en>ko', 'enKo')), json.dumps(rt, ensure_ascii=False))
+
+        # 다시하기 — 실제 마우스로 음 3개를 찍고 키보드로 되돌리기·다시하기
+        await J("(()=>{pushUndo(); curPat().notes[curCh().id]=[]; save(); drawRoll(); setTool('draw');})()")
+        n0 = await J("curNotes().length")
+        for k in range(3): await roll_click(k * 96, 64 + k * 2)
+        n3 = await J("curNotes().length")
+        await pg.keyboard.press('Control+z'); await pg.keyboard.press('Control+z'); u2 = await J("curNotes().length")
+        await pg.keyboard.press('Control+y'); r1 = await J("curNotes().length")
+        await pg.keyboard.press('Control+Shift+z'); r2 = await J("curNotes().length")
+        redoOff = await J("$('redo').getAttribute('aria-disabled')")
+        await pg.keyboard.press('Control+z'); await pg.keyboard.press('Control+z')
+        # 아무것도 안 바뀌는 동작(빈 곳 선택 클릭 등)은 다시하기 기록을 지우지 않아야 함
+        await J("(()=>{pushUndo(); cancelUndo();})()"); keep = await J("redoStack.length")
+        # 새로 편집하면 다시하기 기록은 비워짐
+        await roll_click(5 * 96, 70); after = await J("[redoStack.length, curNotes().length, $('redo').getAttribute('aria-disabled')]")
+        check('다시하기: 음 3개 → 되돌리기 2번 → Ctrl+Y·Ctrl+Shift+Z로 다시 · 빈 클릭은 기록 유지 · 새 편집하면 다시하기 비움',
+              n0 == 0 and n3 == 3 and u2 == 1 and r1 == 2 and r2 == 3 and redoOff == 'true' and keep == 2 and after == [0, 2, 'true'],
+              f'0→{n3}, 되돌림 {u2}, 다시 {r1}→{r2}, 끝 표시 {redoOff}, 빈 클릭 뒤 기록 {keep}, 새 편집 뒤 {after}')
 
         # 6: 악기 145개 · 라이선스 표기
         big = await J("""(async()=>{const idx=await smpIndex(); const r={n:Object.keys(idx).length};

@@ -314,7 +314,7 @@ $('fileIn').onchange = async () => {
 function openProject(id) {
   clearTimeout(saveT); if (playing) stop();
   lib.current = id; saveLib(); let d = null; try { d = songFromStore(lsGet(PK(id))); } catch (e) {}
-  S = d || blank(); undoStack = []; sel.clear(); $('selBar').hidden = true; startTick = 0; songStart = 0;
+  S = d || blank(); undoStack = []; redoStack = []; redoKeep = null; undoBtns(); sel.clear(); $('selBar').hidden = true; startTick = 0; songStart = 0;
   refreshAll(); if (E) applyMix(E, S.mix); $('projName').value = lib.list[id].name; updatePos(0);
 }
 function newProject(copy) {
