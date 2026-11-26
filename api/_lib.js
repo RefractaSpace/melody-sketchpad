@@ -1,11 +1,25 @@
 // 서버 공통: CORS · 로그인 토큰 · 곡 폴더 찾기  (파일 이름이 _로 시작하면 Vercel이 주소로 만들지 않아요)
 import crypto from 'node:crypto';
 
+// 서버를 부를 수 있는 곳: 우리 사이트 · 이 프로젝트의 미리보기 주소 · 내 컴퓨터(개발) · Windows 앱(file:// → 'null')
+// 그 밖의 사이트에서 온 요청은 결과를 못 읽고, 쓰기(POST·PUT·DELETE)는 아예 거절한다.
+const ORIGINS = [/^https:\/\/melody-sketchpad\.vercel\.app$/, /^https:\/\/melody-sketchpad-[a-z0-9-]+\.vercel\.app$/,
+  /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, /^null$/];
+export const originOk = o => !o || ORIGINS.some(r => r.test(o)) || String(process.env.ALLOWED_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean).includes(o);
 export function cors(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');   // .exe 앱(file://)에서도 부를 수 있게
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'x-msk-key,content-type,authorization');
-  if (req.method === 'OPTIONS') { res.status(204).end(); return true; }
+  const origin = String((req.headers || {}).origin || '');
+  res.setHeader('Vary', 'Origin');
+  if (!originOk(origin)) {
+    // 다른 사이트: 미리 묻기(OPTIONS)와 쓰기는 거절, 읽기는 답은 하되 브라우저가 그 사이트에 못 보여 줌 (허락 머리말 없음)
+    if (req.method !== 'GET' && req.method !== 'HEAD') { res.statusCode = 403; res.setHeader('content-type', 'application/json; charset=utf-8'); res.end('{"error":"origin","message":"허용되지 않은 사이트예요"}'); return true; }
+    return false;
+  }
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'x-msk-key,content-type,authorization');
+  }
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return true; }
   return false;
 }
 // 관리자 아이디 — 신고된 글 보기, 글·댓글 숨기기/보이기, 목록 다시 만들기

@@ -514,6 +514,32 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
   check('개인정보: 횟수 기록은 하루 지나면 자동 삭제', left === 0, `남은 줄 ${left}`);
 }
 
+// ── 다른 사이트에서 서버 부르기 (CORS) ─────────────────────────────
+{
+  const viaOrigin = (h, origin, method = 'POST', query = {}, body = {}) => new Promise(resolve => {
+    const hd = {}; const res = {c:200, setHeader(k, v) { hd[k.toLowerCase()] = v; }, status(c) { this.c = c; return this; },
+      set statusCode(c) { this.c = c; }, get statusCode() { return this.c; }, json(o) { resolve({s:this.c, h:hd, j:o}); }, send(b) { resolve({s:this.c, h:hd}); },
+      end(b) { resolve({s:this.c, h:hd, j:b}); }};
+    h({method, query, headers:{origin, 'x-real-ip':'10.9.9.' + (++ipSeq & 255)}, body}, res).catch(e => resolve({s:599, j:String(e)}));
+  });
+  const before = (await globalThis.__MSK_PG.query(`select count(*)::int n from users`)).rows[0].n;
+  let x = await viaOrigin(auth, 'https://evil.example', 'POST', {action:'signup'}, {username:'evilsite1', password:'pass_word_123', age14:true});
+  const after = (await globalThis.__MSK_PG.query(`select count(*)::int n from users`)).rows[0].n;
+  check('🛡 다른 사이트에서 가입 요청 → 403 · 계정 안 생김', x.s === 403 && after === before, `${x.s} · ${before}→${after}`);
+  x = await viaOrigin(auth, 'https://evil.example', 'OPTIONS');
+  check('🛡 다른 사이트의 미리 묻기(OPTIONS) → 거절 · 허락 머리말 없음', x.s === 403 && !x.h['access-control-allow-origin'], `${x.s} ${x.h['access-control-allow-origin'] || '-'}`);
+  x = await viaOrigin(pay, 'https://evil.example', 'GET', {action:'plans'});
+  check('🛡 다른 사이트의 읽기 → 답은 하지만 허락 머리말 없음 (브라우저가 못 읽음)', x.s === 200 && !x.h['access-control-allow-origin'], `${x.s} ${x.h['access-control-allow-origin'] || '-'}`);
+  x = await viaOrigin(pay, 'https://melody-sketchpad.evil.app', 'GET', {action:'plans'});
+  const y = await viaOrigin(pay, 'https://melody-sketchpad.vercel.app.evil.com', 'GET', {action:'plans'});
+  check('🛡 비슷하게 지은 주소도 허락 안 함', !x.h['access-control-allow-origin'] && !y.h['access-control-allow-origin']);
+  const okList = [];
+  for (const o of ['https://melody-sketchpad.vercel.app', 'https://melody-sketchpad-git-main-refracta.vercel.app', 'http://localhost:3000', 'null'])
+    okList.push((await viaOrigin(pay, o, 'GET', {action:'plans'})).h['access-control-allow-origin'] === o);
+  x = await viaOrigin(auth, 'null', 'POST', {action:'signup'}, {username:'exeuser1', password:'pass_word_123', age14:true});
+  check('우리 사이트 · 미리보기 · 내 컴퓨터 · Windows 앱(null)은 허락 · 앱에서 가입 됨', okList.every(Boolean) && x.s === 200, `${okList} ${x.s}`);
+}
+
 // ── 개인정보: 만 14세 확인 · 계정 삭제 때 남는 것 없음 · 보관 기간 지난 기록 자동 삭제 ──
 {
   const { q, cleanOld } = await import('../api/_db.js');
