@@ -6,7 +6,7 @@
 //   POST /api/auth?action=delete  {password} + 토큰 → 계정과 곡 모두 삭제
 import { put, list, del } from '@vercel/blob';
 import crypto from 'node:crypto';
-import { cors, makeToken, readToken, userDir, readJson, isAdmin } from '../_lib.js';
+import { cors, makeToken, readToken, userDir, readJson, isAdmin, adminSignupBlocked } from '../_lib.js';
 
 const scrypt = (pw, salt) => new Promise((ok, bad) => crypto.scrypt(pw, salt, 64, {N:16384, r:8, p:1}, (e, k) => e ? bad(e) : ok(k)));
 const tries = new Map();   // 틀린 로그인 횟수 (서버 한 대 안에서만 — 간단한 방어)
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
       const found = await findUser(username);
       if (action === 'signup') {
         if (body.age14 !== true) return res.status(400).json({error:'age', message:'만 14세 이상만 가입할 수 있어요 (개인정보처리방침 동의 필요)'});
-        if (found) return res.status(409).json({error:'taken', message:'이미 있는 아이디예요'});
+        if (found || adminSignupBlocked(username, body)) return res.status(409).json({error:'taken', message:'이미 있는 아이디예요'});
         const salt = crypto.randomBytes(16), hash = await scrypt(password, salt);
         await put(userDir(username) + 'account.json', JSON.stringify({u:username, salt:salt.toString('base64'), hash:hash.toString('base64'), created:new Date().toISOString()}), {access:'public', addRandomSuffix:true, contentType:'application/json'});
         return res.status(200).json({token:makeToken(username), username});

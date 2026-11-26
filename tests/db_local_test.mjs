@@ -44,7 +44,12 @@ r = await call(comm, {query:{id:'aaaaaaaaaaaa'}});
 check('옮긴 글: 좋아요·댓글·태그 유지', r.s === 200 && r.j.post.likes === 1 && r.j.post.comments.length === 1 && r.j.post.tags[0] === '옛날', `좋아요 ${r.j.post && r.j.post.likes}, 댓글 ${r.j.post && r.j.post.comments.length}`);
 check('다시 옮겨도 중복 없음', Object.values(await migrateFromBlob()).every(v => v === 0));
 
-const tA = await signup('usera'), tAdmin = await signup('refracta');
+process.env.ADMIN_SIGNUP_KEY = 'test-admin-signup-key-0123456789';
+let rAdm = await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'refracta', password:'pass_word_123', age14:true}});
+const rAdm2 = await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'refracta', password:'pass_word_123', age14:true, adminKey:'test-admin-signup-key-012345678X'}});
+check('🛡 관리자 아이디(refracta)는 키 없이·틀린 키로 가입 불가 (409)', rAdm.s === 409 && rAdm2.s === 409, `${rAdm.s} ${rAdm2.s}`);
+const tA = await signup('usera');
+const tAdmin = (await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'refracta', password:'pass_word_123', age14:true, adminKey:process.env.ADMIN_SIGNUP_KEY}})).j.token;
 check('회원가입', tA && tAdmin);
 check('같은 아이디 거절', (await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'usera', password:'pass_word_123', age14:true}})).s === 409);
 const race = await Promise.all(Array.from({length:6}, () => call(auth, {method:'POST', query:{action:'signup'}, body:{username:'sameid', password:'pass_word_123', age14:true}})));
@@ -129,59 +134,82 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
 }
 
 
-// ── 6: 결제 (공격 시도가 막히는지 중심으로) ─────────────────────
+// ── 6: 결제 — 계좌이체 (공격 시도가 막히는지 중심으로) ───────────────────
 {
   const tC = await signup('buyer');
   let r = await call(pay, {query:{action:'plans'}});
-  check('결제: 가격표는 로그인 없이도 보임', r.s === 200 && r.j.plans.length === 3 && r.j.plans.find(p => p.tier === 'max').amount === 119000, JSON.stringify(r.j.plans.map(p => p.tier + ':' + p.amount)));
+  check('결제: 가격표는 로그인 없이도 보임 · 방식은 계좌이체', r.s === 200 && r.j.plans.length === 3 && r.j.plans.find(p => p.tier === 'max').amount === 119000 && r.j.provider === 'bank',
+        JSON.stringify(r.j.plans.map(p => p.tier + ':' + p.amount)) + ' ' + r.j.provider);
 
   r = await call(pay, {method:'POST', query:{action:'start'}, body:{tier:'pro'}});
   check('결제: 로그인 없이 주문 → 거절 (401)', r.s === 401, String(r.s));
+
+  // 판매를 열기 전 (지금 실제 서버 상태)
+  r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}});
+  check('🛡 판매 전에는 주문 자체를 안 받음 (503)', r.s === 503 && r.j.error === 'not-open', String(r.s));
+  process.env.SALES_OPEN = '1';
+  r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}});
+  check('🛡 판매를 열어도 계좌 정보가 없으면 주문 안 받음', r.s === 503, String(r.s));
+  process.env.BANK_ACCOUNT = '테스트은행 000-000 예금주';
 
   r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'ultra'}});
   check('결제: 없는 등급 주문 → 거절 (400)', r.s === 400, String(r.s));
 
   r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}});
-  const ord = r.j.orderId;
-  check('결제: 주문 만들기 (Pro ₩89,000)', r.s === 200 && !!ord && r.j.amount === 89000, JSON.stringify({id:!!ord, amount:r.j.amount}));
+  const ord = r.j.orderId, code = r.j.code;
+  check('결제: 주문 → 금액·입금 코드·계좌 안내', r.s === 200 && !!ord && r.j.amount === 89000 && /^MS[A-Z2-9]{4}$/.test(code) && r.j.bank.includes('테스트은행'),
+        JSON.stringify({amount:r.j.amount, code, bank:!!r.j.bank}));
 
-  // 공격 1: 결제 안 하고 완료라고 우기기
-  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ord, provider_id:'아무거나'}});
-  const afterFake = (await call(lic, {tok:tC})).j.tier;
-  check('🛡 결제 안 하고 완료 주장 → 거절 (402) · 등급 그대로', r.s === 402 && afterFake === 'se', `${r.s} · 등급 ${afterFake}`);
+  // 공격 1: 예전 가짜 결제 방식으로 완료라고 우기기
+  for (const pid of ['ok_89000', '아무거나', code]) {
+    r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ord, provider_id:pid}});
+    if (r.s !== 403) break;
+  }
+  let tierNow = (await call(lic, {tok:tC})).j.tier;
+  check('🛡 스스로 "결제 완료" 주장 (ok_89000 · 입금 코드 등) → 모두 거절 · 등급 그대로', r.s === 403 && r.j.error === 'manual' && tierNow === 'se', `${r.s} · 등급 ${tierNow}`);
 
-  // 공격 2: 적은 금액만 내고 비싼 등급 받기
-  const ord2 = (await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}})).j.orderId;
-  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ord2, provider_id:'ok_100'}});
-  const afterCheap = (await call(lic, {tok:tC})).j.tier;
-  check('🛡 100원만 내고 Pro 받기 → 거절 (금액 확인) · 등급 그대로', r.s === 402 && r.j.reason === 'amount' && afterCheap === 'se', `${r.s} ${r.j.reason} · 등급 ${afterCheap}`);
+  // 공격 2: 관리자 아닌 사람이 입금 확인 누르기 (자기 주문)
+  r = await call(pay, {method:'POST', query:{action:'confirm'}, tok:tC, body:{orderId:ord}});
+  tierNow = (await call(lic, {tok:tC})).j.tier;
+  check('🛡 관리자 아닌 사람이 입금 확인 → 거절 (403) · 등급 그대로', r.s === 403 && tierNow === 'se', `${r.s} · 등급 ${tierNow}`);
+  r = await call(pay, {query:{action:'pending'}, tok:tC});
+  check('🛡 관리자 아닌 사람은 입금 대기 목록 못 봄 (403)', r.s === 403, String(r.s));
 
-  // 공격 3: 남의 주문번호로 등급 받기
-  const tD = await signup('other');
-  const ordD = (await call(pay, {method:'POST', query:{action:'start'}, tok:tD, body:{tier:'max'}})).j.orderId;
-  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ordD, provider_id:'ok_119000'}});
-  check('🛡 남의 주문번호로 받기 → 거절 (404)', r.s === 404, String(r.s));
+  // 공격 3: 관리자 등급 바꾸기 통로를 일반 사용자가 쓰기
+  r = await call(lic, {method:'POST', tok:tC, body:{tier:'max'}});
+  check('🛡 일반 사용자가 등급 직접 바꾸기 → 거절 (403)', r.s === 403, String(r.s));
 
-  // 정상 결제
-  const ord3 = (await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}})).j.orderId;
-  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ord3, provider_id:'ok_89000'}});
-  const nowTier = (await call(lic, {tok:tC})).j.tier;
-  check('결제: 금액이 맞으면 Pro 등급이 들어감', r.s === 200 && r.j.ok && nowTier === 'pro', `${r.s} · 등급 ${nowTier}`);
-
-  // 공격 4: 같은 결제로 두 번 받기
-  r = await call(pay, {method:'POST', query:{action:'finish'}, tok:tC, body:{orderId:ord3, provider_id:'ok_89000'}});
-  check('🛡 같은 결제 두 번 쓰기 → 이미 처리됨으로 넘김', r.s === 200 && r.j.already === true, JSON.stringify(r.j));
+  // 관리자: 입금 대기 목록 → 확인
+  r = await call(pay, {query:{action:'pending'}, tok:tAdmin});
+  const mine = r.s === 200 && r.j.pending.find(o => o.id === ord);
+  check('관리자: 입금 대기 목록에 주문·아이디·금액·코드가 보임', !!mine && mine.username === 'buyer' && mine.amount === 89000 && mine.code === code, JSON.stringify(mine || r.j));
+  r = await call(pay, {method:'POST', query:{action:'confirm'}, tok:tAdmin, body:{orderId:ord, note:'국민 입금 확인'}});
+  tierNow = (await call(lic, {tok:tC})).j.tier;
+  check('관리자: 입금 확인 → 그 사람에게 Pro 등급', r.s === 200 && r.j.ok && r.j.username === 'buyer' && tierNow === 'pro', `${r.s} · 등급 ${tierNow}`);
+  r = await call(pay, {method:'POST', query:{action:'confirm'}, tok:tAdmin, body:{orderId:ord}});
+  check('🛡 같은 주문 두 번 확인 → 이미 처리됨으로 넘김', r.s === 200 && r.j.already === true, JSON.stringify(r.j));
 
   // 이미 Pro인데 또 Pro 사기
   r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'pro'}});
   check('결제: 이미 가진 등급은 다시 못 삼 (409)', r.s === 409, `${r.s} ${r.j.message || ''}`);
 
+  // 더 높은 등급 주문 → 관리자가 취소
   r = await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'max'}});
-  check('결제: 더 높은 등급(Max)은 살 수 있음', r.s === 200 && r.j.amount === 119000, String(r.s));
+  const ordMax = r.j.orderId;
+  check('결제: 더 높은 등급(Max)은 주문 가능', r.s === 200 && r.j.amount === 119000, String(r.s));
+  r = await call(pay, {method:'POST', query:{action:'reject'}, tok:tAdmin, body:{orderId:ordMax, note:'입금 없음'}});
+  tierNow = (await call(lic, {tok:tC})).j.tier;
+  r = await call(pay, {method:'POST', query:{action:'confirm'}, tok:tAdmin, body:{orderId:ordMax}});
+  check('관리자: 주문 취소 → 등급 그대로 · 취소된 주문은 확인 불가 (409)', tierNow === 'pro' && r.s === 409, `등급 ${tierNow} · ${r.s}`);
+
+  // 주문 도배 막기
+  const ords = []; for (let i = 0; i < 4; i++) ords.push((await call(pay, {method:'POST', query:{action:'start'}, tok:tC, body:{tier:'max'}})).s);
+  check('🛡 입금 대기 주문은 한 사람 3개까지 (4번째 429)', ords.join(',') === '200,200,200,429', ords.join(','));
 
   r = await call(pay, {query:{action:'orders'}, tok:tC});
-  check('결제: 내 주문 기록이 남음 (실패·성공 모두)', r.s === 200 && r.j.orders.length >= 4 && r.j.orders.some(o => o.status === 'paid') && r.j.orders.some(o => o.status === 'failed'),
+  check('결제: 내 주문 기록 (확인·취소·대기 모두) + 계좌 안내', r.s === 200 && r.j.orders.some(o => o.status === 'paid') && r.j.orders.some(o => o.status === 'cancelled') && r.j.orders.some(o => o.status === 'pending') && !!r.j.bank,
         r.j.orders.map(o => o.status).join(','));
+  delete process.env.SALES_OPEN; delete process.env.BANK_ACCOUNT;
 }
 
 // ── 채팅 커뮤니티 ───────────────────────────────────────────────

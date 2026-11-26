@@ -11,6 +11,12 @@ export function cors(req, res) {
 // 관리자 아이디 — 신고된 글 보기, 글·댓글 숨기기/보이기, 목록 다시 만들기
 export const ADMINS = ['refracta'];
 export const isAdmin = u => !!u && ADMINS.includes(u);
+// 관리자 아이디로 가입해도 되는지: 관리자 권한이 아이디로 정해지므로, 서버 환경 변수 ADMIN_SIGNUP_KEY(16글자 이상)를 아는 사람만
+export const adminSignupBlocked = (u, body) => {
+  if (!isAdmin(u)) return false;
+  const want = String(process.env.ADMIN_SIGNUP_KEY || ''), got = String((body && body.adminKey) || '');
+  return !(want.length >= 16 && got.length === want.length && crypto.timingSafeEqual(Buffer.from(got), Buffer.from(want)));
+};
 export const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 const b64u = b => Buffer.from(b).toString('base64url');
 // 토큰 서명 비밀: AUTH_SECRET이 있으면 그것, 없으면 서버만 아는 저장소 토큰에서 만듦

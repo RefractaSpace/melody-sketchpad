@@ -1,6 +1,6 @@
 // 로그인 API — DB 버전 (계정은 users 표, 틀린 횟수는 login_fails 표라서 모든 서버가 공유)
 import crypto from 'node:crypto';
-import { cors, makeToken, readToken, userDir, readJson, isAdmin } from '../_lib.js';
+import { cors, makeToken, readToken, userDir, readJson, isAdmin, adminSignupBlocked } from '../_lib.js';
 import { q, ensureDB } from '../_db.js';
 import { listFiles, delFiles } from '../_store.js';
 
@@ -56,6 +56,7 @@ export default async function handler(req, res) {
       if (action === 'signup') {
         // 만 14세 미만은 가입을 받지 않는다 (보호자 동의 절차가 없으므로). 앱 화면만 막으면 우회되니 서버에서도 확인
         if (body.age14 !== true) return res.status(400).json({error:'age', message:'만 14세 이상만 가입할 수 있어요 (개인정보처리방침 동의 필요)'});
+        if (adminSignupBlocked(username, body)) return res.status(409).json({error:'taken', message:'이미 있는 아이디예요'});   // 관리자 아이디는 아무나 못 가짐
         const salt = crypto.randomBytes(16), hash = await scrypt(password, salt);
         const ins = await q(`insert into users (username, salt, hash, agreed) values ($1, $2, $3, now()) on conflict do nothing returning username`, [username, salt.toString('base64'), hash.toString('base64')]);   // 같은 아이디 동시 가입도 DB 기본 키가 막음
         if (!ins.length) return res.status(409).json({error:'taken', message:'이미 있는 아이디예요'});
