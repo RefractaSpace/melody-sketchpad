@@ -30,7 +30,7 @@ async function openMyPage() {
 }
 async function mpLoadSongs() {
   const g = $('mpGrid'); g.innerHTML = '<p class="dsub">불러오는 중…</p>';
-  let songs = []; try { songs = (await (await cloudFetch('')).json()).songs; } catch (e) { g.innerHTML = `<p class="dsub">곡 목록을 못 불러왔어요: ${e.message}</p>`; return; }
+  let songs = []; try { songs = (await (await cloudFetch('')).json()).songs; } catch (e) { g.innerHTML = `<p class="dsub">곡 목록을 못 불러왔어요: ${esc(e.message)}</p>`; return; }
   g.innerHTML = songs.length ? '' : '<p class="dsub">아직 서버에 올린 곡이 없어요. "지금 곡 올리기"를 눌러 보세요.</p>';
   const biggest = songs.reduce((m, s) => Math.max(m, s.size), 0); $('mpBarFill').style.width = Math.min(100, biggest / (4 * 1024 * 1024) * 100) + '%';
   for (const s of songs) {

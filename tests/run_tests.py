@@ -932,6 +932,16 @@ async def main():
         check('드럼 키트: 드럼 14종이 모두 소리 남 (렌더링한 소리의 봉우리)', len(kit['peaks']) == 14 and min(kit['peaks']) > 0.02, str(kit['peaks']))
         check('드럼 키트: MIDI 저장은 10번 채널·GM 번호로 (스네어 38·닫힌 햇 42) · 드럼 채널 합치기', kit['midi'] and kit['midiHat'] and kit['merge']['m']['channels'] == kit['drumN'] and kit['merge']['m']['notes'] == kit['expect'] and kit['merge']['drumsLeft'] == 0 and kit['merge']['ps'] == '36,38,36', str(kit['merge']) + f" · 합치기 전 드럼 음 {kit['expect']}개")
 
+        # 보안: 남이 만든 곡(공유·커뮤니티)의 채널·패턴·곡 이름에 숨긴 태그가 실행되면 안 됨 (XSS)
+        xss = await J("""(async()=>{ const snap=JSON.stringify(S); window.__xss=0;
+          const bad='<img src=x onerror="window.__xss=(window.__xss||0)+1">';
+          S.channels[0].name=bad; S.patterns[0].name=bad; S.name=bad; refreshAll(); buildMixer(); buildSaSelects();
+          const opt=[...document.querySelectorAll('#saTarget option')].some(o=>o.textContent.includes('<img'));
+          await new Promise(r=>setTimeout(r,400));
+          const r={xss:window.__xss||0, imgs:document.querySelectorAll('img[src="x"]').length, opt};
+          S=normalize(JSON.parse(snap)); save(); refreshAll(); buildMixer(); buildSaSelects(); return r})()""")
+        check('🛡 곡·채널·패턴 이름에 숨긴 태그 → 글자로만 보이고 실행 안 됨', xss['xss'] == 0 and xss['imgs'] == 0 and xss['opt'], str(xss))
+
         await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
         stacked = await J("getComputedStyle(document.getElementById('win-roll')).position")
         check('휴대폰 폭에서는 창이 위아래로 쌓임', stacked == 'static', stacked)

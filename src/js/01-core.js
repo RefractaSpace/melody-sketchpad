@@ -58,6 +58,8 @@ const KITS_OK = ['edm', '808', 'hard', 'acoustic'];
 const FIXED_CH = ['chords', 'bass', 'audio', 'bus1', 'bus2'];
 // 화면에 보일 이름 — 영어일 때는 t()로 바꿔 준다 (정의는 한국어 원문 그대로)
 const nameOf = v => (typeof t === 'function' ? t(v) : v);
+// HTML 속에 넣는 글자는 반드시 이걸 거친다 (곡·채널 이름처럼 남이 만든 글자에 숨긴 태그가 실행되지 않게)
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const CH_NAME = {chords:'코드', bass:'베이스', audio:'오디오 클립', bus1:'버스 1', bus2:'버스 2', master:'마스터', kick:'킥', snare:'스네어', hat:'하이햇', clap:'박수'};
 const MIX_DEF = {chords:{v:.85,pan:0,rev:.3,dly:0,sc:true}, bass:{v:.45,pan:0,rev:0,dly:0,sc:true}, audio:{v:.9,pan:0,rev:.08,dly:0,sc:false}, bus1:{v:.9,pan:0,rev:0,dly:0,sc:false}, bus2:{v:.9,pan:0,rev:0,dly:0,sc:false}};
 const DRUM_MIX = {kick:{v:.6,pan:0,rev:0,dly:0,sc:false}, snare:{v:.7,pan:0,rev:.18,dly:0,sc:false}, hat:{v:.45,pan:.15,rev:.05,dly:0,sc:false}, clap:{v:.6,pan:-.1,rev:.25,dly:0,sc:false}, crash:{v:.4,pan:.2,rev:.3,dly:0,sc:false}};

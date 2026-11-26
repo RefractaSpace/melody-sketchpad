@@ -9,7 +9,7 @@
 
    VERSION은 빌드할 때 app.js·style.css·index.html 내용으로 정해짐 → 앱이 바뀌면 sw.js도 바뀌어
    브라우저가 새 워커를 설치하고, 옛 화면 창고는 지운다. */
-const VERSION = '41b63ae54c4d';
+const VERSION = 'cc1131d3576c';
 const SHELL = 'msk-shell-' + VERSION;     // 앱 화면·코드
 const RUNTIME = 'msk-runtime-v1';         // 악기 샘플·외부 파일 (버전이 바뀌어도 유지)
 const PRECACHE = ['/app/', '/app/app.js', '/app/style.css'];
