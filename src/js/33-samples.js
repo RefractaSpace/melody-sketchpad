@@ -21,15 +21,20 @@ function smpLoad(inst) {
   if (SMP.load[inst]) return SMP.load[inst];
   SMP.load[inst] = (async () => {
     const idx = await smpIndex(); if (!idx || !idx[inst]) return null;
-    const dir = SMP_BASE + 'samples/' + idx[inst].dir;
+    // 유료 악기(피아노 Pro·Max)는 공개 폴더에 없고, 서버가 등급을 확인한 뒤에만 준다
+    const paid = /^piano_(pro|max)$/.test(idx[inst].dir);
+    const a = paid && typeof authInfo === 'function' ? authInfo() : null;
+    if (paid && !(a && a.token)) return null;              // 로그인 안 했으면 받을 수 없음 → 기본 피아노로
+    const url = paid ? f => `${window.MSK_SERVER || ''}/api/license?d=${idx[inst].dir}&f=${f}` : f => `${SMP_BASE}samples/${idx[inst].dir}/${f}`;
+    const get = async f => { const r = await fetch(url(f), paid ? {headers:{authorization:'Bearer ' + a.token}} : undefined); if (!r.ok) throw new Error('HTTP ' + r.status); return r; };
     try {
-      const meta = await (await fetch(dir + '/inst.json')).json();
+      const meta = await (await get('inst.json')).json();
       ensureCtx();
       const bufs = {};
       // 한꺼번에 다 받으면 샘플이 많은 악기(피아노 122개)에서 실패하므로 8개씩 나눠 받는다
       for (let i = 0; i < meta.samples.length; i += 8) {
         await Promise.all(meta.samples.slice(i, i + 8).map(async s => {
-          const ab = await (await fetch(`${dir}/${s.i}.opus`)).arrayBuffer();
+          const ab = await (await get(`${s.i}.opus`)).arrayBuffer();
           bufs[s.i] = await ctx.decodeAudioData(ab);
         }));
       }

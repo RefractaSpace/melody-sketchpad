@@ -102,7 +102,7 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
 // ── 6: 라이선스 (등급) ──────────────────────────────────────────
 {
   const tB = await signup('tieruser');
-  let r = await call(lic, {});
+  let r = await call(lic, {}), r2;
   check('라이선스: 로그인 안 하면 SE', r.s === 200 && r.j.tier === 'se' && r.j.signedIn === false, JSON.stringify(r.j));
 
   r = await call(lic, {tok:tB});
@@ -127,6 +127,26 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
   await globalThis.__MSK_PG.query(`update licenses set expires = now() + interval '30 days' where username = 'tieruser'`);
   r = await call(lic, {tok:tB});
   check('라이선스: 기간이 남아 있으면 그대로', r.s === 200 && r.j.tier === 'pro' && !r.j.expired, JSON.stringify(r.j));
+
+  // 유료 악기 파일: 등급 확인 뒤에만 (지금 tieruser = Pro)
+  const tSe = await signup('freeuser');
+  const file = (tok, d, f) => call(lic, {tok, query:{d, f}});
+  r = await file(null, 'piano_pro', 'inst.json');
+  check('🛡 유료 악기 파일: 로그인 없이 → 401', r.s === 401, String(r.s));
+  r = await file(tSe, 'piano_pro', 'inst.json');
+  check('🛡 유료 악기 파일: SE가 Pro 피아노 → 403', r.s === 403 && r.j.need === 'pro', `${r.s} ${JSON.stringify(r.j).slice(0, 60)}`);
+  r = await file(tB, 'piano_pro', 'inst.json');
+  const meta = r.s === 200 ? JSON.parse(Buffer.from(r.j).toString()) : null;
+  r2 = await file(tB, 'piano_pro', '0.opus');
+  check('유료 악기 파일: Pro는 Pro 피아노 받음 (목록 + 소리 파일)', !!meta && meta.samples.length > 0 && r2.s === 200 && Buffer.from(r2.j).subarray(0, 4).toString() === 'OggS', `${r.s} ${r2.s}`);
+  r = await file(tB, 'piano_max', 'inst.json');
+  check('🛡 유료 악기 파일: Pro가 Max 피아노 → 403', r.s === 403, String(r.s));
+  const atk = [];
+  for (const [d, f] of [['piano_pro', '../piano_max/inst.json'], ['piano_pro', '..%2F..%2Fapi%2F_lib.js'], ['../../api', '_lib.js'], ['piano_pro', '/etc/passwd'], ['gm_0', 'inst.json']])
+    atk.push((await file(tB, d, f)).s);
+  check('🛡 유료 악기 파일: 경로 공격(../ · 다른 폴더 · 절대 경로) → 모두 400', atk.every(x => x === 400), atk.join(','));
+  r = await file(tAdmin, 'piano_max', 'inst.json');
+  check('유료 악기 파일: 관리자는 시험용으로 받을 수 있음', r.s === 200, String(r.s));
 
   await call(auth, {method:'POST', query:{action:'delete'}, tok:tB, body:{password:'pass_word_123'}});
   const [lc] = (await globalThis.__MSK_PG.query(`select count(*)::int n from licenses where username = 'tieruser'`)).rows;

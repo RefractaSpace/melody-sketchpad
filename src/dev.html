@@ -58,7 +58,12 @@ function loginView(msg) {
     <p class="sub">${esc(msg || '관리자 계정으로 들어와 주세요')}</p>
     <input id="u" placeholder="아이디" autocomplete="username">
     <input id="p" type="password" placeholder="비밀번호" autocomplete="current-password">
-    <button class="btn" id="go">들어가기</button><p class="sub" id="e"></p></div>`;
+    <button class="btn" id="go">들어가기</button><p class="sub" id="e"></p>
+    <details style="margin-top:18px"><summary class="sub" style="cursor:pointer">관리자 비밀번호를 잊었어요</summary>
+      <p class="sub">Vercel 환경 변수 <b>RESET_KEY</b>(16글자 이상)에 넣은 값을 적으면 관리자 계정(refracta)의 비밀번호를 새로 정해요. 계정이 없으면 새로 만들어요.</p>
+      <input id="rk" type="password" placeholder="RESET_KEY 값" autocomplete="off">
+      <input id="rp" type="password" placeholder="새 비밀번호 (12글자 이상)" autocomplete="new-password">
+      <button class="btn" id="rgo">비밀번호 새로 정하기</button><p class="sub" id="re2"></p></details></div>`;
   el('go').onclick = async () => {
     try {
       const j = await api('/auth?action=login', {method:'POST',
@@ -68,6 +73,18 @@ function loginView(msg) {
     } catch (e) { el('e').textContent = e.message; el('e').className = 'sub err'; }
   };
   el('p').onkeydown = ev => { if (ev.key === 'Enter') el('go').click(); };
+  el('rgo').onclick = async () => {
+    const key = el('rk').value, pw = el('rp').value, out = el('re2');
+    if (pw.length < 12) { out.textContent = '새 비밀번호는 12글자 이상으로 해 주세요'; out.className = 'sub err'; return; }
+    try {
+      try { await api('/auth?action=reset', {method:'POST', body:JSON.stringify({key, username:'refracta', password:pw})}); }
+      catch (e) {
+        if (e.status !== 404) throw e;                       // 계정이 아직 없으면 같은 열쇠로 만든다
+        await api('/auth?action=signup', {method:'POST', body:JSON.stringify({username:'refracta', password:pw, age14:true, adminKey:key})});
+      }
+      el('u').value = 'refracta'; el('p').value = pw; out.textContent = '바꿨어요. 들어가는 중…'; out.className = 'sub'; el('go').click();
+    } catch (e) { out.textContent = e.message; out.className = 'sub err'; }
+  };
 }
 let TAB = 'overview', DATA = {};
 async function load() {
@@ -89,7 +106,7 @@ function draw() {
          ['재생', t.plays], ['커뮤니티 글', t.messages], ['오류 (7일)', t.errors7]]
         .map(([k, v]) => `<div class="card"><b>${d2(v)}</b><span>${k}</span></div>`).join('')}
     </div>
-    <div class="tabs">${[['overview','한눈에'],['users','사용자'],['songs','곡'],['errors','오류']]
+    <div class="tabs">${[['overview','한눈에'],['pay','결제'],['users','사용자'],['songs','곡'],['errors','오류']]
       .map(([k, n]) => `<button class="tab${TAB === k ? ' on' : ''}" data-t="${k}">${n}</button>`).join('')}
       <button class="tab" id="re">새로 고침</button></div>
     <div id="body"></div>`;
@@ -146,6 +163,38 @@ async function body() {
         try { await api('/stats?action=del-user', {method:'POST', body:JSON.stringify({username:b.dataset.del})}); body(); }
         catch (e) { alert(e.message); }
       });
+      return;
+    }
+    if (TAB === 'pay') {
+      const [{ pending }, plans] = await Promise.all([api('/checkout?action=pending'), api('/checkout?action=plans')]);
+      const won = n => Number(n).toLocaleString('ko-KR') + '원';
+      B.innerHTML = `<div class="box"><p class="sub">판매 ${plans.open ? '<b>열림</b>' : '닫힘 (Vercel 환경 변수 SALES_OPEN=1, BANK_ACCOUNT 를 넣으면 열려요)'} · 방식 ${esc(plans.provider)}</p>
+        <p class="sub">통장에서 <b>입금자 이름 = 코드</b>, <b>금액</b>이 맞는지 보고 확인을 누르세요. 확인하면 그 사람에게 바로 등급이 들어가요.</p>
+        <table><tr><th>코드</th><th>아이디</th><th>등급</th><th class="num">금액</th><th>주문 시각</th><th></th></tr>
+        ${pending.map(o => `<tr><td><b>${esc(o.code || '-')}</b></td><td>${esc(o.username)}</td><td>${esc(o.tier)}</td>
+          <td class="num">${won(o.amount)}</td><td>${esc(String(o.created).slice(0, 16).replace('T', ' '))}</td>
+          <td><button class="btn" data-ok="${esc(o.id)}" data-who="${esc(o.username)} · ${esc(o.tier)} · ${won(o.amount)}">입금 확인</button>
+              <button class="btn" data-no="${esc(o.id)}">취소</button></td></tr>`).join('')
+          || '<tr><td colspan="6" class="msg">입금을 기다리는 주문이 없어요</td></tr>'}</table></div>
+        <div class="box"><p class="sub">등급 직접 주기 (환불·선물·시험용)</p>
+          <input id="gu" placeholder="아이디"> <select id="gt"><option value="se">SE (무료로 되돌리기)</option><option value="six">6</option><option value="pro">6 Pro</option><option value="max">6 Max</option></select>
+          <input id="gn" placeholder="메모 (선택)"> <button class="btn" id="gg">주기</button> <span class="sub" id="gm"></span></div>`;
+      B.querySelectorAll('[data-ok]').forEach(b => b.onclick = async () => {
+        if (!confirm(`입금을 확인했나요?\n${b.dataset.who}`)) return;
+        try { const j = await api('/checkout?action=confirm', {method:'POST', body:JSON.stringify({orderId:b.dataset.ok})}); body(); }
+        catch (e) { alert(e.message); }
+      });
+      B.querySelectorAll('[data-no]').forEach(b => b.onclick = async () => {
+        if (!confirm('이 주문을 취소할까요? (입금이 안 됐거나 금액이 다를 때)')) return;
+        try { await api('/checkout?action=reject', {method:'POST', body:JSON.stringify({orderId:b.dataset.no})}); body(); }
+        catch (e) { alert(e.message); }
+      });
+      el('gg').onclick = async () => {
+        const u = el('gu').value.trim().toLowerCase(), t = el('gt').value;
+        if (!u) return;
+        try { await api('/license', {method:'POST', body:JSON.stringify({username:u, tier:t, note:el('gn').value})}); el('gm').textContent = `${u} → ${t} 완료`; }
+        catch (e) { el('gm').textContent = e.message; }
+      };
       return;
     }
     if (TAB === 'songs') {

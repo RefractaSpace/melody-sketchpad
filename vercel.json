@@ -110,5 +110,10 @@
       "source": "/dev",
       "destination": "/dev.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/license.js": {
+      "includeFiles": "private/samples/**"
+    }
+  }
 }

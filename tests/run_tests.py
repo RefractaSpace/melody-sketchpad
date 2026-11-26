@@ -31,7 +31,7 @@ async def main():
         def on_console(m):
             if m.type != 'error': return
             txt = m.text
-            if '404' in txt and any(k in (m.location or {}).get('url', '') for k in ('/api/',)): return
+            if '404' in txt and any(k in (m.location or {}).get('url', '') for k in ('/api/', '/samples/piano_pro/', '/samples/piano_max/')): return   # 유료 피아노가 공개 주소에 없는지 일부러 확인
             errs.append('console: ' + txt)
         pg.on('console', on_console)
         pg.on('requestfailed', lambda r: None)
@@ -902,13 +902,19 @@ async def main():
         # 6: 악기 145개 · 라이선스 표기
         big = await J("""(async()=>{const idx=await smpIndex(); const r={n:Object.keys(idx).length};
           r.gm=Object.keys(idx).filter(k=>/^gm\\d+$/.test(k)).length; r.piano=!!idx.pianoPro&&!!idx.pianoMax;
-          const packs={}; for(const k of ['gm0','gm30','gm56','pianoPro']) packs[k]=await smpLoad(k);
+          const packs={}; for(const k of ['gm0','gm30','gm56']) packs[k]=await smpLoad(k);
+          // 유료 피아노: 로그인 없이 못 받고, 공개 주소에도 파일이 없어야 함
+          const ak=localStorage.getItem(AK); localStorage.removeItem(AK);
+          r.paidNull=(await smpLoad('pianoPro'))===null && (await smpLoad('pianoMax'))===null;
+          if(ak) localStorage.setItem(AK,ak);
+          r.paidPublic=[(await fetch(SMP_BASE+'samples/piano_pro/inst.json')).status,(await fetch(SMP_BASE+'samples/piano_max/0.opus')).status];
           r.load=Object.values(packs).every(p=>p&&Object.keys(p.bufs).length>0);
           r.overlap=smpPickAll(packs.gm30,52,0.85).length;
           r.gains=Object.values(packs).map(p=>+p.gain.toFixed(1));
           r.msk=MSK_INST.indexOf('gm127')>0 && MSK_INST.indexOf('pianoMax')>0 && MSK_INST.indexOf('piano')===0;
           return r})()""")
         check('악기 145개: GM 128 · 살라만더 Pro/Max · 겹친 구역 함께 내기 · 파일 번호표', big['n'] >= 145 and big['gm'] == 128 and big['piano'] and big['load'] and big['overlap'] >= 2 and big['msk'], str(big))
+        check('🛡 유료 피아노 Pro/Max: 로그인 없이 못 받음 · 공개 주소에 파일 없음 (404)', big['paidNull'] and all(x == 404 for x in big['paidPublic']), f"{big['paidNull']} {big['paidPublic']}")
         cr = await J("""(()=>{const b=$('creditBtn'),d=$('creditDlg'); if(!b||!d) return {no:true};
           b.click(); const open=d.open, txt=d.textContent;
           const has=['GeneralUser GS','VSCO 2','Salamander','Alexander Holm','Versilian'].filter(s=>txt.includes(s));
