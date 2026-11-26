@@ -84,14 +84,15 @@ async function play(s){
     const got=await new Promise((ok,no)=>{
       const timer=setTimeout(()=>no(new Error('timeout')), 60000);
       window.addEventListener('message', function h2(ev){
+        if(ev.origin!==location.origin||ev.source!==fr.contentWindow) return;   // 우리 앱 틀이 보낸 것만
         const d=ev.data;
         if(!d||d.type!=='msk-rendered'||d.id!==id) return;
         clearTimeout(timer); window.removeEventListener('message',h2);
         d.ok? ok(d) : no(new Error(d.error||'render'));
       });
-      const send=()=>fr.contentWindow.postMessage({type:'msk-render', id, url:s.url},'*');
+      const send=()=>fr.contentWindow.postMessage({type:'msk-render', id, url:s.url},location.origin);
       window.addEventListener('message', function ready(ev){
-        if(ev.data&&ev.data.type==='msk-render-ready'){ window.removeEventListener('message',ready); send(); }
+        if(ev.origin===location.origin&&ev.data&&ev.data.type==='msk-render-ready'){ window.removeEventListener('message',ready); send(); }
       });
       fr.onload=()=>setTimeout(send, 1500);           // 준비 신호를 놓쳐도 한 번 더
     });

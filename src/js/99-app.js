@@ -154,11 +154,15 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { dr
 (() => {
   if (!/[?&]render=1/.test(location.search)) return;
   window.addEventListener('message', async ev => {
+    // 우리 사이트(공유 페이지)가 보낸 것만 받는다 — 다른 사이트가 이 앱을 틀에 넣고 시키는 일을 막음
+    if (ev.origin !== location.origin || ev.source !== parent) return;
     const d = ev.data;
     if (!d || d.type !== 'msk-render' || typeof d.url !== 'string') return;
-    const reply = o => ev.source && ev.source.postMessage({type:'msk-rendered', id:d.id, ...o}, '*');
+    let src; try { src = new URL(d.url, location.href); } catch (e) { return; }
+    if (src.protocol !== 'https:' && src.origin !== location.origin) return;
+    const reply = o => ev.source.postMessage({type:'msk-rendered', id:d.id, ...o}, location.origin);
     try {
-      const u = new Uint8Array(await (await fetch(d.url)).arrayBuffer());
+      const u = new Uint8Array(await (await fetch(src.href)).arrayBuffer());
       const got = await decodeMSK(u);
       S = normalize(got.song); S.playMode = 'song';
       const buf = await renderWav();
@@ -166,5 +170,5 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { dr
       reply({ok:true, audio:URL.createObjectURL(blob), name:got.name || ''});
     } catch (e) { reply({ok:false, error:String(e && e.message || e).slice(0, 120)}); }
   });
-  try { parent.postMessage({type:'msk-render-ready'}, '*'); } catch (e) {}
+  try { if (parent !== window) parent.postMessage({type:'msk-render-ready'}, location.origin); } catch (e) {}
 })();
