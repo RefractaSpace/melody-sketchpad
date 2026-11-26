@@ -48,11 +48,11 @@ check('옮긴 글: 좋아요·댓글·태그 유지', r.s === 200 && r.j.post.li
 check('다시 옮겨도 중복 없음', Object.values(await migrateFromBlob()).every(v => v === 0));
 
 process.env.ADMIN_SIGNUP_KEY = 'test-admin-signup-key-0123456789';
-let rAdm = await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'refracta', password:'pass_word_123', age14:true}});
-const rAdm2 = await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'refracta', password:'pass_word_123', age14:true, adminKey:'test-admin-signup-key-012345678X'}});
-check('🛡 관리자 아이디(refracta)는 키 없이·틀린 키로 가입 불가 (409)', rAdm.s === 409 && rAdm2.s === 409, `${rAdm.s} ${rAdm2.s}`);
+let rAdm = await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'kurojw58', password:'pass_word_123', age14:true}});
+const rAdm2 = await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'kurojw58', password:'pass_word_123', age14:true, adminKey:'test-admin-signup-key-012345678X'}});
+check('🛡 관리자 아이디(kurojw58)는 키 없이·틀린 키로 가입 불가 (409)', rAdm.s === 409 && rAdm2.s === 409, `${rAdm.s} ${rAdm2.s}`);
 const tA = await signup('usera');
-const tAdmin = (await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'refracta', password:'pass_word_123', age14:true, adminKey:process.env.ADMIN_SIGNUP_KEY}})).j.token;
+const tAdmin = (await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'kurojw58', password:'pass_word_123', age14:true, adminKey:process.env.ADMIN_SIGNUP_KEY}})).j.token;
 check('회원가입', tA && tAdmin);
 check('같은 아이디 거절', (await call(auth, {method:'POST', query:{action:'signup'}, body:{username:'usera', password:'pass_word_123', age14:true}})).s === 409);
 const race = await Promise.all(Array.from({length:6}, () => call(auth, {method:'POST', query:{action:'signup'}, body:{username:'sameid', password:'pass_word_123', age14:true}})));
@@ -392,7 +392,7 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
 {
   // refracta 는 앞에서 이미 가입했으므로 로그인으로 토큰을 받는다
   const tAdmin = (await call(auth, {method:'POST', query:{action:'login'},
-                   body:{username:'refracta', password:'pass_word_123'}})).j.token;
+                   body:{username:'kurojw58', password:'pass_word_123'}})).j.token;
   const tUser = await signup('nobody1');
 
   let r = await call(stats, {method:'POST', query:{action:'hit'}, body:{lang:'en', device:'phone'}});
@@ -435,7 +435,7 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
   const me = (r.j.users || []).find(u => u.username === 'nobody1');
   check('통계: 사용자 목록에 곡 수가 함께 나옴', r.s === 200 && me && me.songs === 1, JSON.stringify(me));
 
-  r = await call(stats, {method:'POST', query:{action:'del-user'}, tok:tAdmin, body:{username:'refracta'}});
+  r = await call(stats, {method:'POST', query:{action:'del-user'}, tok:tAdmin, body:{username:'kurojw58'}});
   check('🛡 통계: 관리자 자신은 못 지움 (400)', r.s === 400, String(r.s));
 }
 

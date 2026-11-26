@@ -23,7 +23,7 @@ export function cors(req, res) {
   return false;
 }
 // 관리자 아이디 — 신고된 글 보기, 글·댓글 숨기기/보이기, 목록 다시 만들기
-export const ADMINS = ['refracta'];
+export const ADMINS = ['kurojw58'];   // 관리자 아이디 (refracta는 비밀번호를 아무도 몰라서 뺌)
 export const isAdmin = u => !!u && ADMINS.includes(u);
 // 요청한 곳(IP)을 한 방향으로 바꾼 값 — 횟수 제한에만 씀, 원래 IP는 어디에도 저장하지 않음
 // Vercel은 x-forwarded-for 맨 앞에 실제 접속 주소를 넣어 준다 (사용자가 바꿔 넣은 값은 뒤에 붙음)

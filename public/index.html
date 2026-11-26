@@ -427,7 +427,7 @@ document.querySelectorAll('.rise, .pl, .gen').forEach(el => REDUCE ? el.classLis
 /* 소개 페이지 로그인 — 앱과 같은 계정을 쓴다 (저장 자리도 같음) */
 (() => {
   const g = i => document.getElementById(i);
-  const KEY = 'msk.auth', ADMINS = ['refracta'];
+  const KEY = 'msk.auth', ADMINS = ['kurojw58'];
   const info = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } };
   const t = k => (window.I18N && window.I18N[document.documentElement.lang] || {})[k] || k;
   function paint() {

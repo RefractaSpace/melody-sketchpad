@@ -60,7 +60,7 @@ function loginView(msg) {
     <input id="p" type="password" placeholder="비밀번호" autocomplete="current-password">
     <button class="btn" id="go">들어가기</button><p class="sub" id="e"></p>
     <details style="margin-top:18px"><summary class="sub" style="cursor:pointer">관리자 비밀번호를 잊었어요</summary>
-      <p class="sub">Vercel 환경 변수 <b>RESET_KEY</b>(16글자 이상)에 넣은 값을 적으면 관리자 계정(refracta)의 비밀번호를 새로 정해요. 계정이 없으면 새로 만들어요.</p>
+      <p class="sub">Vercel 환경 변수 <b>RESET_KEY</b>(16글자 이상)에 넣은 값을 적으면 관리자 계정(kurojw58)의 비밀번호를 새로 정해요. 계정이 없으면 새로 만들어요.</p>
       <input id="rk" type="password" placeholder="RESET_KEY 값" autocomplete="off">
       <input id="rp" type="password" placeholder="새 비밀번호 (12글자 이상)" autocomplete="new-password">
       <button class="btn" id="rgo">비밀번호 새로 정하기</button><p class="sub" id="re2"></p></details></div>`;
@@ -77,12 +77,12 @@ function loginView(msg) {
     const key = el('rk').value, pw = el('rp').value, out = el('re2');
     if (pw.length < 12) { out.textContent = '새 비밀번호는 12글자 이상으로 해 주세요'; out.className = 'sub err'; return; }
     try {
-      try { await api('/auth?action=reset', {method:'POST', body:JSON.stringify({key, username:'refracta', password:pw})}); }
+      try { await api('/auth?action=reset', {method:'POST', body:JSON.stringify({key, username:'kurojw58', password:pw})}); }
       catch (e) {
         if (e.status !== 404) throw e;                       // 계정이 아직 없으면 같은 열쇠로 만든다
-        await api('/auth?action=signup', {method:'POST', body:JSON.stringify({username:'refracta', password:pw, age14:true, adminKey:key})});
+        await api('/auth?action=signup', {method:'POST', body:JSON.stringify({username:'kurojw58', password:pw, age14:true, adminKey:key})});
       }
-      el('u').value = 'refracta'; el('p').value = pw; out.textContent = '바꿨어요. 들어가는 중…'; out.className = 'sub'; el('go').click();
+      el('u').value = 'kurojw58'; el('p').value = pw; out.textContent = '바꿨어요. 들어가는 중…'; out.className = 'sub'; el('go').click();
     } catch (e) { out.textContent = e.message; out.className = 'sub err'; }
   };
 }
