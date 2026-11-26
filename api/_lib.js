@@ -11,6 +11,12 @@ export function cors(req, res) {
 // 관리자 아이디 — 신고된 글 보기, 글·댓글 숨기기/보이기, 목록 다시 만들기
 export const ADMINS = ['refracta'];
 export const isAdmin = u => !!u && ADMINS.includes(u);
+// 요청한 곳(IP)을 한 방향으로 바꾼 값 — 횟수 제한에만 씀, 원래 IP는 어디에도 저장하지 않음
+// Vercel은 x-forwarded-for 맨 앞에 실제 접속 주소를 넣어 준다 (사용자가 바꿔 넣은 값은 뒤에 붙음)
+export const ipKey = req => {
+  const h = req.headers || {}, ip = String(h['x-real-ip'] || String(h['x-forwarded-for'] || '').split(',')[0] || 'unknown').trim();
+  return crypto.createHash('sha256').update('msk-ip:' + (process.env.AUTH_SECRET || process.env.BLOB_READ_WRITE_TOKEN || '') + ip).digest('base64url').slice(0, 22);
+};
 // 관리자 아이디로 가입해도 되는지: 관리자 권한이 아이디로 정해지므로, 서버 환경 변수 ADMIN_SIGNUP_KEY 또는 RESET_KEY(16글자 이상)를 아는 사람만
 export const adminSignupBlocked = (u, body) => {
   if (!isAdmin(u)) return false;

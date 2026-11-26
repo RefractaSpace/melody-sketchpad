@@ -104,6 +104,8 @@ const SCHEMA = [
      n int not null default 1)`,
   `create index if not exists errlog_at on errlog (at desc)`,
   // 누가 언제 접속해 있었는지 (사람 목록용)
+  // 도배 막기: '무엇:누구' 열쇠마다 정해진 시간 안의 횟수 (누구 = 아이디, 또는 IP를 한 방향으로 바꾼 값 — 원래 IP는 저장 안 함)
+  `create table if not exists rate (k text primary key, n int not null, at timestamptz not null)`,
   `create table if not exists presence (
      username text primary key references users(username) on delete cascade,
      channel text, at timestamptz not null default now())`,
@@ -116,6 +118,19 @@ export async function cleanOld(force) {
   await q(`delete from ai_usage where day < current_date - 90`);
   await q(`delete from login_fails where at < now() - interval '1 day'`);
   await q(`delete from presence where at < now() - interval '1 day'`);
+  await q(`delete from rate where at < now() - interval '1 day'`);
+}
+// 횟수 제한: 이번 시간 칸(sec초) 안에서 max번까지 허락. 넘으면 false
+//   예) if (!await allow('signup:' + ipKey(req), 5, 3600)) return 429
+export async function allow(key, max, sec) {
+  if (!hasDB()) return true;
+  await ensureDB();
+  const [r] = await q(`insert into rate (k, n, at) values ($1, 1, now())
+    on conflict (k) do update set
+      n = case when rate.at < now() - make_interval(secs => $2) then 1 else rate.n + 1 end,
+      at = case when rate.at < now() - make_interval(secs => $2) then now() else rate.at end
+    returning n`, [String(key).slice(0, 200), sec]);
+  return r.n <= max;
 }
 export async function ensureDB() {
   await (ready || (ready = setup().catch(e => { ready = null; throw e; })));

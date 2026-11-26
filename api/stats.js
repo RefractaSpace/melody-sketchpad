@@ -7,8 +7,8 @@
 //   GET  /api/stats?action=errors     (관리자) 오류 목록
 //   POST /api/stats?action=hide-song  (관리자) 공유 링크 숨기기
 //   POST /api/stats?action=del-user   (관리자) 사용자 지우기
-import { cors, readToken, isAdmin } from './_lib.js';
-import { hasDB, q, ensureDB } from './_db.js';
+import { cors, readToken, isAdmin, ipKey } from './_lib.js';
+import { hasDB, q, ensureDB, allow } from './_db.js';
 
 const who = req => { const a = String(req.headers.authorization || ''); return a.startsWith('Bearer ') ? readToken(a.slice(7)) : null; };
 const send = (res, code, obj) => { res.statusCode = code; res.setHeader('content-type', 'application/json; charset=utf-8'); res.end(JSON.stringify(obj)); };
@@ -26,6 +26,7 @@ export default async function handler(req, res) {
   try {
     // ── 누구나 ──────────────────────────────────────────────
     if (req.method === 'POST' && action === 'hit') {
+      if (!await allow('hit:' + ipKey(req), 30, 600)) return send(res, 200, {ok:true, skipped:true});   // 숫자 부풀리기 막기 (조용히 무시)
       const b = body(req);
       await bump('visit', '');
       if (b.lang) await bump('lang', b.lang);
@@ -34,6 +35,7 @@ export default async function handler(req, res) {
       return send(res, 200, {ok:true});
     }
     if (req.method === 'POST' && action === 'err') {
+      if (!await allow('err:' + ipKey(req), 30, 600)) return send(res, 200, {ok:true, skipped:true});   // 오류 기록으로 DB 채우기 막기
       const b = body(req);
       const msg = String(b.msg || '').slice(0, 300);
       if (!msg) return send(res, 400, {error:'no-msg'});

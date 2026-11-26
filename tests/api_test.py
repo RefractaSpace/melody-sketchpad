@@ -55,11 +55,11 @@ try:
     hc, hj = req('GET', '/auth?action=health')
     if hc == 200 and isinstance(hj, dict) and hj.get('db'):
         import concurrent.futures as cf
-        lk = [req('POST', '/auth?action=signup', {'username': f'tl{i}{stamp}', 'password': PW, 'age14': True})[1]['token'] for i in range(10)]
+        lk = [req('POST', '/auth?action=signup', {'username': f'tl{i}{stamp}', 'password': PW, 'age14': True})[1]['token'] for i in range(5)]
         for i, t in enumerate(lk): toks[f'tl{i}{stamp}'] = t
-        with cf.ThreadPoolExecutor(10) as ex: list(ex.map(lambda t: req('POST', f'/community?action=like&id={pid}', tok=t), lk))
+        with cf.ThreadPoolExecutor(5) as ex: list(ex.map(lambda t: req('POST', f'/community?action=like&id={pid}', tok=t), lk))
         n = req('GET', f'/community?id={pid}')[1]['post']['likes']
-        check('DB: 10명 동시 좋아요 → 정확히 11개 (먼저 누른 1명 포함)', n == 11, f'{n}개, 계정 {hj.get("users")} · 글 {hj.get("posts")}')
+        check('DB: 5명 동시 좋아요 → 정확히 6개 (먼저 누른 1명 포함)', n == 6, f'{n}개, 계정 {hj.get("users")} · 글 {hj.get("posts")}')
     else: print('  ·  DB 꺼짐 — 동시 좋아요 검사는 건너뜀')
     check('앱 정보 (/api/release)', (lambda r: r[0] == 200 and r[1]['version'])(req('GET', '/release')))
 finally:

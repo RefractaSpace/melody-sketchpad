@@ -5,9 +5,11 @@
 //   PUT    /api/songs?id=…&name= → 곡 올리기 (본문 = .msk, 최대 4MB)
 //   DELETE /api/songs?id=…       → 곡 지우기
 import { put, list, del } from '@vercel/blob';
-import { cors, songDir } from './_lib.js';
+import { cors, songDir, ipKey } from './_lib.js';
+import { allow } from './_db.js';
 
 const MAX = 4 * 1024 * 1024;   // Vercel 함수 본문 한도(4.5MB)보다 조금 작게
+const TOTAL = 4 * 1024 * 1024; // 계정(또는 저장소 키) 하나에 저장할 수 있는 곡 전체 크기 — 내 계정 화면의 한도와 같음
 const b64u = s => Buffer.from(s, 'utf8').toString('base64url'), unb64u = s => Buffer.from(s, 'base64url').toString('utf8');
 
 async function rawBody(req) {
@@ -37,7 +39,12 @@ export default async function handler(req, res) {
       res.setHeader('Content-Type', 'application/octet-stream'); return res.status(200).send(buf);
     }
     if (req.method === 'PUT') {
+      // 도배 막기: 한 곳(IP)에서 1시간 60번 — 저장소 키는 아무 값이나 만들 수 있어서 키 대신 접속한 곳으로 센다
+      if (!await allow('songput:' + ipKey(req), 60, 3600)) return res.status(429).json({error:'slow-down', message:'너무 자주 올렸어요. 잠시 뒤에 다시 해 주세요'});
       const body = await rawBody(req); if (body.length < 8 || body.subarray(0, 3).toString() !== 'MSK') return res.status(400).json({error:'not-msk', message:'MSK 파일이 아니에요'});
+      // 전체 크기 한도 (같은 곡을 고쳐 올리면 예전 판 크기는 빼고 계산)
+      const used = (await mine(dir)).filter(b => !found.some(f => f.url === b.url)).reduce((a, b) => a + b.size, 0);
+      if (used + body.length > TOTAL) return res.status(413).json({error:'full', message:'저장 공간(4MB)이 가득 찼어요. 안 쓰는 곡을 지워 주세요'});
       const name = String(req.query.name || '곡').slice(0, 60);
       const b = await put(dir + id + '--' + b64u(name) + '.n.msk', body, {access:'public', addRandomSuffix:true, contentType:'application/octet-stream'});
       if (found.length) await del(found.map(x => x.url));   // 예전 판은 지움 (새 판을 먼저 올린 뒤)

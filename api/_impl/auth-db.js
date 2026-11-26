@@ -1,7 +1,7 @@
 // 로그인 API — DB 버전 (계정은 users 표, 틀린 횟수는 login_fails 표라서 모든 서버가 공유)
 import crypto from 'node:crypto';
-import { cors, makeToken, readToken, userDir, readJson, isAdmin, adminSignupBlocked } from '../_lib.js';
-import { q, ensureDB } from '../_db.js';
+import { cors, makeToken, readToken, userDir, readJson, isAdmin, adminSignupBlocked, ipKey } from '../_lib.js';
+import { q, ensureDB, allow } from '../_db.js';
 import { listFiles, delFiles } from '../_store.js';
 
 const scrypt = (pw, salt) => new Promise((ok, bad) => crypto.scrypt(pw, salt, 64, {N:16384, r:8, p:1}, (e, k) => e ? bad(e) : ok(k)));
@@ -26,6 +26,7 @@ export default async function handler(req, res) {
     /* 비밀번호를 잊었을 때 — Vercel 환경변수 RESET_KEY 를 아는 사람만 바꿀 수 있다.
        로그인이 필요 없으므로, 열쇠가 없으면 아예 동작하지 않게 막는다. */
     if (action === 'reset') {
+      if (!await allow('reset:' + ipKey(req), 10, 3600)) return res.status(429).json({error:'slow-down', message:'너무 자주 했어요. 잠시 뒤에 다시 해 주세요'});   // 한 곳에서 1시간 10번
       const KEY = process.env.RESET_KEY || '';
       if (KEY.length < 16) return res.status(503).json({error:'off', message:'재설정이 꺼져 있어요'});
       const given = String(body.key || '');
@@ -53,7 +54,9 @@ export default async function handler(req, res) {
       if (password.length < 8 || password.length > 200) return res.status(400).json({error:'bad-password', message:'비밀번호는 8글자 이상이에요'});
       const [f] = await q(`select n, at from login_fails where username = $1`, [username]);
       if (f && f.n >= 8 && Date.now() - new Date(f.at) < 10 * 60e3) return res.status(429).json({error:'slow-down', message:'로그인을 너무 많이 틀렸어요. 10분 뒤에 다시 해 주세요'});
+      if (!await allow('login:' + ipKey(req), 60, 600)) return res.status(429).json({error:'slow-down', message:'너무 자주 했어요. 잠시 뒤에 다시 해 주세요'});   // 한 곳에서 여러 아이디로 비밀번호 찔러보기 막기 (10분 60번)
       if (action === 'signup') {
+        if (!await allow('signup:' + ipKey(req), 20, 3600)) return res.status(429).json({error:'slow-down', message:'너무 자주 했어요. 잠시 뒤에 다시 해 주세요'});   // 계정 대량 생성 막기 (한 곳에서 1시간 20개 — 학교처럼 여럿이 한 인터넷을 써도 되게)
         // 만 14세 미만은 가입을 받지 않는다 (보호자 동의 절차가 없으므로). 앱 화면만 막으면 우회되니 서버에서도 확인
         if (body.age14 !== true) return res.status(400).json({error:'age', message:'만 14세 이상만 가입할 수 있어요 (개인정보처리방침 동의 필요)'});
         if (adminSignupBlocked(username, body)) return res.status(409).json({error:'taken', message:'이미 있는 아이디예요'});   // 관리자 아이디는 아무나 못 가짐

@@ -25,12 +25,15 @@ store.put('community/bbbbbbbbbbbb/song-y.msk', MSK);
 store.put('community/bbbbbbbbbbbb/post-y.json', Buffer.from(JSON.stringify({id:'bbbbbbbbbbbb', title:'지워진 사람 글', desc:'', tags:[], author:'ghost', created:'2026-09-03T00:00:00.000Z', likes:[], comments:[], reports:[]})));
 
 const stats = (await import('../api/stats.js')).default, share = (await import('../api/share.js')).default, chat = (await import('../api/chat.js')).default, auth = (await import('../api/auth.js')).default, lic = (await import('../api/license.js')).default, pay = (await import('../api/checkout.js')).default, comm = (await import('../api/community.js')).default, { migrateFromBlob } = await import('../api/_db.js');
-const call = (h, {method = 'GET', query = {}, tok, body} = {}) => new Promise(resolve => {
+// ip: 일부러 같은 곳에서 보낸 것처럼 할 때만 넣음. 안 넣으면 요청마다 다른 곳 (도배 제한에 안 걸리게)
+let ipSeq = 0;
+const call = (h, {method = 'GET', query = {}, tok, body, ip} = {}) => new Promise(resolve => {
   const res = {c:200, setHeader() {}, status(c) { this.c = c; return this; },
     set statusCode(c) { this.c = c; }, get statusCode() { return this.c; },
     json(o) { resolve({s:this.c, j:o}); }, send(b) { resolve({s:this.c, j:b}); },
     end(b) { let j = b; if (typeof b === 'string') { try { j = JSON.parse(b); } catch (e) {} } resolve({s:this.c, j}); }};
-  h({method, query, headers:tok ? {authorization:'Bearer ' + tok} : {}, body}, res).catch(e => resolve({s:599, j:String(e)}));
+  const headers = {'x-real-ip':ip || `10.0.${(++ipSeq >> 8) & 255}.${ipSeq & 255}`}; if (tok) headers.authorization = 'Bearer ' + tok;
+  h({method, query, headers, body}, res).catch(e => resolve({s:599, j:String(e)}));
 });
 const results = []; const check = (name, ok, d = '') => { results.push(!!ok); console.log((ok ? '  ✅ ' : '  ❌ ') + name + (d ? '  — ' + d : '')); };
 const signup = async (u, pw = 'pass_word_123') => (await call(auth, {method:'POST', query:{action:'signup'}, body:{username:u, password:pw, age14:true}})).j.token;
@@ -475,6 +478,40 @@ check('지운 글의 좋아요·댓글·신고 줄이 남지 않음', cnt.l === 
   r = await call(auth, {method:'POST', query:{action:'reset'},
                         body:{key:KEY, username:'forgetful', password:'other_pass_12'}});
   check('🛡 재설정: 열쇠를 안 넣어 두면 기능이 꺼져 있음 (503)', r.s === 503, String(r.s));
+}
+
+// ── 도배 막기 (같은 곳·같은 사람이 짧은 시간에 너무 많이) ─────────────────
+{
+  const { cleanOld } = await import('../api/_db.js');
+  const IP = '203.0.113.7';
+  const su = [];
+  for (let i = 0; i < 21; i++) su.push((await call(auth, {method:'POST', query:{action:'signup'}, ip:IP, body:{username:'flood' + i, password:'pass_word_123', age14:true}})).s);
+  check('🛡 가입: 한 곳에서 1시간 20개까지 · 21번째 429', su.slice(0, 20).every(x => x === 200) && su[20] === 429, su.slice(18).join(','));
+  r = await call(auth, {method:'POST', query:{action:'signup'}, ip:'203.0.113.8', body:{username:'otherplace', password:'pass_word_123', age14:true}});
+  check('가입: 다른 곳에서는 그대로 됨', r.s === 200, String(r.s));
+
+  const IP2 = '198.51.100.9'; const lg = [];
+  for (let i = 0; i < 61; i++) lg.push((await call(auth, {method:'POST', query:{action:'login'}, ip:IP2, body:{username:'flood' + (i % 20), password:'wrong_password_' + i}})).s);
+  check('🛡 로그인: 한 곳에서 여러 아이디로 10분 60번까지 · 61번째 429', lg.slice(0, 60).every(x => x === 401) && lg[60] === 429, lg.slice(58).join(','));
+
+  const tF = await signup('flooder');
+  const pub = []; for (let i = 0; i < 11; i++) pub.push((await call(comm, {method:'POST', query:{action:'publish', title:'도배 ' + i}, tok:tF, body:MSK})).s);
+  check('🛡 커뮤니티 글: 1시간 10개까지 · 11번째 429', pub.slice(0, 10).every(x => x === 200) && pub[10] === 429, pub.slice(8).join(','));
+  const [{ id: fp }] = (await globalThis.__MSK_PG.query(`select id from posts where author = 'flooder' limit 1`)).rows;
+  const cmt = []; for (let i = 0; i < 31; i++) cmt.push((await call(comm, {method:'POST', query:{action:'comment', id:fp}, tok:tF, body:{text:'댓글 ' + i}})).s);
+  check('🛡 댓글: 10분 30개까지 · 31번째 429', cmt.slice(0, 30).every(x => x === 200) && cmt[30] === 429, cmt.slice(28).join(','));
+
+  const IP3 = '192.0.2.44'; const hit = [];
+  for (let i = 0; i < 31; i++) hit.push((await call(stats, {method:'POST', query:{action:'err'}, ip:IP3, body:{msg:'가짜 오류 ' + i}})).j.skipped === true);
+  const [{ n: errN }] = (await globalThis.__MSK_PG.query(`select count(*)::int n from errlog where msg like '가짜 오류 %'`)).rows;
+  check('🛡 오류 기록: 한 곳에서 10분 30개까지만 저장 (나머지는 조용히 버림)', errN === 30 && hit[30] && !hit[29], `저장 ${errN}개`);
+
+  const [{ n: rn }] = (await globalThis.__MSK_PG.query(`select count(*)::int n from rate where k like '%203.0.113.7%' or k like '%198.51.100.9%'`)).rows;
+  check('개인정보: 횟수 기록에 원래 IP가 남지 않음 (한 방향 값만)', rn === 0, `IP 그대로 남은 줄 ${rn}`);
+  await globalThis.__MSK_PG.query(`update rate set at = now() - interval '2 days'`);
+  await cleanOld(true);
+  const [{ n: left }] = (await globalThis.__MSK_PG.query(`select count(*)::int n from rate`)).rows;
+  check('개인정보: 횟수 기록은 하루 지나면 자동 삭제', left === 0, `남은 줄 ${left}`);
 }
 
 // ── 개인정보: 만 14세 확인 · 계정 삭제 때 남는 것 없음 · 보관 기간 지난 기록 자동 삭제 ──

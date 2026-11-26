@@ -1,7 +1,7 @@
 // 커뮤니티 API — DB 버전. 좋아요·댓글·신고가 한 줄씩 저장돼서 동시에 눌러도 사라지지 않음.
 import crypto from 'node:crypto';
 import { cors, readToken, readJson, isAdmin } from '../_lib.js';
-import { q, ensureDB } from '../_db.js';
+import { q, ensureDB, allow } from '../_db.js';
 import { putFile, readFile, delFiles } from '../_store.js';
 
 const MAX = 4 * 1024 * 1024, AUTO_HIDE = 3, clean = (s, n) => String(s || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
@@ -45,6 +45,7 @@ export default async function handler(req, res) {
     if (!(await q(`select 1 from users where username = $1`, [u])).length) return res.status(401).json({error:'login', message:'계정이 없어요. 다시 로그인해 주세요'});
     if (req.method === 'POST' && action === 'reindex') { if (!admin) return res.status(403).json({error:'admin'}); const [c] = await q(`select count(*)::int as n from posts`); return res.status(200).json({ok:true, posts:c.n}); }
     if (req.method === 'POST' && action === 'publish') {
+      if (!admin && !await allow('publish:' + u, 10, 3600)) return res.status(429).json({error:'slow-down', message:'너무 자주 했어요. 잠시 뒤에 다시 해 주세요'});
       const body = await rawBody(req); if (body.subarray(0, 3).toString() !== 'MSK') return res.status(400).json({error:'not-msk', message:'MSK 파일이 아니에요'});
       const title = clean(qy.title, 60); if (!title) return res.status(400).json({error:'title', message:'제목을 넣어 주세요'});
       const pid = crypto.randomBytes(6).toString('hex'), url = await putFile(`community/${pid}/song.msk`, body);
@@ -56,11 +57,13 @@ export default async function handler(req, res) {
     const cm = qy.comment ? (await q(`select id, username, hidden from comments where id = $1 and post_id = $2`, [String(qy.comment), id]))[0] : null;
     if (qy.comment && !cm) return res.status(404).json({error:'no-comment', message:'댓글이 없어요'});
     if (req.method === 'POST' && action === 'like') {
+      if (!await allow('like:' + u, 120, 600)) return res.status(429).json({error:'slow-down', message:'너무 자주 했어요. 잠시 뒤에 다시 해 주세요'});
       const removed = await q(`delete from likes where post_id = $1 and username = $2 returning 1`, [id, u]);
       if (!removed.length) await q(`insert into likes (post_id, username) values ($1, $2) on conflict do nothing`, [id, u]);
       const [c] = await q(`select count(*)::int as n from likes where post_id = $1`, [id]); return res.status(200).json({likes:c.n, liked:!removed.length});
     }
     if (req.method === 'POST' && action === 'comment') {
+      if (!admin && !await allow('comment:' + u, 30, 600)) return res.status(429).json({error:'slow-down', message:'너무 자주 했어요. 잠시 뒤에 다시 해 주세요'});
       const text = clean((await readJson(req)).text, 500); if (!text) return res.status(400).json({error:'empty', message:'댓글을 넣어 주세요'});
       const cid = crypto.randomBytes(4).toString('hex');
       const ins = await q(`insert into comments (id, post_id, username, text) select $1, $2, $3, $4 where (select count(*) from comments where post_id = $2) < 300 returning id, username as "user", text, at`, [cid, id, u, text]);
@@ -68,6 +71,7 @@ export default async function handler(req, res) {
       return res.status(200).json({comment:{...ins[0], at:new Date(ins[0].at).toISOString()}});
     }
     if (req.method === 'POST' && action === 'report') {
+      if (!await allow('report:' + u, 20, 3600)) return res.status(429).json({error:'slow-down', message:'너무 자주 했어요. 잠시 뒤에 다시 해 주세요'});
       if ((cm ? cm.username : post.author) === u) return res.status(400).json({error:'own', message:'내 글은 신고할 수 없어요'});
       const ins = await q(`insert into reports (post_id, comment_id, username, reason) values ($1, $2, $3, $4) on conflict do nothing returning id`, [id, cm ? cm.id : null, u, clean((await readJson(req)).reason, 200) || '사유 없음']);
       if (!ins.length) return res.status(409).json({error:'dup', message:'이미 신고했어요'});

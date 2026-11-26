@@ -78,6 +78,7 @@ html[lang="ko"] [data-lang="ko"],html[lang="en"] [data-lang="en"]{display:block}
 <tr><td>접속 중 표시</td><td>마지막으로 접속한 시각과 채팅방</td></tr>
 <tr><td>AI 하루 사용 횟수</td><td>하루 사용 한도를 지키기 위해 날짜별 횟수만 셉니다.</td></tr>
 <tr><td>로그인 실패 횟수</td><td>비밀번호를 여러 번 틀리면 잠시 막기 위해 씁니다.</td></tr>
+<tr><td>요청 횟수 (도배 막기)</td><td>가입·로그인·글쓰기·곡 올리기를 짧은 시간에 너무 많이 하지 못하게 횟수를 셉니다. 접속한 IP 주소는 되돌릴 수 없는 값으로 바꿔서만 쓰고, 원래 IP 주소는 저장하지 않습니다.</td></tr>
 </table></div>
 
 <h3>저장소 키로 쓸 때 (로그인 없이 서버 저장)</h3>
@@ -101,6 +102,7 @@ html[lang="ko"] [data-lang="ko"],html[lang="en"] [data-lang="en"]{display:block}
 <tr><td>오류 정보</td><td>90일</td></tr>
 <tr><td>AI 하루 사용 횟수</td><td>90일</td></tr>
 <tr><td>로그인 실패 횟수</td><td>1일</td></tr>
+<tr><td>요청 횟수 (도배 막기)</td><td>1일</td></tr>
 <tr><td>접속 중 표시</td><td>1일</td></tr>
 <tr><td>방문 통계</td><td>개인을 알아볼 수 없는 숫자라 기간을 따로 두지 않습니다</td></tr>
 </table></div>
@@ -193,6 +195,7 @@ html[lang="ko"] [data-lang="ko"],html[lang="en"] [data-lang="en"]{display:block}
 <tr><td>Online status</td><td>Last seen time and chat channel</td></tr>
 <tr><td>Daily AI usage count</td><td>Per-day count used to enforce the daily limit</td></tr>
 <tr><td>Failed sign-in count</td><td>Used to pause sign-in after repeated wrong passwords</td></tr>
+<tr><td>Request counts (anti-spam)</td><td>Counts sign-ups, sign-ins, posts and song uploads so they can't be repeated too fast. Your IP address is only used as a one-way hash; the original IP address is not stored.</td></tr>
 </table></div>
 
 <h3>Storage key mode (server saving without an account)</h3>
@@ -216,6 +219,7 @@ html[lang="ko"] [data-lang="ko"],html[lang="en"] [data-lang="en"]{display:block}
 <tr><td>Error reports</td><td>90 days</td></tr>
 <tr><td>Daily AI usage count</td><td>90 days</td></tr>
 <tr><td>Failed sign-in count</td><td>1 day</td></tr>
+<tr><td>Request counts (anti-spam)</td><td>1 day</td></tr>
 <tr><td>Online status</td><td>1 day</td></tr>
 <tr><td>Visit statistics</td><td>Non-identifying numbers, kept without a set limit</td></tr>
 </table></div>
